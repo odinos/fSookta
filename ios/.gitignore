@@ -1,0 +1,12 @@
+Flutter/App.framework
+Flutter/Flutter.framework
+Flutter/Flutter.podspec
+Flutter/Generated.xcconfig
+Flutter/ephemeral/
+Flutter/flutter_export_environment.sh
+Pods/
+.symlinks/
+Runner.xcworkspace/xcuserdata/
+Runner.xcodeproj/project.xcworkspace/xcuserdata/
+Runner.xcodeproj/xcuserdata/
+
