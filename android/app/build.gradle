@@ -1,5 +1,6 @@
 plugins {
     id "com.android.application"
+    id "org.jetbrains.kotlin.android"
     id "dev.flutter.flutter-gradle-plugin"
 }
 
@@ -22,12 +23,12 @@ if (flutterVersionName == null) {
 }
 
 android {
-    namespace "com.example.fsookta"
+    namespace "com.kdev.sookta"
     compileSdk flutter.compileSdkVersion
     ndkVersion flutter.ndkVersion
 
     defaultConfig {
-        applicationId "com.example.fsookta"
+        applicationId "com.kdev.sookta"
         minSdk flutter.minSdkVersion
         targetSdk flutter.targetSdkVersion
         versionCode flutterVersionCode.toInteger()
@@ -38,4 +39,3 @@ android {
 flutter {
     source "../.."
 }
-

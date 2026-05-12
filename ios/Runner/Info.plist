@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>fSookta</string>
+	<string>Sookta</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -13,7 +13,7 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>fsookta</string>
+	<string>Sookta</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
@@ -24,6 +24,12 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>Sookta uses the camera to capture posture photos for ergonomic risk assessment.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Sookta uses photos you select to analyze work posture and estimate ergonomic risk.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Sookta saves profile or assessment images only when you choose to save them.</string>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>
@@ -43,4 +49,3 @@
 	</array>
 </dict>
 </plist>
-
