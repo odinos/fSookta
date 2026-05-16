@@ -29,6 +29,14 @@ This project can be edited on Windows, but iOS builds, signing, CocoaPods, TestF
 
 6. Test on a physical iPhone before relying on posture analysis. The simulator is not enough for camera, image orientation, and TFLite performance.
 
+## Cautions
+
+- Do not change the iOS bundle identifier unless it is truly necessary. The current intended bundle ID is `com.kdev.sookta`.
+- Avoid hand-editing `ios/Runner.xcodeproj` more than necessary. Prefer Xcode for signing, capabilities, target membership, and other project settings that Xcode owns well.
+- Validate camera capture and TFLite MoveNet posture inference on a real iPhone. Do not rely on the simulator for camera behavior, image orientation, or performance.
+- Run `cd ios && pod install` after every Flutter plugin dependency change.
+- Before App Store or TestFlight submission, update `ios/Runner/PrivacyInfo.xcprivacy` to match the final dependency set and any data/accessed-API requirements declared by SDKs.
+
 ## Firebase handoff
 
 Do this only after the final iOS bundle ID is confirmed.
