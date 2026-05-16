@@ -28,7 +28,6 @@ class EvaluationFormScreen extends StatefulWidget {
 }
 
 class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
-  final loadWeightController = TextEditingController(text: '10');
   final horizontalController = TextEditingController(text: '25');
   final verticalController = TextEditingController(text: '75');
   final transportController = TextEditingController(text: '4');
@@ -40,6 +39,7 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
   final selectedImagePaths = <String>[];
   var selectedDurationHours = 1.0;
   var selectedFrequency = 0.2;
+  var selectedLoadWeight = 10.0;
   var poseBusy = false;
   String? poseStatus;
   late JobType selectedJobType;
@@ -60,7 +60,6 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
 
   @override
   void dispose() {
-    loadWeightController.dispose();
     horizontalController.dispose();
     verticalController.dispose();
     transportController.dispose();
@@ -76,6 +75,8 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
     final language = state.language ?? AppLanguage.th;
     final thai = language == AppLanguage.th;
     final activityName = widget.activity.label(thai: thai);
+    final canAnalyze =
+        selectedJobType != JobType.reba || selectedImagePaths.isNotEmpty;
 
     return Scaffold(
       appBar: AppBar(title: Text(thai ? 'แบบฟอร์มประเมิน' : 'Evaluation Form')),
@@ -97,14 +98,8 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
               onCamera: selectedImagePaths.length >= 4 ? null : _capturePhoto,
               onGallery:
                   selectedImagePaths.length >= 4 ? null : _pickGalleryPhoto,
-              onRemove: selectedImagePaths.isEmpty
-                  ? null
-                  : () {
-                      setState(() {
-                        selectedImagePaths.removeLast();
-                        poseStatus = null;
-                      });
-                    },
+              onSlotTap: _pickGalleryForSlot,
+              onSlotRemove: _removeImageAt,
               thai: thai,
             ),
             if (poseStatus != null && selectedJobType != JobType.reba) ...[
@@ -169,6 +164,20 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
                   onChanged: (value) =>
                       setState(() => selectedFrequency = value),
                 ),
+                if (selectedJobType == JobType.lifting)
+                  _ChoiceRow<double>(
+                    label: thai ? 'น้ำหนักวัตถุ' : 'Load weight',
+                    value: selectedLoadWeight,
+                    items: {
+                      5.0: thai ? '5 กก.' : '5 kg',
+                      10.0: thai ? '10 กก.' : '10 kg',
+                      15.0: thai ? '15 กก.' : '15 kg',
+                      20.0: thai ? '20 กก.' : '20 kg',
+                      25.0: thai ? 'มากกว่า 20 กก.' : '> 20 kg',
+                    },
+                    onChanged: (value) =>
+                        setState(() => selectedLoadWeight = value),
+                  ),
               ],
             ),
             if (selectedJobType == JobType.reba) ...[
@@ -188,7 +197,6 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
               _IsoCard(
                 thai: thai,
                 jobType: selectedJobType,
-                loadWeightController: loadWeightController,
                 horizontalController: horizontalController,
                 verticalController: verticalController,
                 transportController: transportController,
@@ -198,11 +206,21 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
             ],
             const SizedBox(height: 24),
             FilledButton.icon(
-              onPressed: _analyze,
+              onPressed: canAnalyze ? _analyze : null,
               icon: const Icon(Icons.analytics_outlined),
               label: Text(
                   thai ? 'เริ่มวิเคราะห์ความเสี่ยง' : 'Start Risk Analysis'),
             ),
+            if (!canAnalyze) ...[
+              const SizedBox(height: 8),
+              Text(
+                thai
+                    ? 'เพิ่มรูปภาพอย่างน้อย 1 รูปก่อนเริ่มวิเคราะห์ REBA'
+                    : 'Add at least one photo before starting REBA analysis.',
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Colors.black54),
+              ),
+            ],
           ],
         ),
       ),
@@ -217,20 +235,45 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
   }
 
   Future<void> _pickGalleryPhoto() async {
+    await _pickGalleryForSlot(-1);
+  }
+
+  Future<void> _pickGalleryForSlot(int slotIndex) async {
     final photo = await imagePicker.pickImage(
       source: ImageSource.gallery,
       imageQuality: 92,
     );
-    if (photo != null) await _addImage(photo.path);
+    if (photo != null) await _addImage(photo.path, slotIndex: slotIndex);
   }
 
-  Future<void> _addImage(String path) async {
-    if (selectedImagePaths.length >= 4) return;
+  Future<void> _addImage(String path, {int slotIndex = -1}) async {
+    if (selectedImagePaths.length >= 4 &&
+        (slotIndex < 0 || slotIndex >= selectedImagePaths.length)) {
+      return;
+    }
     setState(() {
-      selectedImagePaths.add(path);
+      if (slotIndex >= 0 && slotIndex < selectedImagePaths.length) {
+        selectedImagePaths[slotIndex] = path;
+      } else if (slotIndex == selectedImagePaths.length &&
+          selectedImagePaths.length < 4) {
+        selectedImagePaths.add(path);
+      } else if (selectedImagePaths.length < 4) {
+        selectedImagePaths.add(path);
+      }
       poseStatus = null;
     });
     await _applyPoseEstimates();
+  }
+
+  Future<void> _removeImageAt(int index) async {
+    if (index < 0 || index >= selectedImagePaths.length) return;
+    setState(() {
+      selectedImagePaths.removeAt(index);
+      poseStatus = null;
+    });
+    if (selectedImagePaths.isNotEmpty) {
+      await _applyPoseEstimates();
+    }
   }
 
   Future<void> _applyPoseEstimates() async {
@@ -238,7 +281,9 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
 
     setState(() {
       poseBusy = true;
-      poseStatus = null;
+      final thai = (AppStateScope.of(context).language ?? AppLanguage.th) ==
+          AppLanguage.th;
+      poseStatus = thai ? 'กำลังวิเคราะห์ภาพ...' : 'Analyzing photo...';
     });
 
     try {
@@ -338,7 +383,7 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
       jobType: selectedJobType,
       gender: gender,
       dailyIncome: dailyIncome,
-      loadWeight: _number(loadWeightController, 10),
+      loadWeight: selectedLoadWeight,
       horizontalDist: _number(horizontalController, 25),
       verticalHeight: _number(verticalController, 75),
       liftFrequency: selectedFrequency,
@@ -377,14 +422,16 @@ class _ImageSlots extends StatelessWidget {
     required this.imagePaths,
     required this.onCamera,
     required this.onGallery,
-    required this.onRemove,
+    required this.onSlotTap,
+    required this.onSlotRemove,
     required this.thai,
   });
 
   final List<String> imagePaths;
   final VoidCallback? onCamera;
   final VoidCallback? onGallery;
-  final VoidCallback? onRemove;
+  final ValueChanged<int> onSlotTap;
+  final ValueChanged<int> onSlotRemove;
   final bool thai;
 
   @override
@@ -406,31 +453,64 @@ class _ImageSlots extends StatelessWidget {
           ),
           itemBuilder: (context, index) {
             final filled = index < imagePaths.length;
-            return DecoratedBox(
-              decoration: BoxDecoration(
-                color: filled ? const Color(0xFFE8F5E9) : Colors.grey.shade100,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(
-                  color: filled ? SooktaColors.leafGreen : Colors.grey.shade300,
+            final enabled = filled || index == imagePaths.length;
+            return InkWell(
+              onTap: enabled && !filled ? () => onSlotTap(index) : null,
+              borderRadius: BorderRadius.circular(8),
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: filled
+                      ? const Color(0xFFE8F5E9)
+                      : enabled
+                          ? Colors.grey.shade100
+                          : Colors.grey.shade200,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color:
+                        filled ? SooktaColors.leafGreen : Colors.grey.shade300,
+                  ),
                 ),
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(7),
-                child: filled
-                    ? Image.file(
-                        File(imagePaths[index]),
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => const Icon(
-                          Icons.broken_image_outlined,
-                          color: SooktaColors.darkGreen,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(7),
+                  child: filled
+                      ? Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            Image.file(
+                              File(imagePaths[index]),
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => const Icon(
+                                Icons.broken_image_outlined,
+                                color: SooktaColors.darkGreen,
+                              ),
+                            ),
+                            Positioned(
+                              right: 6,
+                              top: 6,
+                              child: IconButton.filled(
+                                style: IconButton.styleFrom(
+                                  backgroundColor:
+                                      Colors.red.withValues(alpha: 0.86),
+                                  foregroundColor: Colors.white,
+                                  fixedSize: const Size(30, 30),
+                                  minimumSize: const Size(30, 30),
+                                  padding: EdgeInsets.zero,
+                                ),
+                                onPressed: () => onSlotRemove(index),
+                                icon: const Icon(Icons.close, size: 18),
+                              ),
+                            ),
+                          ],
+                        )
+                      : Center(
+                          child: Icon(
+                            enabled
+                                ? Icons.add_a_photo_outlined
+                                : Icons.image_outlined,
+                            color: enabled ? Colors.grey : Colors.grey.shade400,
+                          ),
                         ),
-                      )
-                    : const Center(
-                        child: Icon(
-                          Icons.add_photo_alternate_outlined,
-                          color: Colors.grey,
-                        ),
-                      ),
+                ),
               ),
             );
           },
@@ -452,11 +532,6 @@ class _ImageSlots extends StatelessWidget {
                 icon: const Icon(Icons.image_outlined),
                 label: Text(thai ? 'อัลบั้ม' : 'Gallery'),
               ),
-            ),
-            const SizedBox(width: 10),
-            IconButton.filledTonal(
-              onPressed: onRemove,
-              icon: const Icon(Icons.delete_outline),
             ),
           ],
         ),
@@ -557,7 +632,6 @@ class _IsoCard extends StatelessWidget {
   const _IsoCard({
     required this.thai,
     required this.jobType,
-    required this.loadWeightController,
     required this.horizontalController,
     required this.verticalController,
     required this.transportController,
@@ -567,7 +641,6 @@ class _IsoCard extends StatelessWidget {
 
   final bool thai;
   final JobType jobType;
-  final TextEditingController loadWeightController;
   final TextEditingController horizontalController;
   final TextEditingController verticalController;
   final TextEditingController transportController;
@@ -583,10 +656,6 @@ class _IsoCard extends StatelessWidget {
           : (thai ? 'ข้อมูลแรงดัน/ดึง' : 'Push/Pull Force'),
       children: [
         if (lifting) ...[
-          _NumberField(
-            controller: loadWeightController,
-            label: thai ? 'น้ำหนักวัตถุ (kg)' : 'Load weight (kg)',
-          ),
           _NumberField(
             controller: horizontalController,
             label: thai ? 'ระยะห่าง H (cm)' : 'Distance H (cm)',
