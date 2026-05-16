@@ -35,9 +35,8 @@ class _FinalResultScreenState extends State<FinalResultScreen> {
           activityName: widget.bundle.activityName,
           before: widget.bundle.before,
           after: widget.bundle.after,
-          selectedSuggestions: widget.bundle.selectedSuggestionKeys
-              .map(strings.get)
-              .toList(),
+          selectedSuggestions:
+              widget.bundle.selectedSuggestionKeys.map(strings.get).toList(),
         );
       });
     });
@@ -51,10 +50,12 @@ class _FinalResultScreenState extends State<FinalResultScreen> {
     final before = widget.bundle.before;
     final after = widget.bundle.after;
     final saved = before.economicLoss - after.economicLoss;
-    final suggestions = widget.bundle.selectedSuggestionKeys.map(strings.get).toList();
+    final suggestions =
+        widget.bundle.selectedSuggestionKeys.map(strings.get).toList();
 
     return Scaffold(
-      appBar: AppBar(title: Text(thai ? 'บันทึกและสรุปผลสำเร็จ' : 'Saved Successfully')),
+      appBar: AppBar(
+          title: Text(thai ? 'บันทึกและสรุปผลสำเร็จ' : 'Saved Successfully')),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(16),
@@ -64,14 +65,16 @@ class _FinalResultScreenState extends State<FinalResultScreen> {
                 padding: const EdgeInsets.all(18),
                 child: Column(
                   children: [
-                    const Icon(Icons.check_circle, size: 64, color: SooktaColors.leafGreen),
+                    const Icon(Icons.check_circle,
+                        size: 64, color: SooktaColors.leafGreen),
                     const SizedBox(height: 8),
                     Text(
                       thai
                           ? 'ผลลัพธ์จากการจำลองการปรับปรุงของคุณ'
                           : 'Result of your improvement simulation',
                       textAlign: TextAlign.center,
-                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      style: const TextStyle(
+                          fontSize: 18, fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 16),
                     Row(
@@ -83,7 +86,8 @@ class _FinalResultScreenState extends State<FinalResultScreen> {
                             color: Color(before.userScoreColor),
                           ),
                         ),
-                        const Icon(Icons.arrow_forward, color: SooktaColors.leafGreen),
+                        const Icon(Icons.arrow_forward,
+                            color: SooktaColors.leafGreen),
                         Expanded(
                           child: _ScoreBlock(
                             label: thai ? 'หลังปรับ' : 'After',
@@ -100,12 +104,15 @@ class _FinalResultScreenState extends State<FinalResultScreen> {
             const SizedBox(height: 16),
             Card(
               child: ListTile(
-                leading: const Icon(Icons.savings_outlined, color: SooktaColors.darkGreen),
+                leading: const Icon(Icons.savings_outlined,
+                    color: SooktaColors.darkGreen),
                 title: Text(thai ? 'คุณลดความสูญเสียได้' : 'Potential Savings'),
                 subtitle: Text(
                   saved > 0
                       ? (thai ? '$saved บาท/ปี' : '$saved THB/year')
-                      : (thai ? 'ไม่มีความเสี่ยงสูญเสียรายได้' : 'No potential income loss'),
+                      : (thai
+                          ? 'ไม่มีความเสี่ยงสูญเสียรายได้'
+                          : 'No potential income loss'),
                 ),
               ),
             ),
@@ -117,12 +124,16 @@ class _FinalResultScreenState extends State<FinalResultScreen> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     Text(
-                      thai ? 'แนวทางที่คุณเลือกปฏิบัติ' : 'Selected Improvements',
+                      thai
+                          ? 'แนวทางที่คุณเลือกปฏิบัติ'
+                          : 'Selected Improvements',
                       style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 8),
                     if (suggestions.isEmpty)
-                      Text(thai ? 'ไม่ได้เลือกแนวทางเพิ่มเติม' : 'No selected improvements')
+                      Text(thai
+                          ? 'ไม่ได้เลือกแนวทางเพิ่มเติม'
+                          : 'No selected improvements')
                     else
                       ...suggestions.map(
                         (item) => Padding(
@@ -130,7 +141,8 @@ class _FinalResultScreenState extends State<FinalResultScreen> {
                           child: Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Icon(Icons.done, size: 18, color: SooktaColors.leafGreen),
+                              const Icon(Icons.done,
+                                  size: 18, color: SooktaColors.leafGreen),
                               const SizedBox(width: 8),
                               Expanded(child: Text(item)),
                             ],
@@ -160,7 +172,8 @@ class _FinalResultScreenState extends State<FinalResultScreen> {
 
   SooktaStrings _strings(BuildContext context) {
     final language = AppStateScope.of(context).language ?? AppLanguage.th;
-    return SooktaStrings(language == AppLanguage.th ? SooktaLocale.th : SooktaLocale.en);
+    return SooktaStrings(
+        language == AppLanguage.th ? SooktaLocale.th : SooktaLocale.en);
   }
 }
 

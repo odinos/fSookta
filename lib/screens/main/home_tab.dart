@@ -29,8 +29,9 @@ class HomeTab extends StatelessWidget {
                 CircleAvatar(
                   radius: 35,
                   backgroundColor: Colors.white,
-                  foregroundImage:
-                      profile.avatarAsset == null ? null : AssetImage(profile.avatarAsset!),
+                  foregroundImage: profile.avatarAsset == null
+                      ? null
+                      : AssetImage(profile.avatarAsset!),
                   child: profile.avatarAsset == null
                       ? const Icon(Icons.person, size: 42, color: Colors.grey)
                       : null,
@@ -42,7 +43,8 @@ class HomeTab extends StatelessWidget {
                     children: [
                       Text(
                         text.hello,
-                        style: const TextStyle(fontSize: 18, color: Colors.grey),
+                        style:
+                            const TextStyle(fontSize: 18, color: Colors.grey),
                       ),
                       Text(
                         profile.name.isEmpty ? text.guest : profile.name,

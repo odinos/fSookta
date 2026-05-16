@@ -77,8 +77,10 @@ class HistoryDetailScreen extends StatelessWidget {
                   const SizedBox(height: 16),
                   Card(
                     child: ListTile(
-                      leading: const Icon(Icons.savings_outlined, color: SooktaColors.darkGreen),
-                      title: Text(thai ? 'ความสูญเสียก่อนปรับปรุง' : 'Potential Loss'),
+                      leading: const Icon(Icons.savings_outlined,
+                          color: SooktaColors.darkGreen),
+                      title: Text(
+                          thai ? 'ความสูญเสียก่อนปรับปรุง' : 'Potential Loss'),
                       subtitle: Text(
                         thai
                             ? '${record.economicLoss} บาท/ปี | ลดได้ ${record.moneySaved} บาท/ปี'
@@ -106,7 +108,8 @@ class HistoryDetailScreen extends StatelessWidget {
                                 avatar: CircleAvatar(
                                   backgroundColor: Color(entry.value.colorHex),
                                 ),
-                                label: Text('${_part(entry.key, thai)}: ${_risk(entry.value, thai)}'),
+                                label: Text(
+                                    '${_part(entry.key, thai)}: ${_risk(entry.value, thai)}'),
                               );
                             }).toList(),
                           ),
@@ -122,7 +125,9 @@ class HistoryDetailScreen extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            thai ? 'แนวทางที่คุณเลือกไว้' : 'Selected Improvements',
+                            thai
+                                ? 'แนวทางที่คุณเลือกไว้'
+                                : 'Selected Improvements',
                             style: const TextStyle(fontWeight: FontWeight.bold),
                           ),
                           const SizedBox(height: 8),
@@ -135,7 +140,9 @@ class HistoryDetailScreen extends StatelessWidget {
                                 child: Row(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    const Icon(Icons.done, size: 18, color: SooktaColors.leafGreen),
+                                    const Icon(Icons.done,
+                                        size: 18,
+                                        color: SooktaColors.leafGreen),
                                     const SizedBox(width: 8),
                                     Expanded(child: Text(item)),
                                   ],
@@ -203,9 +210,9 @@ class _ScorePill extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: Color(risk.colorHex).withOpacity(0.14),
+        color: Color(risk.colorHex).withValues(alpha: 0.14),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Color(risk.colorHex).withOpacity(0.4)),
+        border: Border.all(color: Color(risk.colorHex).withValues(alpha: 0.4)),
       ),
       child: Padding(
         padding: const EdgeInsets.all(12),

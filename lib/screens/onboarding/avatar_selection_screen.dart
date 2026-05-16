@@ -1,9 +1,14 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../app/app_state.dart';
 import '../../app/app_text.dart';
 import '../../app/assets.dart';
 import '../../app/sookta_app.dart';
+import '../../core/services/local_image_store.dart';
+import '../main/camera_capture_screen.dart';
 import '../main/main_tabs_screen.dart';
 
 class AvatarSelectionScreen extends StatefulWidget {
@@ -23,7 +28,9 @@ class _AvatarSelectionScreenState extends State<AvatarSelectionScreen> {
     SooktaAssets.female02,
   ];
 
+  final imagePicker = ImagePicker();
   String? selectedAvatar;
+  var pickingAvatar = false;
 
   @override
   Widget build(BuildContext context) {
@@ -46,12 +53,13 @@ class _AvatarSelectionScreenState extends State<AvatarSelectionScreen> {
                   color: Color(0xFF5C9A81),
                 ),
               ),
-              Text(text.avatarSubtitle, style: const TextStyle(color: Colors.grey)),
+              Text(text.avatarSubtitle,
+                  style: const TextStyle(color: Colors.grey)),
               const SizedBox(height: 30),
               CircleAvatar(
                 radius: 75,
                 backgroundColor: Colors.grey.shade300,
-                foregroundImage: selectedAvatar == null ? null : AssetImage(selectedAvatar!),
+                foregroundImage: _avatarProvider(selectedAvatar),
                 child: selectedAvatar == null
                     ? const Icon(Icons.person, size: 80, color: Colors.white)
                     : null,
@@ -61,12 +69,12 @@ class _AvatarSelectionScreenState extends State<AvatarSelectionScreen> {
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
                   FilledButton.icon(
-                    onPressed: () => setState(() => selectedAvatar = SooktaAssets.male02),
+                    onPressed: pickingAvatar ? null : _captureAvatar,
                     icon: const Icon(Icons.camera_alt),
                     label: Text(text.takePhoto),
                   ),
                   OutlinedButton.icon(
-                    onPressed: () => setState(() => selectedAvatar = SooktaAssets.female02),
+                    onPressed: pickingAvatar ? null : _pickAvatarFromGallery,
                     icon: const Icon(Icons.image),
                     label: Text(text.gallery),
                   ),
@@ -107,7 +115,8 @@ class _AvatarSelectionScreenState extends State<AvatarSelectionScreen> {
                 height: 50,
                 child: FilledButton(
                   onPressed: selectedAvatar == null ? null : _finish,
-                  child: Text(text.confirmAvatar, style: const TextStyle(fontSize: 18)),
+                  child: Text(text.confirmAvatar,
+                      style: const TextStyle(fontSize: 18)),
                 ),
               ),
             ],
@@ -115,6 +124,40 @@ class _AvatarSelectionScreenState extends State<AvatarSelectionScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _captureAvatar() async {
+    final path = await Navigator.of(context).push<String>(
+      MaterialPageRoute(builder: (_) => const CameraCaptureScreen()),
+    );
+    if (path != null) await _saveAvatarPath(path);
+  }
+
+  Future<void> _pickAvatarFromGallery() async {
+    final photo = await imagePicker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 92,
+    );
+    if (photo != null) await _saveAvatarPath(photo.path);
+  }
+
+  Future<void> _saveAvatarPath(String path) async {
+    setState(() => pickingAvatar = true);
+    try {
+      final savedPath = await LocalImageStore.saveImageFile(
+        path,
+        prefix: 'sookta_avatar',
+      );
+      if (mounted) setState(() => selectedAvatar = savedPath);
+    } finally {
+      if (mounted) setState(() => pickingAvatar = false);
+    }
+  }
+
+  ImageProvider? _avatarProvider(String? path) {
+    if (path == null) return null;
+    if (path.startsWith('/')) return FileImage(File(path));
+    return AssetImage(path);
   }
 
   void _finish() {
@@ -151,7 +194,8 @@ class _AvatarTile extends StatelessWidget {
               shape: BoxShape.circle,
               border: Border.all(
                 width: selected ? 3 : 1,
-                color: selected ? const Color(0xFF5C9A81) : Colors.grey.shade300,
+                color:
+                    selected ? const Color(0xFF5C9A81) : Colors.grey.shade300,
               ),
             ),
             child: ClipOval(child: Image.asset(asset, fit: BoxFit.cover)),
@@ -160,7 +204,7 @@ class _AvatarTile extends StatelessWidget {
             Container(
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: const Color(0xFF5C9A81).withOpacity(0.3),
+                color: const Color(0xFF5C9A81).withValues(alpha: 0.3),
               ),
               child: const Icon(Icons.check, color: Colors.white),
             ),

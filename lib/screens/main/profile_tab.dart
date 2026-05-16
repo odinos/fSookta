@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 
 import '../../app/app_state.dart';
@@ -29,7 +31,8 @@ class ProfileTab extends StatelessWidget {
               width: double.infinity,
               decoration: const BoxDecoration(
                 color: Color(0xFF5C9A81),
-                borderRadius: BorderRadius.vertical(bottom: Radius.circular(32)),
+                borderRadius:
+                    BorderRadius.vertical(bottom: Radius.circular(32)),
               ),
               child: Column(
                 children: [
@@ -37,8 +40,7 @@ class ProfileTab extends StatelessWidget {
                   CircleAvatar(
                     radius: 60,
                     backgroundColor: Colors.white,
-                    foregroundImage:
-                        profile.avatarAsset == null ? null : AssetImage(profile.avatarAsset!),
+                    foregroundImage: _avatarProvider(profile.avatarAsset),
                     child: profile.avatarAsset == null
                         ? const Icon(Icons.person, size: 60, color: Colors.grey)
                         : null,
@@ -60,11 +62,17 @@ class ProfileTab extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Row(
                 children: [
-                  Expanded(child: _StatCard(title: text.age, value: profile.age, unit: '')),
+                  Expanded(
+                      child: _StatCard(
+                          title: text.age, value: profile.age, unit: '')),
                   const SizedBox(width: 12),
-                  Expanded(child: _StatCard(title: text.weight, value: profile.weight, unit: '')),
+                  Expanded(
+                      child: _StatCard(
+                          title: text.weight, value: profile.weight, unit: '')),
                   const SizedBox(width: 12),
-                  Expanded(child: _StatCard(title: text.height, value: profile.height, unit: '')),
+                  Expanded(
+                      child: _StatCard(
+                          title: text.height, value: profile.height, unit: '')),
                 ],
               ),
             ),
@@ -73,7 +81,8 @@ class ProfileTab extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: _StatCard(
                 title: text.annualIncome,
-                value: profile.incomePerYear.isEmpty ? '-' : profile.incomePerYear,
+                value:
+                    profile.incomePerYear.isEmpty ? '-' : profile.incomePerYear,
                 unit: text.baht,
               ),
             ),
@@ -81,33 +90,44 @@ class ProfileTab extends StatelessWidget {
             _ProfileMenuItem(
               icon: Icons.edit,
               text: text.editProfile,
-              onTap: () => Navigator.of(context).pushNamed(SetupScreen.routeName),
+              onTap: () =>
+                  Navigator.of(context).pushNamed(SetupScreen.routeName),
             ),
             _ProfileMenuItem(
               icon: Icons.language,
               text: text.isThai ? 'เปลี่ยนภาษา' : 'Change Language',
-              onTap: () => Navigator.of(context).pushNamed(LanguageSelectionScreen.routeName),
+              onTap: () => Navigator.of(context)
+                  .pushNamed(LanguageSelectionScreen.routeName),
             ),
             _ProfileMenuItem(
               icon: Icons.description,
               text: text.isThai ? 'เงื่อนไขการใช้งาน' : 'Terms',
-              onTap: () => Navigator.of(context).pushNamed(TermsScreen.routeName),
+              onTap: () =>
+                  Navigator.of(context).pushNamed(TermsScreen.routeName),
             ),
             _ProfileMenuItem(
               icon: Icons.help_outline,
               text: text.isThai ? 'ความช่วยเหลือ' : 'Help',
-              onTap: () => Navigator.of(context).pushNamed(HelpScreen.routeName),
+              onTap: () =>
+                  Navigator.of(context).pushNamed(HelpScreen.routeName),
             ),
             _ProfileMenuItem(
               icon: Icons.call,
               text: text.isThai ? 'ติดต่อเรา' : 'Contact',
-              onTap: () => Navigator.of(context).pushNamed(ContactScreen.routeName),
+              onTap: () =>
+                  Navigator.of(context).pushNamed(ContactScreen.routeName),
             ),
             const SizedBox(height: 40),
           ],
         ),
       ),
     );
+  }
+
+  ImageProvider? _avatarProvider(String? path) {
+    if (path == null) return null;
+    if (path.startsWith('/')) return FileImage(File(path));
+    return AssetImage(path);
   }
 }
 
@@ -130,7 +150,8 @@ class _StatCard extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text(title, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+            Text(title,
+                style: const TextStyle(fontSize: 12, color: Colors.grey)),
             Text(
               value.isEmpty ? '-' : value,
               style: const TextStyle(
@@ -139,7 +160,8 @@ class _StatCard extends StatelessWidget {
                 color: Color(0xFF5C9A81),
               ),
             ),
-            Text(unit, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+            Text(unit,
+                style: const TextStyle(fontSize: 12, color: Colors.grey)),
           ],
         ),
       ),
@@ -173,7 +195,8 @@ class _ProfileMenuItem extends StatelessWidget {
                 const SizedBox(width: 16),
                 Icon(icon, color: const Color(0xFF5C9A81)),
                 const SizedBox(width: 16),
-                Expanded(child: Text(text, style: const TextStyle(fontSize: 16))),
+                Expanded(
+                    child: Text(text, style: const TextStyle(fontSize: 16))),
                 const Icon(Icons.navigate_next, color: Colors.grey),
                 const SizedBox(width: 16),
               ],

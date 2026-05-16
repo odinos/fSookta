@@ -28,6 +28,12 @@ class _SooktaAppState extends State<SooktaApp> {
   final appState = SooktaAppState();
 
   @override
+  void initState() {
+    super.initState();
+    appState.restore();
+  }
+
+  @override
   void dispose() {
     appState.dispose();
     super.dispose();
@@ -43,7 +49,8 @@ class _SooktaAppState extends State<SooktaApp> {
         theme: buildSooktaTheme(),
         routes: {
           SplashScreen.routeName: (_) => const SplashScreen(),
-          LanguageSelectionScreen.routeName: (_) => const LanguageSelectionScreen(),
+          LanguageSelectionScreen.routeName: (_) =>
+              const LanguageSelectionScreen(),
           SetupScreen.routeName: (_) => const SetupScreen(),
           AvatarSelectionScreen.routeName: (_) => const AvatarSelectionScreen(),
           MainTabsScreen.routeName: (_) => const MainTabsScreen(),
@@ -76,7 +83,8 @@ class _SooktaAppState extends State<SooktaApp> {
               return InitialRiskScreen(payload: args);
             }
             return const RouteErrorScreen(
-              message: 'Assessment data not found. Please start a new evaluation.',
+              message:
+                  'Assessment data not found. Please start a new evaluation.',
             );
           },
         ),
@@ -95,7 +103,8 @@ class _SooktaAppState extends State<SooktaApp> {
       HistoryDetailScreen.routeName => MaterialPageRoute<void>(
           settings: settings,
           builder: (_) => HistoryDetailScreen(
-            historyId: settings.arguments is int ? settings.arguments! as int : -1,
+            historyId:
+                settings.arguments is int ? settings.arguments! as int : -1,
           ),
         ),
       _ => null,

@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 
 import '../../app/assets.dart';
@@ -18,10 +16,23 @@ class SplashScreen extends StatefulWidget {
 }
 
 class _SplashScreenState extends State<SplashScreen> {
+  var started = false;
+
   @override
-  void initState() {
-    super.initState();
-    Timer(const Duration(milliseconds: 900), _goNext);
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (started) return;
+    started = true;
+    _prepareAndGoNext();
+  }
+
+  Future<void> _prepareAndGoNext() async {
+    final state = AppStateScope.of(context);
+    await Future.wait([
+      state.restore(),
+      Future<void>.delayed(const Duration(milliseconds: 900)),
+    ]);
+    _goNext();
   }
 
   void _goNext() {

@@ -45,11 +45,13 @@ class _MainTabsScreenState extends State<MainTabsScreen> {
           ),
           NavigationDestination(
             icon: const Icon(Icons.history, color: Colors.white),
-            selectedIcon: const Icon(Icons.history, color: SooktaColors.leafGreen),
+            selectedIcon:
+                const Icon(Icons.history, color: SooktaColors.leafGreen),
             label: text.history,
           ),
           NavigationDestination(
-            icon: const Icon(Icons.account_circle_outlined, color: Colors.white),
+            icon:
+                const Icon(Icons.account_circle_outlined, color: Colors.white),
             selectedIcon: const Icon(
               Icons.account_circle,
               color: SooktaColors.leafGreen,

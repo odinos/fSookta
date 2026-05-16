@@ -122,12 +122,14 @@ class _SetupScreenState extends State<SetupScreen> {
               keyboardType: TextInputType.number,
             ),
             const SizedBox(height: 4),
-            Text(text.incomeNote, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+            Text(text.incomeNote,
+                style: const TextStyle(fontSize: 12, color: Colors.grey)),
             const SizedBox(height: 40),
             FilledButton(
-              onPressed: nameController.text.isEmpty || ageController.text.isEmpty
-                  ? null
-                  : _saveAndContinue,
+              onPressed:
+                  nameController.text.isEmpty || ageController.text.isEmpty
+                      ? null
+                      : _saveAndContinue,
               child: Text(text.next, style: const TextStyle(fontSize: 18)),
             ),
           ],
@@ -199,7 +201,8 @@ class _GenderButton extends StatelessWidget {
       child: FilledButton(
         onPressed: onTap,
         style: FilledButton.styleFrom(
-          backgroundColor: selected ? const Color(0xFF8CC63F) : Colors.grey.shade300,
+          backgroundColor:
+              selected ? const Color(0xFF8CC63F) : Colors.grey.shade300,
           foregroundColor: selected ? Colors.white : Colors.black,
         ),
         child: Text(label),

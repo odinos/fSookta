@@ -37,7 +37,8 @@ class _InitialRiskScreenState extends State<InitialRiskScreen> {
     final after = _simulateAfter(before);
 
     return Scaffold(
-      appBar: AppBar(title: Text(thai ? 'ผลการประเมินเบื้องต้น' : 'Initial Assessment')),
+      appBar: AppBar(
+          title: Text(thai ? 'ผลการประเมินเบื้องต้น' : 'Initial Assessment')),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(16),
@@ -75,7 +76,8 @@ class _InitialRiskScreenState extends State<InitialRiskScreen> {
                       thai
                           ? 'แนวทางปรับปรุง (เลือกสิ่งที่ทำได้)'
                           : 'Improvement Plan',
-                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      style: const TextStyle(
+                          fontSize: 16, fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 8),
                     Text(
@@ -111,8 +113,12 @@ class _InitialRiskScreenState extends State<InitialRiskScreen> {
               result: after,
               title: thai ? 'คะแนนจำลองหลังปรับปรุง' : 'Simulated After',
               suggestion: selectedKeys.isEmpty
-                  ? (thai ? 'ยังไม่ได้เลือกแนวทางปรับปรุง' : 'No improvement selected')
-                  : (thai ? 'คะแนนลดลงตามแนวทางที่เลือก' : 'Score reduced by selected actions'),
+                  ? (thai
+                      ? 'ยังไม่ได้เลือกแนวทางปรับปรุง'
+                      : 'No improvement selected')
+                  : (thai
+                      ? 'คะแนนลดลงตามแนวทางที่เลือก'
+                      : 'Score reduced by selected actions'),
               thai: thai,
             ),
             const SizedBox(height: 24),
@@ -157,7 +163,8 @@ class _InitialRiskScreenState extends State<InitialRiskScreen> {
     final reduction = math.min(selectedKeys.length, 4);
     final score = (before.userScore - reduction).clamp(1, 9).toInt();
     final risk = _riskFromUserScore(score);
-    final lossFactor = selectedKeys.isEmpty ? 1.0 : math.max(0.0, 1 - (0.28 * reduction));
+    final lossFactor =
+        selectedKeys.isEmpty ? 1.0 : math.max(0.0, 1 - (0.28 * reduction));
     return ErgoResult(
       riskLevel: risk,
       techScore: math.max(1.0, before.techScore - reduction),
@@ -168,7 +175,8 @@ class _InitialRiskScreenState extends State<InitialRiskScreen> {
       economicLoss: (before.economicLoss * lossFactor).round(),
       suggestionKeys: before.suggestionKeys,
       bodyPartRisks: before.bodyPartRisks.map(
-        (part, level) => MapEntry(part, reduction > 0 ? _lowerRisk(level) : level),
+        (part, level) =>
+            MapEntry(part, reduction > 0 ? _lowerRisk(level) : level),
       ),
     );
   }
@@ -246,11 +254,13 @@ class _RiskSummaryCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
+                  Text(title,
+                      style: const TextStyle(fontWeight: FontWeight.bold)),
                   const SizedBox(height: 4),
                   Text(_riskLabel(result.riskLevel, thai)),
                   const SizedBox(height: 4),
-                  Text(suggestion, style: const TextStyle(color: Colors.black54)),
+                  Text(suggestion,
+                      style: const TextStyle(color: Colors.black54)),
                   const SizedBox(height: 8),
                   Text(
                     thai

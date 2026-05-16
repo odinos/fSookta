@@ -11,7 +11,8 @@ class ContactScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final thai = (AppStateScope.of(context).language ?? AppLanguage.th) == AppLanguage.th;
+    final thai = (AppStateScope.of(context).language ?? AppLanguage.th) ==
+        AppLanguage.th;
     return Scaffold(
       appBar: AppBar(title: Text(thai ? 'ติดต่อเรา' : 'Contact Us')),
       body: SafeArea(
@@ -26,7 +27,8 @@ class ContactScreen extends StatelessWidget {
                     const CircleAvatar(
                       radius: 38,
                       backgroundColor: Color(0xFFE8F5E9),
-                      child: Icon(Icons.school, size: 38, color: SooktaColors.darkGreen),
+                      child: Icon(Icons.school,
+                          size: 38, color: SooktaColors.darkGreen),
                     ),
                     const SizedBox(height: 12),
                     Text(
@@ -36,7 +38,8 @@ class ContactScreen extends StatelessWidget {
                     const SizedBox(height: 4),
                     const Text(
                       'นางอภิสรา เลา',
-                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                      style:
+                          TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 4),
                     Text(

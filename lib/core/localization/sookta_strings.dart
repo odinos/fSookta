@@ -31,7 +31,8 @@ class SooktaStrings {
     'sugg_reba_high': 'High Risk: Change soon',
     'sugg_reba_vhigh': 'Very High Risk: Change immediately!',
     'act_reduce_weight': 'Reduce load weight',
-    'act_use_cart_distance': 'Use a cart or handling aid for long distance transport',
+    'act_use_cart_distance':
+        'Use a cart or handling aid for long distance transport',
     'act_check_wheels': 'Check cart wheels for friction',
     'act_use_legs': 'Use leg muscles, not back',
     'act_reduce_load_tool': 'Reduce load or use assist tools',

@@ -100,7 +100,8 @@ void main() {
       final result = ErgoCalculator.calculatePushPullRisk(input);
 
       expect(result.riskLevel, RiskLevel.high);
-      expect(result.suggestionKeys, containsAll(['act_check_wheels', 'act_use_legs']));
+      expect(result.suggestionKeys,
+          containsAll(['act_check_wheels', 'act_use_legs']));
     });
   });
 

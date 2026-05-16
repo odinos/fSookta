@@ -30,7 +30,8 @@ class HistoryTab extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(24, 24, 24, 22),
               decoration: const BoxDecoration(
                 color: SooktaColors.leafGreen,
-                borderRadius: BorderRadius.vertical(bottom: Radius.circular(32)),
+                borderRadius:
+                    BorderRadius.vertical(bottom: Radius.circular(32)),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -50,13 +51,15 @@ class HistoryTab extends StatelessWidget {
                         thai
                             ? 'ประวัติการประเมินความเสี่ยงของคุณ'
                             : 'Your risk assessment records',
-                        style: TextStyle(color: Colors.white.withOpacity(0.8)),
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.8),
+                        ),
                       ),
                     ],
                   ),
                   IconButton.filled(
                     style: IconButton.styleFrom(
-                      backgroundColor: Colors.white.withOpacity(0.2),
+                      backgroundColor: Colors.white.withValues(alpha: 0.2),
                     ),
                     onPressed: () {},
                     icon: const Icon(Icons.search, color: Colors.white),
@@ -70,9 +73,11 @@ class HistoryTab extends StatelessWidget {
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(Icons.history, size: 64, color: Colors.grey),
+                          const Icon(Icons.history,
+                              size: 64, color: Colors.grey),
                           const SizedBox(height: 8),
-                          Text(text.noHistory, style: const TextStyle(color: Colors.grey)),
+                          Text(text.noHistory,
+                              style: const TextStyle(color: Colors.grey)),
                         ],
                       ),
                     )
@@ -121,10 +126,12 @@ class _HistoryCard extends StatelessWidget {
           backgroundColor: Color(record.riskBefore.colorHex),
           child: Text(
             '${record.scoreBefore}',
-            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+            style: const TextStyle(
+                color: Colors.white, fontWeight: FontWeight.bold),
           ),
         ),
-        title: Text(record.activityName, style: const TextStyle(fontWeight: FontWeight.bold)),
+        title: Text(record.activityName,
+            style: const TextStyle(fontWeight: FontWeight.bold)),
         subtitle: Text(
           thai
               ? 'ก่อน ${record.scoreBefore} → หลัง ${record.scoreAfter} | ลดได้ ${record.moneySaved} บาท/ปี'

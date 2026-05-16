@@ -1,11 +1,16 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../app/app_state.dart';
 import '../../app/sookta_app.dart';
 import '../../core/models/assessment_session.dart';
 import '../../core/models/evaluation_models.dart';
 import '../../core/services/ergo_calculator.dart';
+import '../../core/services/pose_estimation_service.dart';
 import '../../core/theme/sookta_theme.dart';
+import 'camera_capture_screen.dart';
 import 'initial_risk_screen.dart';
 
 class EvaluationFormScreen extends StatefulWidget {
@@ -29,10 +34,14 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
   final transportController = TextEditingController(text: '4');
   final initialForceController = TextEditingController(text: '18');
   final sustainForceController = TextEditingController(text: '8');
+  final imagePicker = ImagePicker();
+  final poseService = PoseEstimationService();
 
-  var imageCount = 0;
+  final selectedImagePaths = <String>[];
   var selectedDurationHours = 1.0;
   var selectedFrequency = 0.2;
+  var poseBusy = false;
+  String? poseStatus;
   late JobType selectedJobType;
   var rebaInput = const RebaInputData(
     trunkScore: 3,
@@ -57,6 +66,7 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
     transportController.dispose();
     initialForceController.dispose();
     sustainForceController.dispose();
+    poseService.dispose();
     super.dispose();
   }
 
@@ -83,11 +93,27 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
             ),
             const SizedBox(height: 16),
             _ImageSlots(
-              imageCount: imageCount,
-              onAdd: imageCount >= 4 ? null : () => setState(() => imageCount++),
-              onRemove: imageCount == 0 ? null : () => setState(() => imageCount--),
+              imagePaths: selectedImagePaths,
+              onCamera: selectedImagePaths.length >= 4 ? null : _capturePhoto,
+              onGallery:
+                  selectedImagePaths.length >= 4 ? null : _pickGalleryPhoto,
+              onRemove: selectedImagePaths.isEmpty
+                  ? null
+                  : () {
+                      setState(() {
+                        selectedImagePaths.removeLast();
+                        poseStatus = null;
+                      });
+                    },
               thai: thai,
             ),
+            if (poseStatus != null && selectedJobType != JobType.reba) ...[
+              const SizedBox(height: 8),
+              Text(
+                poseStatus!,
+                style: const TextStyle(color: SooktaColors.darkGreen),
+              ),
+            ],
             const SizedBox(height: 16),
             _SectionCard(
               title: thai ? 'ข้อมูลการทำงาน' : 'Work Information',
@@ -112,30 +138,36 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
                   ],
                   selected: {selectedJobType},
                   onSelectionChanged: (value) {
-                    setState(() => selectedJobType = value.first);
+                    setState(() {
+                      selectedJobType = value.first;
+                      poseStatus = null;
+                    });
+                    if (selectedImagePaths.isNotEmpty) _applyPoseEstimates();
                   },
                 ),
                 const SizedBox(height: 12),
                 _ChoiceRow<double>(
                   label: thai ? 'ระยะเวลา' : 'Duration',
                   value: selectedDurationHours,
-                  items: const {
+                  items: {
                     1.0: '1 hr',
                     2.0: '2 hrs',
                     4.0: '4 hrs',
                     8.0: '8 hrs',
                   },
-                  onChanged: (value) => setState(() => selectedDurationHours = value),
+                  onChanged: (value) =>
+                      setState(() => selectedDurationHours = value),
                 ),
                 _ChoiceRow<double>(
                   label: thai ? 'ความถี่' : 'Frequency',
                   value: selectedFrequency,
-                  items: const {
+                  items: {
                     0.2: '< 0.2/min',
                     2.0: '1-4/min',
                     6.5: '> 6/min',
                   },
-                  onChanged: (value) => setState(() => selectedFrequency = value),
+                  onChanged: (value) =>
+                      setState(() => selectedFrequency = value),
                 ),
               ],
             ),
@@ -144,22 +176,12 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
               _RebaCard(
                 thai: thai,
                 input: rebaInput,
+                poseBusy: poseBusy,
+                poseStatus: poseStatus,
                 onChanged: (input) => setState(() => rebaInput = input),
-                onAutoFill: () {
-                  setState(() {
-                    imageCount = imageCount == 0 ? 1 : imageCount;
-                    rebaInput = rebaInput.copyWith(
-                      trunkScore: 3,
-                      neckScore: 2,
-                      upperArmScore: 3,
-                      lowerArmScore: 1,
-                      wristScore: 2,
-                      legScore: 2,
-                      loadScore: 1,
-                      activityScore: 1,
-                    );
-                  });
-                },
+                onAutoFill: selectedImagePaths.isEmpty || poseBusy
+                    ? null
+                    : _applyPoseEstimates,
               ),
             ] else ...[
               const SizedBox(height: 16),
@@ -178,12 +200,132 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
             FilledButton.icon(
               onPressed: _analyze,
               icon: const Icon(Icons.analytics_outlined),
-              label: Text(thai ? 'เริ่มวิเคราะห์ความเสี่ยง' : 'Start Risk Analysis'),
+              label: Text(
+                  thai ? 'เริ่มวิเคราะห์ความเสี่ยง' : 'Start Risk Analysis'),
             ),
           ],
         ),
       ),
     );
+  }
+
+  Future<void> _capturePhoto() async {
+    final path = await Navigator.of(context).push<String>(
+      MaterialPageRoute(builder: (_) => const CameraCaptureScreen()),
+    );
+    if (path != null) await _addImage(path);
+  }
+
+  Future<void> _pickGalleryPhoto() async {
+    final photo = await imagePicker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 92,
+    );
+    if (photo != null) await _addImage(photo.path);
+  }
+
+  Future<void> _addImage(String path) async {
+    if (selectedImagePaths.length >= 4) return;
+    setState(() {
+      selectedImagePaths.add(path);
+      poseStatus = null;
+    });
+    await _applyPoseEstimates();
+  }
+
+  Future<void> _applyPoseEstimates() async {
+    if (selectedImagePaths.isEmpty || poseBusy) return;
+
+    setState(() {
+      poseBusy = true;
+      poseStatus = null;
+    });
+
+    try {
+      final estimates = <PoseEstimate>[];
+      for (final path in selectedImagePaths) {
+        final estimate = await poseService.estimatePoseFromFile(path);
+        if (estimate != null) estimates.add(estimate);
+      }
+
+      if (!mounted) return;
+      final thai = (AppStateScope.of(context).language ?? AppLanguage.th) ==
+          AppLanguage.th;
+      if (estimates.isEmpty) {
+        setState(() {
+          poseStatus = thai
+              ? 'ไม่พบคนในภาพ ลองเลือกรูปที่เห็นทั้งลำตัวชัดเจน'
+              : 'No person detected. Try a full-body photo.';
+        });
+        return;
+      }
+
+      if (selectedJobType == JobType.reba) {
+        var inferred = rebaInput;
+        for (final estimate in estimates) {
+          final input = ErgoCalculator.calculateRebaInputFromPose(
+            estimate.person,
+            rebaInput,
+          );
+          inferred = inferred.copyWith(
+            trunkScore: input.trunkScore > inferred.trunkScore
+                ? input.trunkScore
+                : inferred.trunkScore,
+            neckScore: input.neckScore > inferred.neckScore
+                ? input.neckScore
+                : inferred.neckScore,
+            legScore: input.legScore > inferred.legScore
+                ? input.legScore
+                : inferred.legScore,
+            upperArmScore: input.upperArmScore > inferred.upperArmScore
+                ? input.upperArmScore
+                : inferred.upperArmScore,
+            lowerArmScore: input.lowerArmScore > inferred.lowerArmScore
+                ? input.lowerArmScore
+                : inferred.lowerArmScore,
+          );
+        }
+        setState(() {
+          rebaInput = inferred;
+          poseStatus = thai
+              ? 'AI ปรับคะแนน REBA จากภาพแล้ว'
+              : 'REBA scores updated from photos.';
+        });
+      } else if (selectedJobType == JobType.lifting) {
+        final dimensions =
+            poseService.estimateLiftingDimensions(estimates.last);
+        setState(() {
+          if (dimensions == null) {
+            poseStatus = thai
+                ? 'พบคนในภาพ แต่ยังอ่านระยะ H/V ไม่ได้'
+                : 'Person detected, but H/V distances could not be estimated.';
+          } else {
+            horizontalController.text =
+                dimensions.horizontalCm.round().toString();
+            verticalController.text = dimensions.verticalCm.round().toString();
+            poseStatus = thai
+                ? 'AI อ่านระยะ H/V จากภาพแล้ว'
+                : 'H/V distances updated from the latest photo.';
+          }
+        });
+      } else {
+        setState(() {
+          poseStatus = thai
+              ? 'บันทึกรูปสำหรับการประเมินแล้ว'
+              : 'Photo added for this assessment.';
+        });
+      }
+    } catch (e) {
+      if (!mounted) return;
+      final thai = (AppStateScope.of(context).language ?? AppLanguage.th) ==
+          AppLanguage.th;
+      setState(() {
+        poseStatus =
+            thai ? 'วิเคราะห์ภาพไม่สำเร็จ: $e' : 'Image analysis failed: $e';
+      });
+    } finally {
+      if (mounted) setState(() => poseBusy = false);
+    }
   }
 
   void _analyze() {
@@ -232,21 +374,25 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
 
 class _ImageSlots extends StatelessWidget {
   const _ImageSlots({
-    required this.imageCount,
-    required this.onAdd,
+    required this.imagePaths,
+    required this.onCamera,
+    required this.onGallery,
     required this.onRemove,
     required this.thai,
   });
 
-  final int imageCount;
-  final VoidCallback? onAdd;
+  final List<String> imagePaths;
+  final VoidCallback? onCamera;
+  final VoidCallback? onGallery;
   final VoidCallback? onRemove;
   final bool thai;
 
   @override
   Widget build(BuildContext context) {
     return _SectionCard(
-      title: thai ? 'รูปภาพประกอบ ($imageCount/4)' : 'Images ($imageCount/4)',
+      title: thai
+          ? 'รูปภาพประกอบ (${imagePaths.length}/4)'
+          : 'Images (${imagePaths.length}/4)',
       children: [
         GridView.builder(
           shrinkWrap: true,
@@ -259,20 +405,32 @@ class _ImageSlots extends StatelessWidget {
             childAspectRatio: 1.45,
           ),
           itemBuilder: (context, index) {
-            final filled = index < imageCount;
+            final filled = index < imagePaths.length;
             return DecoratedBox(
               decoration: BoxDecoration(
                 color: filled ? const Color(0xFFE8F5E9) : Colors.grey.shade100,
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(8),
                 border: Border.all(
                   color: filled ? SooktaColors.leafGreen : Colors.grey.shade300,
                 ),
               ),
-              child: Center(
-                child: Icon(
-                  filled ? Icons.image : Icons.add_photo_alternate_outlined,
-                  color: filled ? SooktaColors.darkGreen : Colors.grey,
-                ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(7),
+                child: filled
+                    ? Image.file(
+                        File(imagePaths[index]),
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => const Icon(
+                          Icons.broken_image_outlined,
+                          color: SooktaColors.darkGreen,
+                        ),
+                      )
+                    : const Center(
+                        child: Icon(
+                          Icons.add_photo_alternate_outlined,
+                          color: Colors.grey,
+                        ),
+                      ),
               ),
             );
           },
@@ -282,9 +440,17 @@ class _ImageSlots extends StatelessWidget {
           children: [
             Expanded(
               child: FilledButton.icon(
-                onPressed: onAdd,
+                onPressed: onCamera,
                 icon: const Icon(Icons.camera_alt),
-                label: Text(thai ? 'ถ่าย/เพิ่มรูปจำลอง' : 'Add mock photo'),
+                label: Text(thai ? 'ถ่ายรูป' : 'Camera'),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: onGallery,
+                icon: const Icon(Icons.image_outlined),
+                label: Text(thai ? 'อัลบั้ม' : 'Gallery'),
               ),
             ),
             const SizedBox(width: 10),
@@ -303,14 +469,18 @@ class _RebaCard extends StatelessWidget {
   const _RebaCard({
     required this.thai,
     required this.input,
+    required this.poseBusy,
+    required this.poseStatus,
     required this.onChanged,
     required this.onAutoFill,
   });
 
   final bool thai;
   final RebaInputData input;
+  final bool poseBusy;
+  final String? poseStatus;
   final ValueChanged<RebaInputData> onChanged;
-  final VoidCallback onAutoFill;
+  final VoidCallback? onAutoFill;
 
   @override
   Widget build(BuildContext context) {
@@ -319,9 +489,23 @@ class _RebaCard extends StatelessWidget {
       children: [
         OutlinedButton.icon(
           onPressed: onAutoFill,
-          icon: const Icon(Icons.auto_awesome),
-          label: Text(thai ? 'เติมค่าจาก AI ตัวอย่าง' : 'Demo AI auto-fill'),
+          icon: poseBusy
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.auto_awesome),
+          label:
+              Text(thai ? 'วิเคราะห์ REBA จากภาพ' : 'Analyze REBA from photos'),
         ),
+        if (poseStatus != null) ...[
+          const SizedBox(height: 8),
+          Text(
+            poseStatus!,
+            style: const TextStyle(color: SooktaColors.darkGreen),
+          ),
+        ],
         _ScoreSlider(
           label: thai ? 'ลำตัว' : 'Trunk',
           value: input.trunkScore,
@@ -505,7 +689,7 @@ class _ChoiceRow<T> extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: DropdownButtonFormField<T>(
-        value: value,
+        initialValue: value,
         decoration: InputDecoration(
           labelText: label,
           border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),

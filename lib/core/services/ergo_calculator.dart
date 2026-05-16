@@ -108,8 +108,8 @@ class ErgoCalculator {
     final refMass = isFemale ? _refMassFemale : _refMassMale;
     final h = math.max(data.horizontalDist, 25.0);
     final hm = 25.0 / h;
-    final vm = (1.0 - (0.003 * (data.verticalHeight - 75.0).abs()))
-        .clamp(0.0, 1.0);
+    final vm =
+        (1.0 - (0.003 * (data.verticalHeight - 75.0).abs())).clamp(0.0, 1.0);
 
     final fm = switch (data.liftFrequency) {
       <= 0.2 => 1.0,

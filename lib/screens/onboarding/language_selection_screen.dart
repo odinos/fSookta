@@ -19,51 +19,59 @@ class LanguageSelectionScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: const Color(0xFFFDF8E1),
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Image.asset(
-                SooktaAssets.logo,
-                width: 200,
-                height: 200,
-                fit: BoxFit.contain,
-              ),
-              const SizedBox(height: 16),
-              Text(
-                text.welcomeTo,
-                style: const TextStyle(fontSize: 20, color: Colors.grey),
-              ),
-              Text(
-                text.appName,
-                style: const TextStyle(
-                  fontSize: 36,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF5C9A81),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return SingleChildScrollView(
+              padding: const EdgeInsets.all(24),
+              child: ConstrainedBox(
+                constraints:
+                    BoxConstraints(minHeight: constraints.maxHeight - 48),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Image.asset(
+                      SooktaAssets.logo,
+                      width: 200,
+                      height: 200,
+                      fit: BoxFit.contain,
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      text.welcomeTo,
+                      style: const TextStyle(fontSize: 20, color: Colors.grey),
+                    ),
+                    Text(
+                      text.appName,
+                      style: const TextStyle(
+                        fontSize: 36,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF5C9A81),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      text.selectLanguage,
+                      style: const TextStyle(fontSize: 14, color: Colors.grey),
+                    ),
+                    const SizedBox(height: 40),
+                    _LanguageOptionCard(
+                      title: text.thai,
+                      subtitle: 'ภาษาไทย',
+                      flag: 'TH',
+                      onTap: () => _select(context, AppLanguage.th),
+                    ),
+                    const SizedBox(height: 16),
+                    _LanguageOptionCard(
+                      title: text.english,
+                      subtitle: 'English',
+                      flag: 'EN',
+                      onTap: () => _select(context, AppLanguage.en),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 8),
-              Text(
-                text.selectLanguage,
-                style: const TextStyle(fontSize: 14, color: Colors.grey),
-              ),
-              const SizedBox(height: 40),
-              _LanguageOptionCard(
-                title: text.thai,
-                subtitle: 'ภาษาไทย',
-                flag: 'TH',
-                onTap: () => _select(context, AppLanguage.th),
-              ),
-              const SizedBox(height: 16),
-              _LanguageOptionCard(
-                title: text.english,
-                subtitle: 'English',
-                flag: 'EN',
-                onTap: () => _select(context, AppLanguage.en),
-              ),
-            ],
-          ),
+            );
+          },
         ),
       ),
     );
@@ -126,14 +134,15 @@ class _LanguageOptionCard extends StatelessWidget {
                       ),
                       Text(
                         subtitle,
-                        style: const TextStyle(fontSize: 14, color: Colors.grey),
+                        style:
+                            const TextStyle(fontSize: 14, color: Colors.grey),
                       ),
                     ],
                   ),
                 ),
                 Icon(
                   Icons.check_circle,
-                  color: const Color(0xFF5C9A81).withOpacity(0.3),
+                  color: const Color(0xFF5C9A81).withValues(alpha: 0.3),
                 ),
               ],
             ),
