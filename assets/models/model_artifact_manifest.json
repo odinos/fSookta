@@ -1,0 +1,21 @@
+{
+  "version": "2026-05-17",
+  "featureSchemaId": "movenet-thunder-v1-17x3-normalized",
+  "artifacts": {
+    "logisticRegression": {
+      "path": "assets/models/logistic_weights.json",
+      "format": "json_weights",
+      "status": "placeholder_pending_research_training"
+    },
+    "xgboost": {
+      "path": "assets/models/xgboost_model.onnx",
+      "format": "onnx",
+      "status": "required_for_research_trained_ab_test"
+    }
+  },
+  "requiredBeforeProduction": [
+    "Replace logistic_weights.json with research-trained coefficients using the same featureSchemaId.",
+    "Add xgboost_model.onnx exported from the research-trained XGBoost pipeline.",
+    "Run offline inference tests against fixed sample joint-feature vectors from the research dataset."
+  ]
+}

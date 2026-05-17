@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:flutter/services.dart';
 import 'package:onnxruntime/onnxruntime.dart';
 
+import '../../domain/entities/joint_feature_schema.dart';
 import '../../domain/entities/risk_assessment_result.dart';
 import '../../domain/exceptions/risk_prediction_exception.dart';
 import '../../domain/predictors/ergonomic_risk_predictor.dart';
@@ -14,12 +15,14 @@ class XGBoostOnnxPredictor implements ErgonomicRiskPredictor {
     this.inputName = 'input',
     this.outputNames,
     this.thresholds = const RiskThresholds(),
+    this.featureSchema,
   });
 
   final String assetPath;
   final String inputName;
   final List<String>? outputNames;
   final RiskThresholds thresholds;
+  final JointFeatureSchema? featureSchema;
 
   OrtSession? _session;
 
@@ -103,6 +106,12 @@ class XGBoostOnnxPredictor implements ErgonomicRiskPredictor {
     if (jointFeatures.isEmpty) {
       throw const InvalidJointFeaturesException(
         'Joint features must not be empty.',
+      );
+    }
+    final schema = featureSchema;
+    if (schema != null && jointFeatures.length != schema.featureCount) {
+      throw InvalidJointFeaturesException(
+        'Expected ${schema.featureCount} joint features for schema ${schema.schemaId} but got ${jointFeatures.length}.',
       );
     }
 

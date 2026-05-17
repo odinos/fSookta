@@ -4,6 +4,8 @@ import '../../domain/exceptions/risk_prediction_exception.dart';
 class LogisticRegressionWeights {
   const LogisticRegressionWeights({
     required this.version,
+    required this.featureSchemaId,
+    required this.modelSource,
     required this.intercept,
     required this.weights,
     required this.thresholds,
@@ -12,6 +14,8 @@ class LogisticRegressionWeights {
   });
 
   final String version;
+  final String featureSchemaId;
+  final String modelSource;
   final double intercept;
   final List<double> weights;
   final RiskThresholds thresholds;
@@ -43,6 +47,8 @@ class LogisticRegressionWeights {
 
     return LogisticRegressionWeights(
       version: json['version'] as String? ?? 'unknown',
+      featureSchemaId: json['featureSchemaId'] as String? ?? 'unknown',
+      modelSource: json['modelSource'] as String? ?? 'unknown',
       intercept: (json['intercept'] as num?)?.toDouble() ??
           (json['bias'] as num?)?.toDouble() ??
           0,

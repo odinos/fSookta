@@ -1,5 +1,7 @@
 {
   "version": "placeholder-logistic-joint-features-v1",
+  "featureSchemaId": "movenet-thunder-v1-17x3-normalized",
+  "modelSource": "placeholder_pending_research_training",
   "description": "Offline logistic regression weights for MoveNet joint features. Replace these placeholder weights with research-trained coefficients before production validation.",
   "featureCount": 51,
   "intercept": -1.85,

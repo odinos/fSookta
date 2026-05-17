@@ -7,6 +7,7 @@ import 'package:ml_algo/ml_algo.dart';
 import 'package:ml_dataframe/ml_dataframe.dart';
 
 import '../../domain/entities/risk_assessment_result.dart';
+import '../../domain/entities/joint_feature_schema.dart';
 import '../../domain/exceptions/risk_prediction_exception.dart';
 import '../../domain/predictors/ergonomic_risk_predictor.dart';
 import '../models/logistic_regression_weights.dart';
@@ -14,14 +15,17 @@ import '../models/logistic_regression_weights.dart';
 class LogisticRegressionPredictor implements ErgonomicRiskPredictor {
   LogisticRegressionPredictor({
     this.assetPath = 'assets/models/logistic_weights.json',
+    this.featureSchema,
   });
 
   @visibleForTesting
   LogisticRegressionPredictor.fromWeights(LogisticRegressionWeights weights)
       : assetPath = '',
+        featureSchema = null,
         _weights = weights;
 
   final String assetPath;
+  final JointFeatureSchema? featureSchema;
   LogisticRegressionWeights? _weights;
   LogisticRegressor? _serializedMlAlgoModel;
 
@@ -35,6 +39,7 @@ class LogisticRegressionPredictor implements ErgonomicRiskPredictor {
       final jsonText = await rootBundle.loadString(assetPath);
       final json = Map<String, Object?>.from(jsonDecode(jsonText) as Map);
       _weights = LogisticRegressionWeights.fromJson(json);
+      _validateFeatureSchema(_weights!);
 
       final mlAlgoModelJson = json['mlAlgoModelJson'];
       if (mlAlgoModelJson is String && mlAlgoModelJson.isNotEmpty) {
@@ -45,6 +50,21 @@ class LogisticRegressionPredictor implements ErgonomicRiskPredictor {
         'Failed to load Logistic Regression model from $assetPath.',
         cause: error,
         stackTrace: stackTrace,
+      );
+    }
+  }
+
+  void _validateFeatureSchema(LogisticRegressionWeights weights) {
+    final schema = featureSchema;
+    if (schema == null) return;
+    if (weights.featureSchemaId != schema.schemaId) {
+      throw ModelLoadException(
+        'Logistic model schema ${weights.featureSchemaId} does not match loaded feature schema ${schema.schemaId}.',
+      );
+    }
+    if (weights.featureCount != schema.featureCount) {
+      throw ModelLoadException(
+        'Logistic model expects ${weights.featureCount} features but schema has ${schema.featureCount}.',
       );
     }
   }
@@ -122,7 +142,7 @@ class LogisticRegressionPredictor implements ErgonomicRiskPredictor {
   DataFrame _buildInferenceFrame(List<double> features) {
     final header = List<String>.generate(
       features.length,
-      (index) => 'joint_feature_$index',
+      (index) => featureSchema?.featureNames[index] ?? 'joint_feature_$index',
       growable: false,
     );
     final frame = DataFrame([header, features]);
