@@ -88,6 +88,26 @@ class HistoryDetailScreen extends StatelessWidget {
                       ),
                     ),
                   ),
+                  if (record.aiRiskPercent != null &&
+                      record.aiAlertLevel != null) ...[
+                    const SizedBox(height: 16),
+                    Card(
+                      child: ListTile(
+                        leading: Icon(
+                          Icons.psychology_alt_outlined,
+                          color: _aiColor(record.aiAlertLevel!),
+                        ),
+                        title: Text(
+                          thai ? 'AI Risk Alert' : 'AI Risk Alert',
+                        ),
+                        subtitle: Text(
+                          '${_aiLabel(record.aiAlertLevel!, thai)} • '
+                          '${record.aiRiskPercent}% • '
+                          '${_aiModelSource(record.aiModelSource, thai)}',
+                        ),
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 16),
                   Card(
                     child: Padding(
@@ -192,6 +212,41 @@ class HistoryDetailScreen extends StatelessWidget {
       RiskLevel.high => 'High',
       RiskLevel.veryHigh => 'Very High',
     };
+  }
+
+  Color _aiColor(AiAlertLevel level) {
+    return switch (level) {
+      AiAlertLevel.low => SooktaColors.leafGreen,
+      AiAlertLevel.watch => Colors.amber.shade700,
+      AiAlertLevel.high => Colors.deepOrange,
+      AiAlertLevel.critical => Colors.red.shade800,
+    };
+  }
+
+  String _aiLabel(AiAlertLevel level, bool thai) {
+    if (thai) {
+      return switch (level) {
+        AiAlertLevel.low => 'ความเสี่ยงต่ำ',
+        AiAlertLevel.watch => 'ควรเฝ้าระวัง',
+        AiAlertLevel.high => 'ความเสี่ยงสูง',
+        AiAlertLevel.critical => 'ความเสี่ยงสูงมาก',
+      };
+    }
+    return switch (level) {
+      AiAlertLevel.low => 'Low risk',
+      AiAlertLevel.watch => 'Watch',
+      AiAlertLevel.high => 'High risk',
+      AiAlertLevel.critical => 'Critical risk',
+    };
+  }
+
+  String _aiModelSource(String? source, bool thai) {
+    if (source == 'research_trained') {
+      return thai ? 'โมเดลจากงานวิจัย' : 'Research-trained model';
+    }
+    return thai
+        ? 'โมเดลพื้นฐานรอแทนที่ด้วยงานวิจัย'
+        : 'Baseline pending research artifacts';
   }
 }
 

@@ -9,6 +9,7 @@ import '../../core/models/assessment_session.dart';
 import '../../core/models/evaluation_models.dart';
 import '../../core/services/ergo_calculator.dart';
 import '../../core/services/pose_estimation_service.dart';
+import '../../core/services/risk_alert_model_service.dart';
 import '../../core/theme/sookta_theme.dart';
 import 'camera_capture_screen.dart';
 import 'initial_risk_screen.dart';
@@ -373,7 +374,7 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
     }
   }
 
-  void _analyze() {
+  Future<void> _analyze() async {
     final state = AppStateScope.of(context);
     final thai = (state.language ?? AppLanguage.th) == AppLanguage.th;
     final activityName = widget.activity.label(thai: thai);
@@ -393,11 +394,35 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
       sustainForce: _number(sustainForceController, 8),
     );
     final rebaData = rebaInput.copyWith(dailyIncome: dailyIncome);
-    final result = switch (selectedJobType) {
+    var result = switch (selectedJobType) {
       JobType.reba => ErgoCalculator.calculateRebaRisk(rebaData),
       JobType.lifting => ErgoCalculator.calculateLiftingRisk(ergoInput),
       JobType.pushPull => ErgoCalculator.calculatePushPullRisk(ergoInput),
     };
+
+    try {
+      final aiModel = await RiskAlertModelService.load();
+      final aiAlert = aiModel.predict(
+        jobType: selectedJobType,
+        result: result,
+        ergoInput: ergoInput,
+        rebaInput: rebaData,
+      );
+      result = result.copyWith(aiRiskAlert: aiAlert);
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            thai
+                ? 'AI Risk Alert ใช้งานไม่ได้ ใช้การคำนวณ REBA/ISO แทน'
+                : 'AI Risk Alert unavailable. Using REBA/ISO fallback.',
+          ),
+        ),
+      );
+    }
+
+    if (!mounted) return;
 
     Navigator.of(context).pushNamed(
       InitialRiskScreen.routeName,

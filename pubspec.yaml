@@ -28,3 +28,4 @@ flutter:
   assets:
     - assets/images/
     - assets/ml/movenet_thunder.tflite
+    - assets/ml/risk_alert_models.json

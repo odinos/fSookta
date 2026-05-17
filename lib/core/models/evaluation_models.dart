@@ -119,6 +119,7 @@ class ErgoResult {
     this.economicLoss = 0,
     this.suggestionKeys = const [],
     this.bodyPartRisks = const {},
+    this.aiRiskAlert,
   });
 
   final RiskLevel riskLevel;
@@ -130,4 +131,76 @@ class ErgoResult {
   final int economicLoss;
   final List<String> suggestionKeys;
   final Map<BodyPart, RiskLevel> bodyPartRisks;
+  final AiRiskAlert? aiRiskAlert;
+
+  ErgoResult copyWith({
+    RiskLevel? riskLevel,
+    double? techScore,
+    int? userScore,
+    int? userScoreColor,
+    double? limitValue,
+    String? suggestionKey,
+    int? economicLoss,
+    List<String>? suggestionKeys,
+    Map<BodyPart, RiskLevel>? bodyPartRisks,
+    AiRiskAlert? aiRiskAlert,
+  }) {
+    return ErgoResult(
+      riskLevel: riskLevel ?? this.riskLevel,
+      techScore: techScore ?? this.techScore,
+      userScore: userScore ?? this.userScore,
+      userScoreColor: userScoreColor ?? this.userScoreColor,
+      limitValue: limitValue ?? this.limitValue,
+      suggestionKey: suggestionKey ?? this.suggestionKey,
+      economicLoss: economicLoss ?? this.economicLoss,
+      suggestionKeys: suggestionKeys ?? this.suggestionKeys,
+      bodyPartRisks: bodyPartRisks ?? this.bodyPartRisks,
+      aiRiskAlert: aiRiskAlert ?? this.aiRiskAlert,
+    );
+  }
+}
+
+enum AiAlertLevel {
+  low,
+  watch,
+  high,
+  critical,
+}
+
+class AiFeatureImportance {
+  const AiFeatureImportance({
+    required this.key,
+    required this.labelTh,
+    required this.labelEn,
+    required this.score,
+  });
+
+  final String key;
+  final String labelTh;
+  final String labelEn;
+  final double score;
+
+  String label({required bool thai}) => thai ? labelTh : labelEn;
+}
+
+class AiRiskAlert {
+  const AiRiskAlert({
+    required this.probability,
+    required this.logisticProbability,
+    required this.xgBoostProbability,
+    required this.level,
+    required this.modelVersion,
+    required this.modelSource,
+    required this.featureImportance,
+  });
+
+  final double probability;
+  final double logisticProbability;
+  final double xgBoostProbability;
+  final AiAlertLevel level;
+  final String modelVersion;
+  final String modelSource;
+  final List<AiFeatureImportance> featureImportance;
+
+  bool get usesResearchTrainedModel => modelSource == 'research_trained';
 }

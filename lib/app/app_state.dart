@@ -201,6 +201,11 @@ class SooktaAppState extends ChangeNotifier {
           (before.economicLoss - after.economicLoss).clamp(0, 999999).toInt(),
       selectedSuggestions: selectedSuggestions,
       bodyPartRisks: before.bodyPartRisks,
+      aiRiskPercent: before.aiRiskAlert == null
+          ? null
+          : (before.aiRiskAlert!.probability * 100).round(),
+      aiAlertLevel: before.aiRiskAlert?.level,
+      aiModelSource: before.aiRiskAlert?.modelSource,
     );
     _history.insert(0, record);
     _persistSoon();
@@ -252,6 +257,9 @@ class EvaluationHistoryRecord {
     required this.moneySaved,
     required this.selectedSuggestions,
     required this.bodyPartRisks,
+    this.aiRiskPercent,
+    this.aiAlertLevel,
+    this.aiModelSource,
   });
 
   final int id;
@@ -265,6 +273,9 @@ class EvaluationHistoryRecord {
   final int moneySaved;
   final List<String> selectedSuggestions;
   final Map<BodyPart, RiskLevel> bodyPartRisks;
+  final int? aiRiskPercent;
+  final AiAlertLevel? aiAlertLevel;
+  final String? aiModelSource;
 
   Map<String, Object?> toJson() {
     return {
@@ -281,6 +292,9 @@ class EvaluationHistoryRecord {
       'bodyPartRisks': bodyPartRisks.map(
         (part, risk) => MapEntry(part.name, risk.name),
       ),
+      'aiRiskPercent': aiRiskPercent,
+      'aiAlertLevel': aiAlertLevel?.name,
+      'aiModelSource': aiModelSource,
     };
   }
 
@@ -301,6 +315,9 @@ class EvaluationHistoryRecord {
               .toList() ??
           const [],
       bodyPartRisks: _bodyRisksFromJson(json['bodyPartRisks']),
+      aiRiskPercent: json['aiRiskPercent'] as int?,
+      aiAlertLevel: _aiAlertFromName(json['aiAlertLevel'] as String?),
+      aiModelSource: json['aiModelSource'] as String?,
     );
   }
 
@@ -309,6 +326,14 @@ class EvaluationHistoryRecord {
       (risk) => risk.name == name,
       orElse: () => RiskLevel.low,
     );
+  }
+
+  static AiAlertLevel? _aiAlertFromName(String? name) {
+    if (name == null) return null;
+    return AiAlertLevel.values.cast<AiAlertLevel?>().firstWhere(
+          (level) => level?.name == name,
+          orElse: () => null,
+        );
   }
 
   static Map<BodyPart, RiskLevel> _bodyRisksFromJson(Object? raw) {

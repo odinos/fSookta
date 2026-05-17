@@ -60,6 +60,13 @@ class _InitialRiskScreenState extends State<InitialRiskScreen> {
               suggestion: strings.get(before.suggestionKey),
               thai: thai,
             ),
+            if (before.aiRiskAlert != null) ...[
+              const SizedBox(height: 16),
+              _AiRiskAlertCard(
+                alert: before.aiRiskAlert!,
+                thai: thai,
+              ),
+            ],
             const SizedBox(height: 16),
             _BodyMapCard(
               bodyRisks: before.bodyPartRisks,
@@ -210,6 +217,132 @@ class _InitialRiskScreenState extends State<InitialRiskScreen> {
       0xFFFF5252,
     ];
     return colors[(score - 1).clamp(0, 8).toInt()];
+  }
+}
+
+class _AiRiskAlertCard extends StatelessWidget {
+  const _AiRiskAlertCard({
+    required this.alert,
+    required this.thai,
+  });
+
+  final AiRiskAlert alert;
+  final bool thai;
+
+  @override
+  Widget build(BuildContext context) {
+    final percent = (alert.probability * 100).round();
+    final color = _levelColor(alert.level);
+    final title = thai ? 'AI Risk Alert' : 'AI Risk Alert';
+    final modelSource = alert.usesResearchTrainedModel
+        ? (thai ? 'โมเดลจากงานวิจัย' : 'Research-trained model')
+        : (thai
+            ? 'โมเดลพื้นฐานที่รอแทนที่ด้วยโมเดลงานวิจัย'
+            : 'Baseline model pending research-trained artifacts');
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.psychology_alt_outlined, color: color),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                Chip(
+                  backgroundColor: color.withValues(alpha: 0.12),
+                  label: Text(
+                    '$percent%',
+                    style: TextStyle(
+                      color: color,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(
+              _levelLabel(alert.level, thai),
+              style: TextStyle(color: color, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              modelSource,
+              style: const TextStyle(color: Colors.black54, fontSize: 12),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              thai
+                  ? 'ปัจจัยสำคัญที่โมเดลใช้พิจารณา'
+                  : 'Top model feature importance',
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            ...alert.featureImportance.map(
+              (feature) => Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Row(
+                  children: [
+                    Expanded(child: Text(feature.label(thai: thai))),
+                    const SizedBox(width: 8),
+                    SizedBox(
+                      width: 92,
+                      child: LinearProgressIndicator(
+                        value: feature.score.clamp(0.0, 1.0).toDouble(),
+                        color: color,
+                        backgroundColor: color.withValues(alpha: 0.12),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'LR ${(alert.logisticProbability * 100).round()}% / XGBoost ${(alert.xgBoostProbability * 100).round()}%',
+              style: const TextStyle(fontSize: 12, color: Colors.black54),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Color _levelColor(AiAlertLevel level) {
+    return switch (level) {
+      AiAlertLevel.low => SooktaColors.leafGreen,
+      AiAlertLevel.watch => Colors.amber.shade700,
+      AiAlertLevel.high => Colors.deepOrange,
+      AiAlertLevel.critical => Colors.red.shade800,
+    };
+  }
+
+  String _levelLabel(AiAlertLevel level, bool thai) {
+    if (thai) {
+      return switch (level) {
+        AiAlertLevel.low => 'AI แจ้งเตือน: ความเสี่ยงต่ำ',
+        AiAlertLevel.watch => 'AI แจ้งเตือน: ควรเฝ้าระวัง',
+        AiAlertLevel.high => 'AI แจ้งเตือน: ความเสี่ยงสูง',
+        AiAlertLevel.critical => 'AI แจ้งเตือน: ความเสี่ยงสูงมาก',
+      };
+    }
+    return switch (level) {
+      AiAlertLevel.low => 'AI alert: low risk',
+      AiAlertLevel.watch => 'AI alert: watch',
+      AiAlertLevel.high => 'AI alert: high risk',
+      AiAlertLevel.critical => 'AI alert: critical risk',
+    };
   }
 }
 
