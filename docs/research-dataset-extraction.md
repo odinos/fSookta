@@ -38,6 +38,28 @@ Outputs:
 - `data/research/extracted/missing_media_sessions.csv`
 - `data/research/extracted/dataset_extraction_report.json`
 
+## Download Priority Media
+
+The first file-level Drive manifest is:
+
+```text
+data/research/drive_priority_file_catalog.csv
+```
+
+It covers priority sessions `4.1`, `4.3`, `5.3`, `5.4`, and `6.2`.
+
+For a quick first pass, download images only:
+
+```bash
+python3 tools/research_dataset/download_drive_media.py --images-only
+```
+
+Download videos separately when there is enough disk space and time:
+
+```bash
+python3 tools/research_dataset/download_drive_media.py --videos-only
+```
+
 ## Run MoveNet Extraction
 
 Install research-only dependencies:
