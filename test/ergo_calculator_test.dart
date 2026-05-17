@@ -71,6 +71,53 @@ void main() {
         expect(result.economicLoss, greaterThan(900));
       }
     });
+
+    test('Notion ERGO twist and side flex adjustments raise trunk risk', () {
+      const neutral = RebaInputData(
+        trunkScore: 2,
+        neckScore: 1,
+        legScore: 1,
+        upperArmScore: 1,
+        lowerArmScore: 1,
+        wristScore: 1,
+      );
+      const twisted = RebaInputData(
+        trunkScore: 2,
+        trunkTwist: true,
+        trunkSideFlex: true,
+        neckScore: 1,
+        legScore: 1,
+        upperArmScore: 1,
+        lowerArmScore: 1,
+        wristScore: 1,
+      );
+
+      final neutralResult = ErgoCalculator.calculateRebaRisk(neutral);
+      final twistedResult = ErgoCalculator.calculateRebaRisk(twisted);
+
+      expect(twisted.adjustedTrunkScore, neutral.trunkScore + 2);
+      expect(twistedResult.techScore, greaterThan(neutralResult.techScore));
+      expect(twistedResult.suggestionKeys, contains('act_avoid_twist'));
+      expect(twistedResult.bodyPartRisks[BodyPart.trunk], RiskLevel.high);
+    });
+
+    test('Notion ERGO wrist twist adjustment raises wrist risk', () {
+      const input = RebaInputData(
+        trunkScore: 1,
+        neckScore: 1,
+        legScore: 1,
+        upperArmScore: 1,
+        lowerArmScore: 1,
+        wristScore: 1,
+        wristTwist: true,
+      );
+
+      final result = ErgoCalculator.calculateRebaRisk(input);
+
+      expect(input.adjustedWristScore, 2);
+      expect(result.suggestionKeys, contains('act_adj_wrist'));
+      expect(result.bodyPartRisks[BodyPart.wrists], RiskLevel.high);
+    });
   });
 
   group('ISO lifting and push/pull calculation parity', () {
@@ -102,6 +149,23 @@ void main() {
       expect(result.riskLevel, RiskLevel.high);
       expect(result.suggestionKeys,
           containsAll(['act_check_wheels', 'act_use_legs']));
+    });
+
+    test('Notion ISO lifting multiplier floor keeps RWL in expected range', () {
+      const input = ErgoInputData(
+        jobType: JobType.lifting,
+        gender: 'male',
+        loadWeight: 20,
+        horizontalDist: 80,
+        verticalHeight: 0,
+        liftFrequency: 10,
+        transportDistance: 0,
+      );
+
+      final result = ErgoCalculator.calculateLiftingRisk(input);
+
+      expect(result.limitValue, closeTo(25 * 0.7 * 0.775 * 0.5, 0.001));
+      expect(result.techScore, closeTo(20 / result.limitValue, 0.001));
     });
   });
 

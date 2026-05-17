@@ -63,4 +63,37 @@ void main() {
       contains('force_ratio_norm'),
     );
   });
+
+  test('REBA twist process fields contribute to risk alert features', () async {
+    final model = await RiskAlertModelService.load();
+    const rebaInput = RebaInputData(
+      trunkScore: 2,
+      trunkTwist: true,
+      trunkSideFlex: true,
+      wristScore: 1,
+      wristTwist: true,
+      loadScore: 1,
+      couplingScore: 1,
+      activityScore: 1,
+    );
+    final result = ErgoCalculator.calculateRebaRisk(rebaInput);
+
+    final alert = model.predict(
+      jobType: JobType.reba,
+      result: result,
+      ergoInput: const ErgoInputData(jobType: JobType.reba),
+      rebaInput: rebaInput,
+    );
+
+    expect(
+      alert.featureImportance.map((feature) => feature.key),
+      contains(
+        anyOf(
+          'reba_trunk_twist',
+          'reba_trunk_side_flex',
+          'reba_wrist_twist',
+        ),
+      ),
+    );
+  });
 }

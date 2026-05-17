@@ -110,7 +110,12 @@ class RiskAlertModelService {
       'reba_leg_norm': _norm(rebaInput.legScore.toDouble(), 1, 2),
       'reba_upper_arm_norm': _norm(rebaInput.upperArmScore.toDouble(), 1, 4),
       'reba_wrist_norm': _norm(rebaInput.wristScore.toDouble(), 1, 2),
+      'reba_trunk_twist': rebaInput.trunkTwist ? 1 : 0,
+      'reba_trunk_side_flex': rebaInput.trunkSideFlex ? 1 : 0,
+      'reba_wrist_twist': rebaInput.wristTwist ? 1 : 0,
       'reba_load_norm': _norm(rebaInput.loadScore.toDouble(), 0, 2),
+      'reba_coupling_norm': _norm(rebaInput.couplingScore.toDouble(), 0, 2),
+      'reba_activity_norm': _norm(rebaInput.activityScore.toDouble(), 0, 2),
     };
   }
 

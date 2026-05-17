@@ -65,6 +65,9 @@ class RebaInputData {
     this.upperArmScore = 1,
     this.lowerArmScore = 1,
     this.wristScore = 1,
+    this.trunkTwist = false,
+    this.trunkSideFlex = false,
+    this.wristTwist = false,
     this.loadScore = 0,
     this.couplingScore = 0,
     this.activityScore = 0,
@@ -77,9 +80,17 @@ class RebaInputData {
   final int upperArmScore;
   final int lowerArmScore;
   final int wristScore;
+  final bool trunkTwist;
+  final bool trunkSideFlex;
+  final bool wristTwist;
   final int loadScore;
   final int couplingScore;
   final int activityScore;
+
+  int get adjustedTrunkScore =>
+      trunkScore + (trunkTwist ? 1 : 0) + (trunkSideFlex ? 1 : 0);
+
+  int get adjustedWristScore => wristScore + (wristTwist ? 1 : 0);
 
   RebaInputData copyWith({
     double? dailyIncome,
@@ -89,6 +100,9 @@ class RebaInputData {
     int? upperArmScore,
     int? lowerArmScore,
     int? wristScore,
+    bool? trunkTwist,
+    bool? trunkSideFlex,
+    bool? wristTwist,
     int? loadScore,
     int? couplingScore,
     int? activityScore,
@@ -101,6 +115,9 @@ class RebaInputData {
       upperArmScore: upperArmScore ?? this.upperArmScore,
       lowerArmScore: lowerArmScore ?? this.lowerArmScore,
       wristScore: wristScore ?? this.wristScore,
+      trunkTwist: trunkTwist ?? this.trunkTwist,
+      trunkSideFlex: trunkSideFlex ?? this.trunkSideFlex,
+      wristTwist: wristTwist ?? this.wristTwist,
       loadScore: loadScore ?? this.loadScore,
       couplingScore: couplingScore ?? this.couplingScore,
       activityScore: activityScore ?? this.activityScore,

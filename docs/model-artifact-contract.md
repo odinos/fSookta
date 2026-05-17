@@ -12,6 +12,8 @@ use the same MoveNet feature schema before it can be shipped in the app.
 - Flatten order: for each landmark in MoveNet index order, append `x`, `y`,
   `score`
 - Missing landmark policy: emit `0.0, 0.0, 0.0`
+- ERGO process contract: `assets/models/ergo_process_detail.json`, sourced
+  from the Notion page `ERGO process Detail`.
 
 The landmark order is:
 
@@ -73,3 +75,6 @@ Do not mark the model as research-trained until all are true:
 - Logistic JSON `featureSchemaId` matches `joint_feature_schema.json`.
 - `xgboost_model.onnx` exists and was exported from the same feature schema.
 - Fixed sample vectors from the research dataset pass on-device inference tests.
+- Expert labels include the ERGO process fields required by REBA and ISO
+  11228-1/2, including trunk twist, trunk side flexion, wrist twist, coupling,
+  activity, lifting inputs, and push/pull force limits.

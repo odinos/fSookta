@@ -21,6 +21,8 @@ class ErgoCalculator {
 
   static const _refMassMale = 25.0;
   static const _refMassFemale = 20.0;
+  static const _minIsoMultiplier = 0.7;
+  static const _minFrequencyMultiplier = 0.5;
   static const _thaiMinWage = 350.0;
 
   static RebaInputData calculateRebaInputFromPose(
@@ -102,16 +104,17 @@ class ErgoCalculator {
     final isFemale = data.gender.toLowerCase() == 'female';
     final refMass = isFemale ? _refMassFemale : _refMassMale;
     final h = math.max(data.horizontalDist, 25.0);
-    final hm = 25.0 / h;
-    final vm =
-        (1.0 - (0.003 * (data.verticalHeight - 75.0).abs())).clamp(0.0, 1.0);
+    final hm = (25.0 / h).clamp(_minIsoMultiplier, 1.0).toDouble();
+    final vm = (1.0 - (0.003 * (data.verticalHeight - 75.0).abs()))
+        .clamp(_minIsoMultiplier, 1.0)
+        .toDouble();
 
     final fm = switch (data.liftFrequency) {
       <= 0.2 => 1.0,
       <= 1.0 => 0.94,
       <= 4.0 => 0.84,
       <= 6.0 => 0.75,
-      _ => 0.0,
+      _ => _minFrequencyMultiplier,
     };
 
     final dm = switch (data.transportDistance) {
@@ -189,8 +192,10 @@ class ErgoCalculator {
   }
 
   static ErgoResult calculateRebaRisk(RebaInputData input) {
+    final adjustedTrunkScore = input.adjustedTrunkScore;
+    final adjustedWristScore = input.adjustedWristScore;
     final scoreTableA = _rebaTableAScore(
-      input.trunkScore,
+      adjustedTrunkScore,
       input.neckScore,
       input.legScore,
     );
@@ -198,7 +203,7 @@ class ErgoCalculator {
     final scoreTableB = _rebaTableBScore(
       input.upperArmScore,
       input.lowerArmScore,
-      input.wristScore,
+      adjustedWristScore,
     );
     final scoreB = scoreTableB + input.couplingScore;
     final scoreC = _rebaTableCScore(scoreA, scoreB);
@@ -208,10 +213,11 @@ class ErgoCalculator {
 
     final suggestionKeys = <String>[
       if (input.loadScore >= 1) 'act_reduce_load_tool',
-      if (input.trunkScore >= 3) 'act_avoid_bend',
+      if (adjustedTrunkScore >= 3) 'act_avoid_bend',
+      if (input.trunkTwist || input.trunkSideFlex) 'act_avoid_twist',
       if (input.neckScore >= 2) 'act_adj_eye_level',
       if (input.upperArmScore >= 3) 'act_reduce_arm_raise',
-      if (input.wristScore >= 2) 'act_adj_wrist',
+      if (adjustedWristScore >= 2) 'act_adj_wrist',
     ];
     if (suggestionKeys.isEmpty && risk != RiskLevel.low) {
       suggestionKeys.add('act_rest_stretch');
@@ -225,14 +231,14 @@ class ErgoCalculator {
     };
 
     final bodyPartRisks = {
-      BodyPart.trunk: _partRisk(input.trunkScore, 4),
+      BodyPart.trunk: _partRisk(adjustedTrunkScore, 4),
       BodyPart.neck: _partRisk(input.neckScore, 2),
       BodyPart.legs: _partRisk(input.legScore, 2),
       BodyPart.arms: _partRisk(
         math.max(input.upperArmScore, input.lowerArmScore),
         3,
       ),
-      BodyPart.wrists: _partRisk(input.wristScore, 2),
+      BodyPart.wrists: _partRisk(adjustedWristScore, 2),
     };
 
     return ErgoResult(

@@ -115,6 +115,15 @@ pain score, treatment cost, lost income, lost work days, and recommendation.
 Rows with weak pose confidence are marked `suggested_include_for_training=no`
 so they can be reviewed before model training.
 
+The template also includes the ERGO process fields from Notion:
+
+- REBA posture and adjustment fields such as trunk twist, trunk side flexion,
+  wrist twist, coupling, and activity.
+- ISO 11228-1 lifting fields such as load weight, lift frequency, duration,
+  vertical position, horizontal distance, RWL, and Lifting Index.
+- ISO 11228-2 push/pull fields such as initial/sustained force and the
+  corresponding force limits.
+
 ## Labeling Gate
 
 The extractor does not create a validated AI model by itself. The output still

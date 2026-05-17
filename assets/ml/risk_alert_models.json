@@ -27,7 +27,12 @@
     "reba_leg_norm",
     "reba_upper_arm_norm",
     "reba_wrist_norm",
-    "reba_load_norm"
+    "reba_trunk_twist",
+    "reba_trunk_side_flex",
+    "reba_wrist_twist",
+    "reba_load_norm",
+    "reba_coupling_norm",
+    "reba_activity_norm"
   ],
   "featureLabels": {
     "job_type_reba": {
@@ -106,9 +111,29 @@
       "th": "คะแนนข้อมือ",
       "en": "Wrist score"
     },
+    "reba_trunk_twist": {
+      "th": "ลำตัวบิด",
+      "en": "Trunk twist"
+    },
+    "reba_trunk_side_flex": {
+      "th": "ลำตัวเอียงข้าง",
+      "en": "Trunk side flexion"
+    },
+    "reba_wrist_twist": {
+      "th": "ข้อมือบิด",
+      "en": "Wrist twist"
+    },
     "reba_load_norm": {
       "th": "คะแนนน้ำหนักที่ถือ",
       "en": "Load score"
+    },
+    "reba_coupling_norm": {
+      "th": "คะแนนการจับยึด",
+      "en": "Coupling score"
+    },
+    "reba_activity_norm": {
+      "th": "คะแนนกิจกรรมซ้ำ/ค้างท่า",
+      "en": "Activity score"
     }
   },
   "logisticRegression": {
@@ -133,7 +158,12 @@
       "reba_leg_norm": 0.28,
       "reba_upper_arm_norm": 0.58,
       "reba_wrist_norm": 0.36,
-      "reba_load_norm": 0.45
+      "reba_trunk_twist": 0.42,
+      "reba_trunk_side_flex": 0.36,
+      "reba_wrist_twist": 0.32,
+      "reba_load_norm": 0.45,
+      "reba_coupling_norm": 0.24,
+      "reba_activity_norm": 0.3
     }
   },
   "xgboost": {
@@ -203,6 +233,23 @@
           "no": {
             "leaf": 0.54
           }
+        }
+      },
+      {
+        "split": "reba_trunk_twist",
+        "threshold": 0.5,
+        "yes": {
+          "split": "reba_wrist_twist",
+          "threshold": 0.5,
+          "yes": {
+            "leaf": -0.08
+          },
+          "no": {
+            "leaf": 0.28
+          }
+        },
+        "no": {
+          "leaf": 0.46
         }
       }
     ]

@@ -627,6 +627,16 @@ class _RebaCard extends StatelessWidget {
           max: 2,
           onChanged: (value) => onChanged(input.copyWith(legScore: value)),
         ),
+        _CheckTile(
+          label: thai ? 'ลำตัวบิด' : 'Trunk twist',
+          value: input.trunkTwist,
+          onChanged: (value) => onChanged(input.copyWith(trunkTwist: value)),
+        ),
+        _CheckTile(
+          label: thai ? 'ลำตัวเอียงข้าง' : 'Trunk side flexion',
+          value: input.trunkSideFlex,
+          onChanged: (value) => onChanged(input.copyWith(trunkSideFlex: value)),
+        ),
         _ScoreSlider(
           label: thai ? 'ต้นแขน' : 'Upper Arm',
           value: input.upperArmScore,
@@ -635,11 +645,23 @@ class _RebaCard extends StatelessWidget {
           onChanged: (value) => onChanged(input.copyWith(upperArmScore: value)),
         ),
         _ScoreSlider(
+          label: thai ? 'ปลายแขน' : 'Lower Arm',
+          value: input.lowerArmScore,
+          min: 1,
+          max: 2,
+          onChanged: (value) => onChanged(input.copyWith(lowerArmScore: value)),
+        ),
+        _ScoreSlider(
           label: thai ? 'ข้อมือ' : 'Wrist',
           value: input.wristScore,
           min: 1,
           max: 2,
           onChanged: (value) => onChanged(input.copyWith(wristScore: value)),
+        ),
+        _CheckTile(
+          label: thai ? 'ข้อมือบิด' : 'Wrist twist',
+          value: input.wristTwist,
+          onChanged: (value) => onChanged(input.copyWith(wristTwist: value)),
         ),
         _ScoreSlider(
           label: thai ? 'น้ำหนักที่ถือ' : 'Load',
@@ -648,7 +670,44 @@ class _RebaCard extends StatelessWidget {
           max: 2,
           onChanged: (value) => onChanged(input.copyWith(loadScore: value)),
         ),
+        _ScoreSlider(
+          label: thai ? 'การจับยึด' : 'Coupling',
+          value: input.couplingScore,
+          min: 0,
+          max: 2,
+          onChanged: (value) => onChanged(input.copyWith(couplingScore: value)),
+        ),
+        _ScoreSlider(
+          label: thai ? 'กิจกรรมซ้ำ/ค้างท่า' : 'Activity',
+          value: input.activityScore,
+          min: 0,
+          max: 2,
+          onChanged: (value) => onChanged(input.copyWith(activityScore: value)),
+        ),
       ],
+    );
+  }
+}
+
+class _CheckTile extends StatelessWidget {
+  const _CheckTile({
+    required this.label,
+    required this.value,
+    required this.onChanged,
+  });
+
+  final String label;
+  final bool value;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return CheckboxListTile(
+      contentPadding: EdgeInsets.zero,
+      value: value,
+      onChanged: (checked) => onChanged(checked ?? false),
+      title: Text(label),
+      controlAffinity: ListTileControlAffinity.leading,
     );
   }
 }

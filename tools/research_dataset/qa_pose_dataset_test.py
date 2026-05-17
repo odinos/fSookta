@@ -90,6 +90,9 @@ class QaPoseDatasetTest(unittest.TestCase):
 
         self.assertEqual(rows[0]["label_source"], "expert_pending")
         self.assertIn("expert_reba_score", rows[0])
+        self.assertIn("reba_trunk_twist", rows[0])
+        self.assertIn("iso_lifting_index", rows[0])
+        self.assertIn("push_sustained_limit_n", rows[0])
         self.assertIn("treatment_cost_thb", rows[0])
 
     def test_read_dataset_validates_feature_count(self):
