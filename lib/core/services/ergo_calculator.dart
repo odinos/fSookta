@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import '../models/evaluation_models.dart';
 import '../models/pose_models.dart';
+import 'economic_impact_service.dart';
 
 class ErgoCalculator {
   const ErgoCalculator._();
@@ -21,12 +22,6 @@ class ErgoCalculator {
   static const _refMassMale = 25.0;
   static const _refMassFemale = 20.0;
   static const _thaiMinWage = 350.0;
-  static const _medCostMedium = 300.0;
-  static const _medCostHigh = 1500.0;
-  static const _medCostVeryHigh = 5000.0;
-  static const _lostDaysMedium = 2.0;
-  static const _lostDaysHigh = 7.0;
-  static const _lostDaysVeryHigh = 30.0;
 
   static RebaInputData calculateRebaInputFromPose(
     Person person,
@@ -135,6 +130,8 @@ class ErgoCalculator {
       if (data.transportDistance > 10.0) 'act_use_cart_distance',
     ];
 
+    final bodyPartRisks = {BodyPart.trunk: risk};
+
     return ErgoResult(
       riskLevel: risk,
       techScore: li,
@@ -142,9 +139,13 @@ class ErgoCalculator {
       userScoreColor: _colorForScore(userScore),
       limitValue: rwl,
       suggestionKey: risk == RiskLevel.low ? 'sugg_safe' : 'sugg_improve',
-      economicLoss: _calculateHybridEconomicLoss(risk, data.dailyIncome),
+      economicLoss: _calculateHybridEconomicLoss(
+        risk,
+        data.dailyIncome,
+        bodyPartRisks,
+      ),
       suggestionKeys: suggestionKeys,
-      bodyPartRisks: {BodyPart.trunk: risk},
+      bodyPartRisks: bodyPartRisks,
     );
   }
 
@@ -166,6 +167,8 @@ class ErgoCalculator {
       RiskLevel.veryHigh => 'sugg_force_ok',
     };
 
+    final bodyPartRisks = {BodyPart.arms: risk, BodyPart.trunk: risk};
+
     return ErgoResult(
       riskLevel: risk,
       techScore: riskScore,
@@ -173,11 +176,15 @@ class ErgoCalculator {
       userScoreColor: _colorForScore(userScore),
       limitValue: limitInitial,
       suggestionKey: suggestionKey,
-      economicLoss: _calculateHybridEconomicLoss(risk, data.dailyIncome),
+      economicLoss: _calculateHybridEconomicLoss(
+        risk,
+        data.dailyIncome,
+        bodyPartRisks,
+      ),
       suggestionKeys: [
         if (risk >= RiskLevel.medium) ...['act_check_wheels', 'act_use_legs'],
       ],
-      bodyPartRisks: {BodyPart.arms: risk, BodyPart.trunk: risk},
+      bodyPartRisks: bodyPartRisks,
     );
   }
 
@@ -217,6 +224,17 @@ class ErgoCalculator {
       RiskLevel.veryHigh => 'sugg_reba_vhigh',
     };
 
+    final bodyPartRisks = {
+      BodyPart.trunk: _partRisk(input.trunkScore, 4),
+      BodyPart.neck: _partRisk(input.neckScore, 2),
+      BodyPart.legs: _partRisk(input.legScore, 2),
+      BodyPart.arms: _partRisk(
+        math.max(input.upperArmScore, input.lowerArmScore),
+        3,
+      ),
+      BodyPart.wrists: _partRisk(input.wristScore, 2),
+    };
+
     return ErgoResult(
       riskLevel: risk,
       techScore: finalScore.toDouble(),
@@ -224,18 +242,13 @@ class ErgoCalculator {
       userScoreColor: _colorForScore(userScore),
       limitValue: 15,
       suggestionKey: suggestionKey,
-      economicLoss: _calculateHybridEconomicLoss(risk, input.dailyIncome),
+      economicLoss: _calculateHybridEconomicLoss(
+        risk,
+        input.dailyIncome,
+        bodyPartRisks,
+      ),
       suggestionKeys: suggestionKeys,
-      bodyPartRisks: {
-        BodyPart.trunk: _partRisk(input.trunkScore, 4),
-        BodyPart.neck: _partRisk(input.neckScore, 2),
-        BodyPart.legs: _partRisk(input.legScore, 2),
-        BodyPart.arms: _partRisk(
-          math.max(input.upperArmScore, input.lowerArmScore),
-          3,
-        ),
-        BodyPart.wrists: _partRisk(input.wristScore, 2),
-      },
+      bodyPartRisks: bodyPartRisks,
     );
   }
 
@@ -298,16 +311,17 @@ class ErgoCalculator {
     return _userScoreColors[(score - 1).clamp(0, 8).toInt()];
   }
 
-  static int _calculateHybridEconomicLoss(RiskLevel risk, double dailyIncome) {
-    final incomeBase = dailyIncome > 0 ? dailyIncome : _thaiMinWage;
-    return switch (risk) {
-      RiskLevel.veryHigh =>
-        (incomeBase * _lostDaysVeryHigh + _medCostVeryHigh).toInt(),
-      RiskLevel.high => (incomeBase * _lostDaysHigh + _medCostHigh).toInt(),
-      RiskLevel.medium =>
-        (incomeBase * _lostDaysMedium + _medCostMedium).toInt(),
-      RiskLevel.low => 0,
-    };
+  static int _calculateHybridEconomicLoss(
+    RiskLevel risk,
+    double dailyIncome,
+    Map<BodyPart, RiskLevel> bodyPartRisks,
+  ) {
+    final impact = EconomicImpactService.estimate(
+      overallRisk: risk,
+      dailyIncome: dailyIncome > 0 ? dailyIncome : _thaiMinWage,
+      bodyPartRisks: bodyPartRisks,
+    );
+    return impact.totalCost;
   }
 
   static RiskLevel _partRisk(int score, int highThreshold) {

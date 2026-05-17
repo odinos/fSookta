@@ -27,7 +27,7 @@ void main() {
       expect(result.economicLoss, 0);
     });
 
-    test('heavy twist uses current hybrid economic-loss model', () {
+    test('heavy twist uses survey-based economic impact model', () {
       const input = RebaInputData(
         dailyIncome: 500,
         trunkScore: 5,
@@ -46,7 +46,7 @@ void main() {
       expect(result.techScore, greaterThanOrEqualTo(8));
       expect(result.userScore, 9);
       expect({RiskLevel.high, RiskLevel.veryHigh}, contains(result.riskLevel));
-      expect(result.economicLoss, 20000);
+      expect(result.economicLoss, 31116);
     });
 
     test('upper limb strain keeps medium/high risk behavior', () {
@@ -68,7 +68,7 @@ void main() {
       expect(result.techScore, greaterThanOrEqualTo(4));
       expect(result.userScore, greaterThanOrEqualTo(4));
       if (result.riskLevel == RiskLevel.medium) {
-        expect(result.economicLoss, 900);
+        expect(result.economicLoss, greaterThan(900));
       }
     });
   });

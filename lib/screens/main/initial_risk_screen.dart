@@ -6,7 +6,9 @@ import '../../app/app_state.dart';
 import '../../app/sookta_app.dart';
 import '../../core/localization/sookta_strings.dart';
 import '../../core/models/assessment_session.dart';
+import '../../core/models/economic_impact_models.dart';
 import '../../core/models/evaluation_models.dart';
+import '../../core/services/economic_impact_service.dart';
 import '../../core/theme/sookta_theme.dart';
 import 'final_result_screen.dart';
 
@@ -34,6 +36,11 @@ class _InitialRiskScreenState extends State<InitialRiskScreen> {
     final strings = SooktaStrings(thai ? SooktaLocale.th : SooktaLocale.en);
     final before = widget.payload.before;
     final suggestions = _suggestionsFor(before, widget.payload.activity);
+    final impact = EconomicImpactService.estimate(
+      overallRisk: before.riskLevel,
+      dailyIncome: state.dailyIncome.toDouble(),
+      bodyPartRisks: before.bodyPartRisks,
+    );
     final after = _simulateAfter(before);
 
     return Scaffold(
@@ -58,6 +65,12 @@ class _InitialRiskScreenState extends State<InitialRiskScreen> {
               result: before,
               title: thai ? 'คะแนนก่อนปรับปรุง' : 'Before Improvement',
               suggestion: strings.get(before.suggestionKey),
+              thai: thai,
+            ),
+            const SizedBox(height: 16),
+            _EconomicImpactCard(
+              impact: impact,
+              overallRisk: before.riskLevel,
               thai: thai,
             ),
             if (before.aiRiskAlert != null) ...[
@@ -94,8 +107,9 @@ class _InitialRiskScreenState extends State<InitialRiskScreen> {
                       style: const TextStyle(color: Colors.black54),
                     ),
                     const SizedBox(height: 8),
-                    ...suggestions.map(
-                      (key) => CheckboxListTile(
+                    ...suggestions.map((key) {
+                      final action = _actionFor(key);
+                      return CheckboxListTile(
                         value: selectedKeys.contains(key),
                         onChanged: (value) {
                           setState(() {
@@ -107,10 +121,15 @@ class _InitialRiskScreenState extends State<InitialRiskScreen> {
                           });
                         },
                         title: Text(strings.get(key)),
+                        subtitle: Text(
+                          thai
+                              ? 'คาดว่าลดคะแนน ${action.scoreReduction} จุด • ลดความเสี่ยง ${action.partLabels(thai: true)}'
+                              : 'Estimated score reduction ${action.scoreReduction} • Targets ${action.partLabels(thai: false)}',
+                        ),
                         controlAffinity: ListTileControlAffinity.leading,
                         contentPadding: EdgeInsets.zero,
-                      ),
-                    ),
+                      );
+                    }),
                   ],
                 ),
               ),
@@ -167,11 +186,21 @@ class _InitialRiskScreenState extends State<InitialRiskScreen> {
   }
 
   ErgoResult _simulateAfter(ErgoResult before) {
-    final reduction = math.min(selectedKeys.length, 4);
+    final reduction = math.min(
+      selectedKeys.fold<int>(
+        0,
+        (sum, key) => sum + _actionFor(key).scoreReduction,
+      ),
+      4,
+    );
     final score = (before.userScore - reduction).clamp(1, 9).toInt();
     final risk = _riskFromUserScore(score);
     final lossFactor =
         selectedKeys.isEmpty ? 1.0 : math.max(0.0, 1 - (0.28 * reduction));
+    final affectedParts = <BodyPart>{};
+    for (final key in selectedKeys) {
+      affectedParts.addAll(_actionFor(key).bodyParts);
+    }
     return ErgoResult(
       riskLevel: risk,
       techScore: math.max(1.0, before.techScore - reduction),
@@ -182,10 +211,83 @@ class _InitialRiskScreenState extends State<InitialRiskScreen> {
       economicLoss: (before.economicLoss * lossFactor).round(),
       suggestionKeys: before.suggestionKeys,
       bodyPartRisks: before.bodyPartRisks.map(
-        (part, level) =>
-            MapEntry(part, reduction > 0 ? _lowerRisk(level) : level),
+        (part, level) => MapEntry(
+          part,
+          affectedParts.contains(part) ? _lowerRisk(level) : level,
+        ),
       ),
     );
+  }
+
+  _ImprovementAction _actionFor(String key) {
+    return switch (key) {
+      'act_reduce_weight' => const _ImprovementAction(
+          scoreReduction: 2,
+          bodyParts: {BodyPart.trunk, BodyPart.arms, BodyPart.wrists},
+        ),
+      'act_use_cart_distance' => const _ImprovementAction(
+          scoreReduction: 2,
+          bodyParts: {BodyPart.trunk, BodyPart.arms, BodyPart.legs},
+        ),
+      'act_check_wheels' => const _ImprovementAction(
+          scoreReduction: 1,
+          bodyParts: {BodyPart.arms, BodyPart.trunk},
+        ),
+      'act_use_legs' => const _ImprovementAction(
+          scoreReduction: 1,
+          bodyParts: {BodyPart.trunk, BodyPart.legs},
+        ),
+      'act_reduce_load_tool' => const _ImprovementAction(
+          scoreReduction: 2,
+          bodyParts: {BodyPart.trunk, BodyPart.arms, BodyPart.wrists},
+        ),
+      'act_avoid_bend' => const _ImprovementAction(
+          scoreReduction: 1,
+          bodyParts: {BodyPart.trunk},
+        ),
+      'act_adj_eye_level' => const _ImprovementAction(
+          scoreReduction: 1,
+          bodyParts: {BodyPart.neck, BodyPart.trunk},
+        ),
+      'act_reduce_arm_raise' => const _ImprovementAction(
+          scoreReduction: 1,
+          bodyParts: {BodyPart.arms},
+        ),
+      'act_adj_wrist' => const _ImprovementAction(
+          scoreReduction: 1,
+          bodyParts: {BodyPart.wrists, BodyPart.arms},
+        ),
+      'act_extra_spray_strap' => const _ImprovementAction(
+          scoreReduction: 1,
+          bodyParts: {BodyPart.arms, BodyPart.trunk},
+        ),
+      'act_extra_spray_switch' => const _ImprovementAction(
+          scoreReduction: 1,
+          bodyParts: {BodyPart.arms, BodyPart.trunk},
+        ),
+      'act_extra_prune_ladder' => const _ImprovementAction(
+          scoreReduction: 1,
+          bodyParts: {BodyPart.neck, BodyPart.arms, BodyPart.trunk},
+        ),
+      'act_extra_prune_tool' => const _ImprovementAction(
+          scoreReduction: 1,
+          bodyParts: {BodyPart.neck, BodyPart.arms},
+        ),
+      'act_extra_fert_cart' => const _ImprovementAction(
+          scoreReduction: 2,
+          bodyParts: {BodyPart.trunk, BodyPart.arms, BodyPart.legs},
+        ),
+      _ => const _ImprovementAction(
+          scoreReduction: 1,
+          bodyParts: {
+            BodyPart.neck,
+            BodyPart.trunk,
+            BodyPart.legs,
+            BodyPart.arms,
+            BodyPart.wrists,
+          },
+        ),
+    };
   }
 
   RiskLevel _riskFromUserScore(int score) {
@@ -397,8 +499,8 @@ class _RiskSummaryCard extends StatelessWidget {
                   const SizedBox(height: 8),
                   Text(
                     thai
-                        ? 'อาจสูญเสียรายได้ ${result.economicLoss} บ./ปี'
-                        : 'Potential loss ${result.economicLoss} THB/year',
+                        ? 'ผลกระทบประมาณ ${_money(result.economicLoss)}'
+                        : 'Estimated impact ${_money(result.economicLoss)}',
                     style: const TextStyle(color: SooktaColors.darkGreen),
                   ),
                 ],
@@ -418,6 +520,171 @@ class _RiskSummaryCard extends StatelessWidget {
       RiskLevel.high => 'High Risk',
       RiskLevel.veryHigh => 'Very High Risk',
     };
+  }
+
+  String _money(int amount) {
+    return thai ? '$amount บ.' : '$amount THB';
+  }
+}
+
+class _EconomicImpactCard extends StatelessWidget {
+  const _EconomicImpactCard({
+    required this.impact,
+    required this.overallRisk,
+    required this.thai,
+  });
+
+  final EconomicImpactBreakdown impact;
+  final RiskLevel overallRisk;
+  final bool thai;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = Color(overallRisk.colorHex);
+    final topBodyImpacts = impact.bodyImpacts.take(3).toList();
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.payments_outlined, color: color),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    thai
+                        ? 'ผลกระทบเงินจริงจากการทำงานผิดท่า'
+                        : 'Real-world cost impact',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            DecoratedBox(
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _money(impact.totalCost),
+                      style: TextStyle(
+                        color: color,
+                        fontSize: 28,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    Text(
+                      thai
+                          ? 'ประมาณการค่าใช้จ่ายและรายได้ที่อาจหายไป'
+                          : 'Estimated care cost and income impact',
+                      style: const TextStyle(color: Colors.black54),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            _ImpactRow(
+              icon: Icons.medical_services_outlined,
+              label: thai ? 'ค่ารักษาตามตำแหน่งที่เสี่ยง' : 'Care by body area',
+              value: _money(impact.bodyTreatmentCost),
+            ),
+            _ImpactRow(
+              icon: Icons.medication_outlined,
+              label: thai ? 'ค่ายาและเวชภัณฑ์' : 'Medicine and supplies',
+              value: _money(impact.medicineAndSuppliesCost),
+            ),
+            _ImpactRow(
+              icon: Icons.directions_car_outlined,
+              label: thai ? 'ค่าเดินทาง' : 'Travel',
+              value: _money(impact.travelCost),
+            ),
+            _ImpactRow(
+              icon: Icons.work_off_outlined,
+              label: thai ? 'รายได้ที่สูญเสีย/ลดลง' : 'Lost/reduced income',
+              value: _money(impact.lostIncome + impact.reducedIncome),
+            ),
+            if (topBodyImpacts.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              Text(
+                thai
+                    ? 'ตำแหน่งที่มีผลต่อค่าใช้จ่าย'
+                    : 'Body areas driving the estimate',
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 6),
+              ...topBodyImpacts.map(
+                (item) => Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 10,
+                        height: 10,
+                        decoration: BoxDecoration(
+                          color: Color(item.riskLevel.colorHex),
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(child: Text(_partLabel(item.bodyPart, thai))),
+                      Text(_money(item.estimatedTreatmentCost)),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+            const SizedBox(height: 8),
+            Text(
+              thai
+                  ? 'อ้างอิงจากข้อมูลค่าใช้จ่ายจริงในกลุ่มผู้ป่วยตามรูปที่นำเข้า'
+                  : 'Based on the treatment and income-loss survey data imported from the provided tables.',
+              style: const TextStyle(fontSize: 12, color: Colors.black54),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _money(int amount) => thai ? '$amount บ.' : '$amount THB';
+}
+
+class _ImpactRow extends StatelessWidget {
+  const _ImpactRow({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        children: [
+          Icon(icon, size: 18, color: SooktaColors.darkGreen),
+          const SizedBox(width: 8),
+          Expanded(child: Text(label)),
+          Text(value, style: const TextStyle(fontWeight: FontWeight.bold)),
+        ],
+      ),
+    );
   }
 }
 
@@ -440,8 +707,18 @@ class _BodyMapCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
-              thai ? 'ตำแหน่งที่เสี่ยง' : 'Risky Body Parts',
+              thai ? 'ตำแหน่งที่เสี่ยงบนร่างกาย' : 'Risk points on body map',
               style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              height: 300,
+              child: CustomPaint(
+                painter: _BodyRiskPainter(
+                  bodyRisks: bodyRisks,
+                  thai: thai,
+                ),
+              ),
             ),
             const SizedBox(height: 12),
             Wrap(
@@ -451,7 +728,7 @@ class _BodyMapCard extends StatelessWidget {
                 final risk = bodyRisks[part] ?? RiskLevel.low;
                 return Chip(
                   avatar: CircleAvatar(backgroundColor: Color(risk.colorHex)),
-                  label: Text('${_partLabel(part)}: ${_shortRisk(risk)}'),
+                  label: Text('${_partLabel(part, thai)}: ${_shortRisk(risk)}'),
                 );
               }).toList(),
             ),
@@ -459,25 +736,6 @@ class _BodyMapCard extends StatelessWidget {
         ),
       ),
     );
-  }
-
-  String _partLabel(BodyPart part) {
-    if (thai) {
-      return switch (part) {
-        BodyPart.neck => 'คอ',
-        BodyPart.trunk => 'หลัง',
-        BodyPart.legs => 'ขา',
-        BodyPart.arms => 'ไหล่/แขน',
-        BodyPart.wrists => 'ข้อมือ',
-      };
-    }
-    return switch (part) {
-      BodyPart.neck => 'Neck',
-      BodyPart.trunk => 'Trunk',
-      BodyPart.legs => 'Legs',
-      BodyPart.arms => 'Arms',
-      BodyPart.wrists => 'Wrists',
-    };
   }
 
   String _shortRisk(RiskLevel level) {
@@ -496,4 +754,157 @@ class _BodyMapCard extends StatelessWidget {
       RiskLevel.veryHigh => 'V.High',
     };
   }
+}
+
+class _BodyRiskPainter extends CustomPainter {
+  const _BodyRiskPainter({
+    required this.bodyRisks,
+    required this.thai,
+  });
+
+  final Map<BodyPart, RiskLevel> bodyRisks;
+  final bool thai;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final centerX = size.width * 0.5;
+    final scale = size.height / 300;
+    Offset p(double x, double y) => Offset(centerX + (x * scale), y * scale);
+    final bodyPaint = Paint()
+      ..color = SooktaColors.darkGreen.withValues(alpha: 0.18)
+      ..strokeWidth = 9 * scale
+      ..strokeCap = StrokeCap.round
+      ..style = PaintingStyle.stroke;
+    final jointPaint = Paint()
+      ..color = SooktaColors.darkGreen.withValues(alpha: 0.22)
+      ..style = PaintingStyle.fill;
+
+    canvas.drawCircle(p(0, 34), 21 * scale, jointPaint);
+    canvas.drawLine(p(0, 58), p(0, 145), bodyPaint);
+    canvas.drawLine(p(-55, 82), p(55, 82), bodyPaint);
+    canvas.drawLine(p(-55, 82), p(-82, 142), bodyPaint);
+    canvas.drawLine(p(55, 82), p(82, 142), bodyPaint);
+    canvas.drawLine(p(-8, 145), p(-46, 238), bodyPaint);
+    canvas.drawLine(p(8, 145), p(46, 238), bodyPaint);
+
+    final markers = <BodyPart, Offset>{
+      BodyPart.neck: p(0, 62),
+      BodyPart.trunk: p(0, 124),
+      BodyPart.arms: p(70, 104),
+      BodyPart.wrists: p(84, 145),
+      BodyPart.legs: p(38, 222),
+    };
+    final labelOffsets = <BodyPart, Offset>{
+      BodyPart.neck: p(-128, 48),
+      BodyPart.trunk: p(-128, 122),
+      BodyPart.arms: p(78, 96),
+      BodyPart.wrists: p(78, 144),
+      BodyPart.legs: p(68, 226),
+    };
+
+    for (final entry in markers.entries) {
+      final risk = bodyRisks[entry.key] ?? RiskLevel.low;
+      final color = Color(risk.colorHex);
+      final markerPaint = Paint()..color = color;
+      canvas.drawCircle(entry.value, 11 * scale, markerPaint);
+      canvas.drawCircle(
+        entry.value,
+        17 * scale,
+        Paint()
+          ..color = color.withValues(alpha: 0.16)
+          ..style = PaintingStyle.fill,
+      );
+      _drawLabel(
+        canvas,
+        labelOffsets[entry.key]!,
+        '${_partLabel(entry.key, thai)}\n${_riskText(risk, thai)}',
+        color,
+        scale,
+      );
+      canvas.drawLine(
+        entry.value,
+        labelOffsets[entry.key]! + Offset(0, 14 * scale),
+        Paint()
+          ..color = color.withValues(alpha: 0.55)
+          ..strokeWidth = 1,
+      );
+    }
+  }
+
+  void _drawLabel(
+    Canvas canvas,
+    Offset offset,
+    String text,
+    Color color,
+    double scale,
+  ) {
+    final textPainter = TextPainter(
+      text: TextSpan(
+        text: text,
+        style: TextStyle(
+          color: color,
+          fontSize: 12 * scale,
+          height: 1.2,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout(maxWidth: 86 * scale);
+    textPainter.paint(canvas, offset);
+  }
+
+  @override
+  bool shouldRepaint(covariant _BodyRiskPainter oldDelegate) {
+    return oldDelegate.bodyRisks != bodyRisks || oldDelegate.thai != thai;
+  }
+}
+
+class _ImprovementAction {
+  const _ImprovementAction({
+    required this.scoreReduction,
+    required this.bodyParts,
+  });
+
+  final int scoreReduction;
+  final Set<BodyPart> bodyParts;
+
+  String partLabels({required bool thai}) {
+    return bodyParts.map((part) => _partLabel(part, thai)).join(', ');
+  }
+}
+
+String _partLabel(BodyPart part, bool thai) {
+  if (thai) {
+    return switch (part) {
+      BodyPart.neck => 'คอ',
+      BodyPart.trunk => 'หลัง/ลำตัว',
+      BodyPart.legs => 'ขา/เข่า',
+      BodyPart.arms => 'ไหล่/แขน',
+      BodyPart.wrists => 'ข้อมือ',
+    };
+  }
+  return switch (part) {
+    BodyPart.neck => 'Neck',
+    BodyPart.trunk => 'Back/Trunk',
+    BodyPart.legs => 'Legs/Knees',
+    BodyPart.arms => 'Shoulders/Arms',
+    BodyPart.wrists => 'Wrists',
+  };
+}
+
+String _riskText(RiskLevel level, bool thai) {
+  if (thai) {
+    return switch (level) {
+      RiskLevel.low => 'ต่ำ',
+      RiskLevel.medium => 'ปานกลาง',
+      RiskLevel.high => 'สูง',
+      RiskLevel.veryHigh => 'สูงมาก',
+    };
+  }
+  return switch (level) {
+    RiskLevel.low => 'Low',
+    RiskLevel.medium => 'Medium',
+    RiskLevel.high => 'High',
+    RiskLevel.veryHigh => 'Very high',
+  };
 }
