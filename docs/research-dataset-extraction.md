@@ -94,6 +94,27 @@ Only rows with `pose_status=ok` should be used for initial model experiments.
 Rows marked `low_confidence`, `read_failed`, or `inference_failed` should be
 reviewed or excluded.
 
+## QA And Label Template
+
+After extraction, generate QA files and an expert-label template:
+
+```bash
+python3 tools/research_dataset/qa_pose_dataset.py
+```
+
+Outputs:
+
+- `data/research/extracted/qa/qa_summary.json`
+- `data/research/extracted/qa/qa_by_activity_session.csv`
+- `data/research/extracted/qa/low_confidence_review.csv`
+- `data/research/extracted/qa/expert_label_template.csv`
+
+The label template keeps one row per extracted image/frame and leaves research
+fields blank for expert review, including REBA score, risk level, body part,
+pain score, treatment cost, lost income, lost work days, and recommendation.
+Rows with weak pose confidence are marked `suggested_include_for_training=no`
+so they can be reviewed before model training.
+
 ## Labeling Gate
 
 The extractor does not create a validated AI model by itself. The output still
