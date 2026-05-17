@@ -13,6 +13,9 @@ dependencies:
   cupertino_icons: ^1.0.8
   image: ^4.3.0
   image_picker: ^1.1.2
+  ml_algo: ^16.18.0
+  ml_dataframe: ^1.6.0
+  onnxruntime: ^1.4.1
   path: ^1.9.0
   path_provider: ^2.1.5
   shared_preferences: ^2.3.3
@@ -29,3 +32,4 @@ flutter:
     - assets/images/
     - assets/ml/movenet_thunder.tflite
     - assets/ml/risk_alert_models.json
+    - assets/models/
