@@ -7,10 +7,21 @@ Updated: 2026-05-23
 - iPhone 6.9-inch selected screenshots:
   `/Users/kpc/Desktop/Sookta_AppStore_v1/selected_iphone_6_9`
 - iPad 13-inch selected screenshots:
+  `/Users/kpc/Desktop/Sookta_AppStore_v1/selected_ipad_13_reviewed`
+- iPad 13-inch previous selected screenshots:
   `/Users/kpc/Desktop/Sookta_AppStore_v1/selected_ipad_13`
 - Raw captures:
   `/Users/kpc/Desktop/Sookta_AppStore_v1/iphone_6_9`
   `/Users/kpc/Desktop/Sookta_AppStore_v1/ipad_13`
+
+## Screenshot QA Notes
+
+- Use `selected_ipad_13_reviewed` for App Store Connect iPad screenshots.
+- The older iPad selected file `05_language.png` was actually a profile screen
+  captured before the three profile stat cards were kept on one row.
+- The profile overview screenshots with `Sookta QA` underlined were kept out of
+  the reviewed iPad set because they show a debug baseline artifact from the
+  simulator capture, not production UI.
 
 ## App Information
 
