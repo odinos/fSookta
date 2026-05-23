@@ -1,3 +1,5 @@
+import 'dart:io' show Platform;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 
@@ -19,20 +21,38 @@ class SooktaTtsButton extends StatefulWidget {
 
 class _SooktaTtsButtonState extends State<SooktaTtsButton> {
   late final FlutterTts _tts;
+  late Future<void> _configured;
   bool _speaking = false;
 
   @override
   void initState() {
     super.initState();
     _tts = FlutterTts();
-    _configure();
+    _configured = _configure();
   }
 
   Future<void> _configure() async {
+    if (Platform.isIOS) {
+      await _tts.setSharedInstance(true);
+      await _tts.autoStopSharedSession(false);
+      await _tts.setIosAudioCategory(
+        IosTextToSpeechAudioCategory.playback,
+        [
+          IosTextToSpeechAudioCategoryOptions.defaultToSpeaker,
+          IosTextToSpeechAudioCategoryOptions.allowBluetooth,
+          IosTextToSpeechAudioCategoryOptions.allowBluetoothA2DP,
+        ],
+        IosTextToSpeechAudioMode.spokenAudio,
+      );
+    }
+    await _tts.setVolume(1.0);
     await _tts.setLanguage(widget.thai ? 'th-TH' : 'en-US');
     await _tts.setSpeechRate(widget.thai ? 0.45 : 0.48);
-    await _tts.setPitch(1);
-    await _tts.awaitSpeakCompletion(false);
+    await _tts.setPitch(1.0);
+    await _tts.awaitSpeakCompletion(true);
+    _tts.setStartHandler(() {
+      if (mounted) setState(() => _speaking = true);
+    });
     _tts.setCompletionHandler(_stopIndicator);
     _tts.setCancelHandler(_stopIndicator);
     _tts.setErrorHandler((_) => _stopIndicator());
@@ -42,7 +62,7 @@ class _SooktaTtsButtonState extends State<SooktaTtsButton> {
   void didUpdateWidget(covariant SooktaTtsButton oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.thai != widget.thai) {
-      _tts.setLanguage(widget.thai ? 'th-TH' : 'en-US');
+      _configured = _configure();
     }
   }
 
@@ -59,8 +79,31 @@ class _SooktaTtsButtonState extends State<SooktaTtsButton> {
       return;
     }
     if (widget.text.trim().isEmpty) return;
-    setState(() => _speaking = true);
-    await _tts.speak(widget.text);
+    try {
+      await _configured;
+      if (!mounted) return;
+      setState(() => _speaking = true);
+      final result = await _tts.speak(widget.text.trim());
+      if (result == 0) {
+        _showTtsError();
+      }
+    } catch (_) {
+      _showTtsError();
+    }
+  }
+
+  void _showTtsError() {
+    _stopIndicator();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          widget.thai
+              ? 'ยังเปิดเสียงอ่านข้อความไม่ได้ กรุณาเพิ่มเสียงเครื่องแล้วลองอีกครั้ง'
+              : 'Could not play speech. Turn up device volume and try again.',
+        ),
+      ),
+    );
   }
 
   void _stopIndicator() {
