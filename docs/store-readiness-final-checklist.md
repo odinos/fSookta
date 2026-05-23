@@ -24,6 +24,20 @@ confirmed injury predictor, or exact economic forecasting system.
   Functional Design Document.
 - Android release keep rules are present for TensorFlow Lite and ONNX runtime
   dependencies when shrinking is enabled.
+- Android release signing is prepared through ignored local `android/key.properties`
+  and `android/key.properties.example`; real keystore files must stay outside git.
+- Android Play Store release steps are documented in
+  `docs/android-play-store-release.md`.
+
+## Android Play Store Submission
+
+- Generate the upload keystore locally and fill `android/key.properties` before
+  building the Play artifact. Do not commit passwords or `.jks` files.
+- Run `flutter analyze`, `flutter test`, and `flutter build appbundle --release`.
+- Upload `build/app/outputs/bundle/release/app-release.aab` to Play Console.
+- Complete Play Console Data safety, privacy policy, content rating, target
+  audience, app access, ads declaration, and screenshots.
+- Test the release build on a physical Android phone before production rollout.
 
 ## Must Pass Before TestFlight/App Store Submission
 
@@ -55,7 +69,8 @@ confirmed injury predictor, or exact economic forecasting system.
 - Validated Logistic Regression coefficients from the expert-labeled research
   dataset.
 - Exported XGBoost ONNX model and on-device fixed-vector inference tests.
-- Full Android Play Store release hardening beyond the keep-rule readiness pass.
+- Firebase configuration and remote research data sync, if required by the final
+  research workflow.
 - Pixel-perfect parity fixes that do not block the iOS research prototype flow.
 
 

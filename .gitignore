@@ -43,6 +43,11 @@ android/app/debug
 android/app/profile
 android/app/release
 
+# Android release signing secrets
+android/key.properties
+*.jks
+*.keystore
+
 # iOS
 ios/Flutter/Generated.xcconfig
 ios/Flutter/flutter_export_environment.sh
