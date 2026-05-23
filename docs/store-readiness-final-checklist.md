@@ -16,6 +16,7 @@ confirmed injury predictor, or exact economic forecasting system.
 - `PrivacyInfo.xcprivacy` declares UserDefaults access for local
   profile/language/history persistence.
 - Native Sookta launcher assets have been restored for Android and iOS.
+- The iOS launch image uses the Sookta logo instead of the Flutter placeholder.
 - Profile, language, avatar, activity selection, ergonomic assessment, results,
   recommendation re-score, history, body risk map, economic impact estimates,
   responsive layout, and TTS are implemented in the Flutter app.
@@ -29,8 +30,9 @@ confirmed injury predictor, or exact economic forecasting system.
 - Run on a physical iPhone and verify camera capture, gallery selection,
   posture image orientation, TFLite MoveNet inference, TTS playback, and
   profile/history persistence after app restart.
-- Create an Xcode Archive with the final Apple Developer team and provisioning
-  profile, then upload to TestFlight.
+- Create/export the final IPA with an Apple Distribution certificate and provisioning
+  profile, then upload to TestFlight. A release archive builds successfully from a
+  local non-cloud path; IPA export currently requires the distribution account setup.
 - Complete App Store Connect privacy answers consistently with local profile,
   photo/camera use, local history storage, and any research data export flow that
   will be used during field testing.
@@ -55,3 +57,12 @@ confirmed injury predictor, or exact economic forecasting system.
 - Exported XGBoost ONNX model and on-device fixed-vector inference tests.
 - Full Android Play Store release hardening beyond the keep-rule readiness pass.
 - Pixel-perfect parity fixes that do not block the iOS research prototype flow.
+
+
+## Build Environment Note
+
+The working copy is currently under a macOS FileProvider/cloud-synced Documents
+path. Device release signing can fail there because `com.apple.provenance` or
+Finder metadata is copied into `App.framework`. For App Store/TestFlight builds,
+use a local non-cloud path such as `/private/tmp/fSookta-store-build` or move the
+checkout to a normal local development directory before archiving.
