@@ -11,6 +11,7 @@ import '../../core/services/ergo_calculator.dart';
 import '../../core/services/pose_estimation_service.dart';
 import '../../core/services/risk_alert_model_service.dart';
 import '../../core/theme/sookta_theme.dart';
+import '../../widgets/responsive_content.dart';
 import 'camera_capture_screen.dart';
 import 'initial_risk_screen.dart';
 
@@ -82,7 +83,8 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
     return Scaffold(
       appBar: AppBar(title: Text(thai ? 'แบบฟอร์มประเมิน' : 'Evaluation Form')),
       body: SafeArea(
-        child: ListView(
+        child: ResponsiveListView(
+          maxWidth: 680,
           padding: const EdgeInsets.all(16),
           children: [
             Text(
@@ -334,7 +336,7 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
         setState(() {
           rebaInput = inferred;
           poseStatus = thai
-              ? 'AI ปรับคะแนน REBA จากภาพแล้ว'
+              ? 'ระบบประเมินคะแนน REBA จากภาพแล้ว'
               : 'REBA scores updated from photos.';
         });
       } else if (selectedJobType == JobType.lifting) {
@@ -350,7 +352,7 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
                 dimensions.horizontalCm.round().toString();
             verticalController.text = dimensions.verticalCm.round().toString();
             poseStatus = thai
-                ? 'AI อ่านระยะ H/V จากภาพแล้ว'
+                ? 'ระบบอ่านระยะ H/V จากภาพแล้ว'
                 : 'H/V distances updated from the latest photo.';
           }
         });
@@ -415,8 +417,8 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
         SnackBar(
           content: Text(
             thai
-                ? 'AI Risk Alert ใช้งานไม่ได้ ใช้การคำนวณ REBA/ISO แทน'
-                : 'AI Risk Alert unavailable. Using REBA/ISO fallback.',
+                ? 'ใช้การคำนวณ REBA/ISO เพื่อประเมินผลแทน'
+                : 'Using REBA/ISO calculation for this assessment.',
           ),
         ),
       );
@@ -466,99 +468,119 @@ class _ImageSlots extends StatelessWidget {
           ? 'รูปภาพประกอบ (${imagePaths.length}/4)'
           : 'Images (${imagePaths.length}/4)',
       children: [
-        GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: 4,
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2,
-            crossAxisSpacing: 10,
-            mainAxisSpacing: 10,
-            childAspectRatio: 1.45,
-          ),
-          itemBuilder: (context, index) {
-            final filled = index < imagePaths.length;
-            final enabled = filled || index == imagePaths.length;
-            return InkWell(
-              onTap: enabled && !filled ? () => onSlotTap(index) : null,
-              borderRadius: BorderRadius.circular(8),
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  color: filled
-                      ? const Color(0xFFE8F5E9)
-                      : enabled
-                          ? Colors.grey.shade100
-                          : Colors.grey.shade200,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color:
-                        filled ? SooktaColors.leafGreen : Colors.grey.shade300,
-                  ),
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(7),
-                  child: filled
-                      ? Stack(
-                          fit: StackFit.expand,
-                          children: [
-                            Image.file(
-                              File(imagePaths[index]),
-                              fit: BoxFit.cover,
-                              errorBuilder: (_, __, ___) => const Icon(
-                                Icons.broken_image_outlined,
-                                color: SooktaColors.darkGreen,
-                              ),
-                            ),
-                            Positioned(
-                              right: 6,
-                              top: 6,
-                              child: IconButton.filled(
-                                style: IconButton.styleFrom(
-                                  backgroundColor:
-                                      Colors.red.withValues(alpha: 0.86),
-                                  foregroundColor: Colors.white,
-                                  fixedSize: const Size(30, 30),
-                                  minimumSize: const Size(30, 30),
-                                  padding: EdgeInsets.zero,
-                                ),
-                                onPressed: () => onSlotRemove(index),
-                                icon: const Icon(Icons.close, size: 18),
-                              ),
-                            ),
-                          ],
-                        )
-                      : Center(
-                          child: Icon(
-                            enabled
-                                ? Icons.add_a_photo_outlined
-                                : Icons.image_outlined,
-                            color: enabled ? Colors.grey : Colors.grey.shade400,
-                          ),
-                        ),
-                ),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final columns = constraints.maxWidth < 340 ? 1 : 2;
+            return GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: 4,
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: columns,
+                crossAxisSpacing: 10,
+                mainAxisSpacing: 10,
+                childAspectRatio: columns == 1 ? 2.6 : 1.45,
               ),
+              itemBuilder: (context, index) {
+                final filled = index < imagePaths.length;
+                final enabled = filled || index == imagePaths.length;
+                return InkWell(
+                  onTap: enabled && !filled ? () => onSlotTap(index) : null,
+                  borderRadius: BorderRadius.circular(8),
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: filled
+                          ? const Color(0xFFE8F5E9)
+                          : enabled
+                              ? Colors.grey.shade100
+                              : Colors.grey.shade200,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: filled
+                            ? SooktaColors.leafGreen
+                            : Colors.grey.shade300,
+                      ),
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(7),
+                      child: filled
+                          ? Stack(
+                              fit: StackFit.expand,
+                              children: [
+                                Image.file(
+                                  File(imagePaths[index]),
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, __, ___) => const Icon(
+                                    Icons.broken_image_outlined,
+                                    color: SooktaColors.darkGreen,
+                                  ),
+                                ),
+                                Positioned(
+                                  right: 6,
+                                  top: 6,
+                                  child: IconButton.filled(
+                                    style: IconButton.styleFrom(
+                                      backgroundColor:
+                                          Colors.red.withValues(alpha: 0.86),
+                                      foregroundColor: Colors.white,
+                                      fixedSize: const Size(30, 30),
+                                      minimumSize: const Size(30, 30),
+                                      padding: EdgeInsets.zero,
+                                    ),
+                                    onPressed: () => onSlotRemove(index),
+                                    icon: const Icon(Icons.close, size: 18),
+                                  ),
+                                ),
+                              ],
+                            )
+                          : Center(
+                              child: Icon(
+                                enabled
+                                    ? Icons.add_a_photo_outlined
+                                    : Icons.image_outlined,
+                                color: enabled
+                                    ? Colors.grey
+                                    : Colors.grey.shade400,
+                              ),
+                            ),
+                    ),
+                  ),
+                );
+              },
             );
           },
         ),
         const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: FilledButton.icon(
-                onPressed: onCamera,
-                icon: const Icon(Icons.camera_alt),
-                label: Text(thai ? 'ถ่ายรูป' : 'Camera'),
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: OutlinedButton.icon(
-                onPressed: onGallery,
-                icon: const Icon(Icons.image_outlined),
-                label: Text(thai ? 'อัลบั้ม' : 'Gallery'),
-              ),
-            ),
-          ],
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final stacked = constraints.maxWidth < 340;
+            return Wrap(
+              spacing: 10,
+              runSpacing: 8,
+              children: [
+                SizedBox(
+                  width: stacked
+                      ? constraints.maxWidth
+                      : (constraints.maxWidth - 10) / 2,
+                  child: FilledButton.icon(
+                    onPressed: onCamera,
+                    icon: const Icon(Icons.camera_alt),
+                    label: Text(thai ? 'ถ่ายรูป' : 'Camera'),
+                  ),
+                ),
+                SizedBox(
+                  width: stacked
+                      ? constraints.maxWidth
+                      : (constraints.maxWidth - 10) / 2,
+                  child: OutlinedButton.icon(
+                    onPressed: onGallery,
+                    icon: const Icon(Icons.image_outlined),
+                    label: Text(thai ? 'อัลบั้ม' : 'Gallery'),
+                  ),
+                ),
+              ],
+            );
+          },
         ),
       ],
     );
@@ -596,8 +618,7 @@ class _RebaCard extends StatelessWidget {
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
               : const Icon(Icons.auto_awesome),
-          label:
-              Text(thai ? 'วิเคราะห์ REBA จากภาพ' : 'Analyze REBA from photos'),
+          label: Text(thai ? 'ประเมิน REBA จากภาพ' : 'Assess REBA from photos'),
         ),
         if (poseStatus != null) ...[
           const SizedBox(height: 8),

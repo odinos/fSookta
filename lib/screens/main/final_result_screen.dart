@@ -5,6 +5,10 @@ import '../../app/sookta_app.dart';
 import '../../core/localization/sookta_strings.dart';
 import '../../core/models/assessment_session.dart';
 import '../../core/theme/sookta_theme.dart';
+import '../../widgets/body_risk_map_card.dart';
+import '../../widgets/research_disclaimer_card.dart';
+import '../../widgets/responsive_content.dart';
+import '../../widgets/tts_button.dart';
 import 'main_tabs_screen.dart';
 
 class FinalResultScreen extends StatefulWidget {
@@ -57,7 +61,8 @@ class _FinalResultScreenState extends State<FinalResultScreen> {
       appBar: AppBar(
           title: Text(thai ? 'บันทึกและสรุปผลสำเร็จ' : 'Saved Successfully')),
       body: SafeArea(
-        child: ListView(
+        child: ResponsiveListView(
+          maxWidth: 640,
           padding: const EdgeInsets.all(16),
           children: [
             Card(
@@ -68,34 +73,63 @@ class _FinalResultScreenState extends State<FinalResultScreen> {
                     const Icon(Icons.check_circle,
                         size: 64, color: SooktaColors.leafGreen),
                     const SizedBox(height: 8),
-                    Text(
-                      thai
-                          ? 'ผลลัพธ์จากการจำลองการปรับปรุงของคุณ'
-                          : 'Result of your improvement simulation',
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                          fontSize: 18, fontWeight: FontWeight.bold),
+                    ClampedTextScale(
+                      maxScale: 1.12,
+                      child: Text(
+                        thai
+                            ? 'ผลลัพธ์โดยประมาณหลังเลือกแนวทางปรับปรุง'
+                            : 'Estimated result after selected improvements',
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                            fontSize: 17, fontWeight: FontWeight.bold),
+                      ),
                     ),
                     const SizedBox(height: 16),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _ScoreBlock(
-                            label: thai ? 'ก่อนปรับ' : 'Before',
-                            score: before.userScore,
-                            color: Color(before.userScoreColor),
-                          ),
-                        ),
-                        const Icon(Icons.arrow_forward,
-                            color: SooktaColors.leafGreen),
-                        Expanded(
-                          child: _ScoreBlock(
-                            label: thai ? 'หลังปรับ' : 'After',
-                            score: after.userScore,
-                            color: Color(after.userScoreColor),
-                          ),
-                        ),
-                      ],
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        final compact = constraints.maxWidth < 330;
+                        final beforeBlock = _ScoreBlock(
+                          label: thai ? 'ก่อนปรับ' : 'Before',
+                          score: before.userScore,
+                          color: Color(before.userScoreColor),
+                        );
+                        final afterBlock = _ScoreBlock(
+                          label: thai ? 'หลังปรับ' : 'After',
+                          score: after.userScore,
+                          color: Color(after.userScoreColor),
+                        );
+                        final tts = SooktaTtsButton(
+                          thai: thai,
+                          text: thai
+                              ? 'ผลลัพธ์โดยประมาณหลังเลือกแนวทางปรับปรุง ก่อนปรับ ${before.userScore} หลังปรับ ${after.userScore}'
+                              : 'Estimated result after selected improvements. Before ${before.userScore}. After ${after.userScore}.',
+                        );
+                        if (compact) {
+                          return Column(
+                            children: [
+                              Align(
+                                  alignment: Alignment.centerLeft, child: tts),
+                              beforeBlock,
+                              const Icon(Icons.arrow_downward,
+                                  color: SooktaColors.leafGreen),
+                              afterBlock,
+                            ],
+                          );
+                        }
+                        return Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            tts,
+                            const SizedBox(width: 8),
+                            Expanded(child: beforeBlock),
+                            const Icon(Icons.arrow_forward,
+                                color: SooktaColors.leafGreen),
+                            Expanded(child: afterBlock),
+                          ],
+                        );
+                      },
                     ),
                   ],
                 ),
@@ -106,15 +140,29 @@ class _FinalResultScreenState extends State<FinalResultScreen> {
               child: ListTile(
                 leading: const Icon(Icons.savings_outlined,
                     color: SooktaColors.darkGreen),
-                title: Text(thai ? 'คุณลดความสูญเสียได้' : 'Potential Savings'),
+                title: Text(
+                  thai
+                      ? 'ผลกระทบที่อาจลดลงโดยประมาณ'
+                      : 'Estimated Potential Impact Reduction',
+                ),
                 subtitle: Text(
                   saved > 0
-                      ? (thai ? '$saved บาท/ปี' : '$saved THB/year')
+                      ? (thai
+                          ? 'ประมาณ $saved บาท/ปี เพื่อการสื่อสารความเสี่ยง'
+                          : 'Estimated $saved THB/year for risk communication')
                       : (thai
-                          ? 'ไม่มีความเสี่ยงสูญเสียรายได้'
-                          : 'No potential income loss'),
+                          ? 'ไม่พบผลกระทบด้านรายได้เพิ่มเติมจากแบบจำลองนี้'
+                          : 'No additional potential income impact in this model'),
                 ),
               ),
+            ),
+            const SizedBox(height: 12),
+            ResearchDisclaimerCard(thai: thai),
+            const SizedBox(height: 16),
+            BodyRiskMapCard(
+              bodyRisks: before.bodyPartRisks,
+              thai: thai,
+              title: thai ? 'จุดเสี่ยงที่พบ' : 'Risky Points',
             ),
             const SizedBox(height: 16),
             Card(
@@ -145,6 +193,11 @@ class _FinalResultScreenState extends State<FinalResultScreen> {
                                   size: 18, color: SooktaColors.leafGreen),
                               const SizedBox(width: 8),
                               Expanded(child: Text(item)),
+                              SooktaTtsButton(
+                                text: item,
+                                thai: thai,
+                                size: 32,
+                              ),
                             ],
                           ),
                         ),
@@ -199,12 +252,15 @@ class _ScoreBlock extends StatelessWidget {
           height: 68,
           decoration: BoxDecoration(color: color, shape: BoxShape.circle),
           child: Center(
-            child: Text(
-              '$score',
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 26,
-                fontWeight: FontWeight.bold,
+            child: FixedTextScale(
+              child: Text(
+                '$score',
+                maxLines: 1,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 26,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
           ),

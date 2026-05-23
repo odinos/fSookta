@@ -43,94 +43,113 @@ class _AvatarSelectionScreenState extends State<AvatarSelectionScreen> {
           builder: (context, constraints) {
             return SingleChildScrollView(
               padding: const EdgeInsets.all(16),
-              child: ConstrainedBox(
-                constraints:
-                    BoxConstraints(minHeight: constraints.maxHeight - 32),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    const SizedBox(height: 12),
-                    Text(
-                      text.avatarTitle,
-                      style: const TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF5C9A81),
-                      ),
-                    ),
-                    Text(text.avatarSubtitle,
-                        style: const TextStyle(color: Colors.grey)),
-                    const SizedBox(height: 18),
-                    CircleAvatar(
-                      radius: 62,
-                      backgroundColor: Colors.grey.shade300,
-                      foregroundImage: _avatarProvider(selectedAvatar),
-                      child: selectedAvatar == null
-                          ? const Icon(Icons.person,
-                              size: 72, color: Colors.white)
-                          : null,
-                    ),
-                    const SizedBox(height: 16),
-                    Wrap(
-                      alignment: WrapAlignment.center,
-                      spacing: 12,
-                      runSpacing: 8,
-                      children: [
-                        FilledButton.icon(
-                          onPressed: pickingAvatar ? null : _captureAvatar,
-                          icon: const Icon(Icons.camera_alt),
-                          label: Text(text.takePhoto),
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    minHeight: constraints.maxHeight - 32,
+                    maxWidth: 620,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      const SizedBox(height: 12),
+                      Text(
+                        text.avatarTitle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF5C9A81),
                         ),
-                        OutlinedButton.icon(
-                          onPressed:
-                              pickingAvatar ? null : _pickAvatarFromGallery,
-                          icon: const Icon(Icons.image),
-                          label: Text(text.gallery),
+                      ),
+                      Text(
+                        text.avatarSubtitle,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.center,
+                        style:
+                            const TextStyle(fontSize: 14, color: Colors.grey),
+                      ),
+                      const SizedBox(height: 18),
+                      CircleAvatar(
+                        radius: 62,
+                        backgroundColor: Colors.grey.shade300,
+                        foregroundImage: _avatarProvider(selectedAvatar),
+                        child: selectedAvatar == null
+                            ? const Icon(Icons.person,
+                                size: 72, color: Colors.white)
+                            : null,
+                      ),
+                      const SizedBox(height: 16),
+                      Wrap(
+                        alignment: WrapAlignment.center,
+                        spacing: 12,
+                        runSpacing: 8,
+                        children: [
+                          FilledButton.icon(
+                            onPressed: pickingAvatar ? null : _captureAvatar,
+                            icon: const Icon(Icons.camera_alt),
+                            label: Text(text.takePhoto),
+                          ),
+                          OutlinedButton.icon(
+                            onPressed:
+                                pickingAvatar ? null : _pickAvatarFromGallery,
+                            icon: const Icon(Icons.image),
+                            label: Text(text.gallery),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      const Divider(),
+                      const SizedBox(height: 12),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          text.avatarHint,
+                          style: const TextStyle(fontWeight: FontWeight.bold),
                         ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    const Divider(),
-                    const SizedBox(height: 12),
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        text.avatarHint,
-                        style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
-                    ),
-                    const SizedBox(height: 12),
-                    GridView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: avatars.length,
-                      gridDelegate:
-                          const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 4,
-                        crossAxisSpacing: 12,
-                        mainAxisSpacing: 12,
+                      const SizedBox(height: 12),
+                      LayoutBuilder(
+                        builder: (context, constraints) {
+                          final columns = constraints.maxWidth < 340 ? 2 : 4;
+                          return GridView.builder(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            itemCount: avatars.length,
+                            gridDelegate:
+                                SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: columns,
+                              crossAxisSpacing: 12,
+                              mainAxisSpacing: 12,
+                            ),
+                            itemBuilder: (context, index) {
+                              final avatar = avatars[index];
+                              final selected = selectedAvatar == avatar;
+                              return _AvatarTile(
+                                asset: avatar,
+                                selected: selected,
+                                onTap: () =>
+                                    setState(() => selectedAvatar = avatar),
+                              );
+                            },
+                          );
+                        },
                       ),
-                      itemBuilder: (context, index) {
-                        final avatar = avatars[index];
-                        final selected = selectedAvatar == avatar;
-                        return _AvatarTile(
-                          asset: avatar,
-                          selected: selected,
-                          onTap: () => setState(() => selectedAvatar = avatar),
-                        );
-                      },
-                    ),
-                    const SizedBox(height: 24),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 50,
-                      child: FilledButton(
-                        onPressed: selectedAvatar == null ? null : _finish,
-                        child: Text(text.confirmAvatar,
-                            style: const TextStyle(fontSize: 18)),
+                      const SizedBox(height: 24),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 50,
+                        child: FilledButton(
+                          onPressed: selectedAvatar == null ? null : _finish,
+                          child: Text(text.confirmAvatar,
+                              style: const TextStyle(fontSize: 16)),
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             );

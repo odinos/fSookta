@@ -28,8 +28,8 @@ class AppText {
   String get income =>
       isThai ? 'รายได้เฉลี่ยต่อปี (บาท)' : 'Annual Income (THB)';
   String get incomeNote => isThai
-      ? '* ใช้สำหรับการประเมินความสูญเสียทางเศรษฐกิจ'
-      : '* Used for economic loss estimation';
+      ? '* ใช้ประเมินผลกระทบด้านรายได้โดยประมาณ'
+      : '* Used to estimate potential income impact';
   String get avatarTitle =>
       isThai ? 'เลือกรูปโปรไฟล์' : 'Select Profile Picture';
   String get avatarSubtitle => isThai

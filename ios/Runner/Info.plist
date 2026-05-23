@@ -26,6 +26,8 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>NSCameraUsageDescription</key>
 	<string>Sookta uses the camera to capture posture photos for ergonomic risk assessment.</string>
 	<key>NSPhotoLibraryUsageDescription</key>

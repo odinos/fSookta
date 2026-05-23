@@ -15,6 +15,7 @@ import '../screens/main/initial_risk_screen.dart';
 import '../screens/main/main_tabs_screen.dart';
 import '../screens/main/route_error_screen.dart';
 import '../core/models/assessment_session.dart';
+import '../widgets/responsive_content.dart';
 import 'app_state.dart';
 
 class SooktaApp extends StatefulWidget {
@@ -47,11 +48,11 @@ class _SooktaAppState extends State<SooktaApp> {
         title: 'Sookta',
         debugShowCheckedModeBanner: false,
         theme: buildSooktaTheme(),
+        builder: (context, child) {
+          return ClampedTextScale(child: child ?? const SizedBox.shrink());
+        },
         routes: {
           SplashScreen.routeName: (_) => const SplashScreen(),
-          LanguageSelectionScreen.routeName: (_) =>
-              const LanguageSelectionScreen(),
-          SetupScreen.routeName: (_) => const SetupScreen(),
           AvatarSelectionScreen.routeName: (_) => const AvatarSelectionScreen(),
           MainTabsScreen.routeName: (_) => const MainTabsScreen(),
           EvaluationMenuScreen.routeName: (_) => const EvaluationMenuScreen(),
@@ -67,6 +68,18 @@ class _SooktaAppState extends State<SooktaApp> {
 
   Route<dynamic>? _generateRoute(RouteSettings settings) {
     return switch (settings.name) {
+      LanguageSelectionScreen.routeName => MaterialPageRoute<void>(
+          settings: settings,
+          builder: (_) => LanguageSelectionScreen(
+            editMode: settings.arguments == true,
+          ),
+        ),
+      SetupScreen.routeName => MaterialPageRoute<void>(
+          settings: settings,
+          builder: (_) => SetupScreen(
+            editMode: settings.arguments == true,
+          ),
+        ),
       EvaluationFormScreen.routeName => MaterialPageRoute<void>(
           settings: settings,
           builder: (_) => EvaluationFormScreen(

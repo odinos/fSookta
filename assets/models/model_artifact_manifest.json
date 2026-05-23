@@ -13,9 +13,9 @@
       "status": "required_for_research_trained_ab_test"
     }
   },
-  "requiredBeforeProduction": [
-    "Replace logistic_weights.json with research-trained coefficients using the same featureSchemaId.",
-    "Add xgboost_model.onnx exported from the research-trained XGBoost pipeline.",
-    "Run offline inference tests against fixed sample joint-feature vectors from the research dataset."
+  "requiredBeforeResearchTrainedAbTest": [
+    "Replace logistic_weights.json with research-trained coefficients using the same featureSchemaId before claiming a validated research-trained model.",
+    "Add xgboost_model.onnx exported from the research-trained XGBoost pipeline before enabling XGBoost A/B testing.",
+    "Run offline inference tests against fixed sample joint-feature vectors from the expert-labeled research dataset."
   ]
 }

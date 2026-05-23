@@ -3,12 +3,18 @@ import 'package:flutter/material.dart';
 import '../../app/app_state.dart';
 import '../../app/app_text.dart';
 import '../../app/sookta_app.dart';
+import '../../widgets/responsive_content.dart';
 import 'avatar_selection_screen.dart';
 
 class SetupScreen extends StatefulWidget {
-  const SetupScreen({super.key});
+  const SetupScreen({
+    this.editMode = false,
+    super.key,
+  });
 
   static const routeName = '/setup';
+
+  final bool editMode;
 
   @override
   State<SetupScreen> createState() => _SetupScreenState();
@@ -63,16 +69,19 @@ class _SetupScreenState extends State<SetupScreen> {
     final state = AppStateScope.of(context);
     final text = AppText(state.language ?? AppLanguage.th);
 
+    final title = widget.editMode ? text.editProfile : text.addProfile;
+
     return Scaffold(
-      appBar: AppBar(title: Text(text.addProfile)),
+      appBar: AppBar(title: Text(title)),
       body: SafeArea(
-        child: ListView(
+        child: ResponsiveListView(
+          maxWidth: 560,
           padding: const EdgeInsets.all(24),
           children: [
             Text(
-              text.addProfile,
+              title,
               style: const TextStyle(
-                fontSize: 24,
+                fontSize: 22,
                 fontWeight: FontWeight.bold,
                 color: Color(0xFF5C9A81),
               ),
@@ -88,20 +97,30 @@ class _SetupScreenState extends State<SetupScreen> {
             const SizedBox(height: 12),
             Text(text.gender, style: const TextStyle(color: Color(0xFF5C9A81))),
             const SizedBox(height: 8),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                _GenderButton(
-                  label: text.male,
-                  selected: gender == 'Male',
-                  onTap: () => setState(() => gender = 'Male'),
-                ),
-                _GenderButton(
-                  label: text.female,
-                  selected: gender == 'Female',
-                  onTap: () => setState(() => gender = 'Female'),
-                ),
-              ],
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final buttonWidth =
+                    ((constraints.maxWidth - 12) / 2).clamp(120.0, 240.0);
+                return Wrap(
+                  alignment: WrapAlignment.center,
+                  spacing: 12,
+                  runSpacing: 8,
+                  children: [
+                    _GenderButton(
+                      width: buttonWidth,
+                      label: text.male,
+                      selected: gender == 'Male',
+                      onTap: () => setState(() => gender = 'Male'),
+                    ),
+                    _GenderButton(
+                      width: buttonWidth,
+                      label: text.female,
+                      selected: gender == 'Female',
+                      onTap: () => setState(() => gender = 'Female'),
+                    ),
+                  ],
+                );
+              },
             ),
             const SizedBox(height: 12),
             _SooktaTextField(
@@ -130,7 +149,10 @@ class _SetupScreenState extends State<SetupScreen> {
                   nameController.text.isEmpty || ageController.text.isEmpty
                       ? null
                       : _saveAndContinue,
-              child: Text(text.next, style: const TextStyle(fontSize: 18)),
+              child: Text(
+                widget.editMode ? text.save : text.next,
+                style: const TextStyle(fontSize: 16),
+              ),
             ),
           ],
         ),
@@ -149,6 +171,10 @@ class _SetupScreenState extends State<SetupScreen> {
         incomePerYear: incomeController.text,
       ),
     );
+    if (widget.editMode) {
+      Navigator.of(context).pop();
+      return;
+    }
     Navigator.of(context).pushNamed(AvatarSelectionScreen.routeName);
   }
 }
@@ -185,11 +211,13 @@ class _SooktaTextField extends StatelessWidget {
 
 class _GenderButton extends StatelessWidget {
   const _GenderButton({
+    required this.width,
     required this.label,
     required this.selected,
     required this.onTap,
   });
 
+  final double width;
   final String label;
   final bool selected;
   final VoidCallback onTap;
@@ -197,7 +225,7 @@ class _GenderButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 120,
+      width: width,
       child: FilledButton(
         onPressed: onTap,
         style: FilledButton.styleFrom(

@@ -4,6 +4,10 @@ import '../../app/app_state.dart';
 import '../../app/sookta_app.dart';
 import '../../core/models/evaluation_models.dart';
 import '../../core/theme/sookta_theme.dart';
+import '../../widgets/body_risk_map_card.dart';
+import '../../widgets/research_disclaimer_card.dart';
+import '../../widgets/responsive_content.dart';
+import '../../widgets/tts_button.dart';
 
 class HistoryDetailScreen extends StatelessWidget {
   const HistoryDetailScreen({
@@ -26,7 +30,8 @@ class HistoryDetailScreen extends StatelessWidget {
       body: SafeArea(
         child: record == null
             ? Center(child: Text(thai ? 'ไม่พบประวัติ' : 'History not found'))
-            : ListView(
+            : ResponsiveListView(
+                maxWidth: 640,
                 padding: const EdgeInsets.all(16),
                 children: [
                   Card(
@@ -37,9 +42,11 @@ class HistoryDetailScreen extends StatelessWidget {
                         children: [
                           Text(
                             record.activityName,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
                               color: SooktaColors.darkGreen,
-                              fontSize: 22,
+                              fontSize: 20,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
@@ -51,24 +58,49 @@ class HistoryDetailScreen extends StatelessWidget {
                             style: const TextStyle(color: Colors.black54),
                           ),
                           const SizedBox(height: 16),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: _ScorePill(
-                                  label: thai ? 'ก่อน' : 'Before',
-                                  score: record.scoreBefore,
-                                  risk: record.riskBefore,
-                                ),
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: _ScorePill(
-                                  label: thai ? 'หลัง' : 'After',
-                                  score: record.scoreAfter,
-                                  risk: record.riskAfter,
-                                ),
-                              ),
-                            ],
+                          LayoutBuilder(
+                            builder: (context, constraints) {
+                              final compact = constraints.maxWidth < 330;
+                              final beforePill = _ScorePill(
+                                label: thai ? 'ก่อน' : 'Before',
+                                score: record.scoreBefore,
+                                risk: record.riskBefore,
+                              );
+                              final afterPill = _ScorePill(
+                                label: thai ? 'หลัง' : 'After',
+                                score: record.scoreAfter,
+                                risk: record.riskAfter,
+                              );
+                              final tts = SooktaTtsButton(
+                                thai: thai,
+                                text: thai
+                                    ? '${record.activityName} คะแนนก่อนปรับ ${record.scoreBefore} คะแนนหลังปรับ ${record.scoreAfter} ผลกระทบด้านรายได้อาจลดลง ${record.moneySaved} บาทต่อปี'
+                                    : '${record.activityName}. Before score ${record.scoreBefore}. After score ${record.scoreAfter}. Potential income impact may be reduced by ${record.moneySaved} baht per year.',
+                              );
+                              if (compact) {
+                                return Column(
+                                  children: [
+                                    Align(
+                                      alignment: Alignment.centerLeft,
+                                      child: tts,
+                                    ),
+                                    beforePill,
+                                    const SizedBox(height: 10),
+                                    afterPill,
+                                  ],
+                                );
+                              }
+                              return Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  tts,
+                                  const SizedBox(width: 8),
+                                  Expanded(child: beforePill),
+                                  const SizedBox(width: 10),
+                                  Expanded(child: afterPill),
+                                ],
+                              );
+                            },
                           ),
                         ],
                       ),
@@ -80,14 +112,19 @@ class HistoryDetailScreen extends StatelessWidget {
                       leading: const Icon(Icons.savings_outlined,
                           color: SooktaColors.darkGreen),
                       title: Text(
-                          thai ? 'ความสูญเสียก่อนปรับปรุง' : 'Potential Loss'),
+                        thai
+                            ? 'ผลกระทบโดยประมาณเพื่อสื่อสารความเสี่ยง'
+                            : 'Estimated Impact for Risk Communication',
+                      ),
                       subtitle: Text(
                         thai
-                            ? '${record.economicLoss} บาท/ปี | ลดได้ ${record.moneySaved} บาท/ปี'
-                            : '${record.economicLoss} THB/year | Saved ${record.moneySaved} THB/year',
+                            ? 'ก่อนปรับ ${record.economicLoss} บาท/ปี | อาจลดลง ${record.moneySaved} บาท/ปี'
+                            : 'Before ${record.economicLoss} THB/year | Potentially reduced ${record.moneySaved} THB/year',
                       ),
                     ),
                   ),
+                  const SizedBox(height: 12),
+                  ResearchDisclaimerCard(thai: thai),
                   if (record.aiRiskPercent != null &&
                       record.aiAlertLevel != null) ...[
                     const SizedBox(height: 16),
@@ -98,7 +135,9 @@ class HistoryDetailScreen extends StatelessWidget {
                           color: _aiColor(record.aiAlertLevel!),
                         ),
                         title: Text(
-                          thai ? 'AI Risk Alert' : 'AI Risk Alert',
+                          thai
+                              ? 'สัญญาณช่วยเฝ้าระวังท่าทาง'
+                              : 'Posture Awareness Signal',
                         ),
                         subtitle: Text(
                           '${_aiLabel(record.aiAlertLevel!, thai)} • '
@@ -109,33 +148,10 @@ class HistoryDetailScreen extends StatelessWidget {
                     ),
                   ],
                   const SizedBox(height: 16),
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Text(
-                            thai ? 'จุดเสี่ยงที่พบ' : 'Risky Points',
-                            style: const TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                          const SizedBox(height: 12),
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
-                            children: record.bodyPartRisks.entries.map((entry) {
-                              return Chip(
-                                avatar: CircleAvatar(
-                                  backgroundColor: Color(entry.value.colorHex),
-                                ),
-                                label: Text(
-                                    '${_part(entry.key, thai)}: ${_risk(entry.value, thai)}'),
-                              );
-                            }).toList(),
-                          ),
-                        ],
-                      ),
-                    ),
+                  BodyRiskMapCard(
+                    bodyRisks: record.bodyPartRisks,
+                    thai: thai,
+                    title: thai ? 'จุดเสี่ยงที่พบ' : 'Risky Points',
                   ),
                   const SizedBox(height: 16),
                   Card(
@@ -165,6 +181,11 @@ class HistoryDetailScreen extends StatelessWidget {
                                         color: SooktaColors.leafGreen),
                                     const SizedBox(width: 8),
                                     Expanded(child: Text(item)),
+                                    SooktaTtsButton(
+                                      text: item,
+                                      thai: thai,
+                                      size: 32,
+                                    ),
                                   ],
                                 ),
                               ),
@@ -183,35 +204,6 @@ class HistoryDetailScreen extends StatelessWidget {
     return '${date.day.toString().padLeft(2, '0')}/'
         '${date.month.toString().padLeft(2, '0')}/${date.year} '
         '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
-  }
-
-  String _part(BodyPart part, bool thai) {
-    if (thai) {
-      return switch (part) {
-        BodyPart.neck => 'คอ',
-        BodyPart.trunk => 'หลัง/ลำตัว',
-        BodyPart.legs => 'ขา/เข่า',
-        BodyPart.arms => 'ไหล่/แขน',
-        BodyPart.wrists => 'ข้อมือ',
-      };
-    }
-    return switch (part) {
-      BodyPart.neck => 'Neck',
-      BodyPart.trunk => 'Back/Trunk',
-      BodyPart.legs => 'Legs/Knees',
-      BodyPart.arms => 'Shoulders/Arms',
-      BodyPart.wrists => 'Wrists',
-    };
-  }
-
-  String _risk(RiskLevel risk, bool thai) {
-    if (thai) return risk.label;
-    return switch (risk) {
-      RiskLevel.low => 'Low',
-      RiskLevel.medium => 'Medium',
-      RiskLevel.high => 'High',
-      RiskLevel.veryHigh => 'Very High',
-    };
   }
 
   Color _aiColor(AiAlertLevel level) {
@@ -242,11 +234,11 @@ class HistoryDetailScreen extends StatelessWidget {
 
   String _aiModelSource(String? source, bool thai) {
     if (source == 'research_trained') {
-      return thai ? 'โมเดลจากงานวิจัย' : 'Research-trained model';
+      return thai ? 'ประเมินจากข้อมูลท่าทาง' : 'Based on posture data';
     }
     return thai
-        ? 'โมเดลพื้นฐานรอแทนที่ด้วยงานวิจัย'
-        : 'Baseline pending research artifacts';
+        ? 'ต้นแบบวิจัยจากท่าทางและคะแนนงาน'
+        : 'Research prototype using posture and task scores';
   }
 }
 
@@ -273,13 +265,21 @@ class _ScorePill extends StatelessWidget {
         padding: const EdgeInsets.all(12),
         child: Column(
           children: [
-            Text(label, style: const TextStyle(color: Colors.black54)),
             Text(
-              '$score',
-              style: TextStyle(
-                color: Color(risk.colorHex),
-                fontSize: 30,
-                fontWeight: FontWeight.bold,
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(color: Colors.black54),
+            ),
+            FixedTextScale(
+              child: Text(
+                '$score',
+                maxLines: 1,
+                style: TextStyle(
+                  color: Color(risk.colorHex),
+                  fontSize: 28,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
           ],

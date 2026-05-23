@@ -4,6 +4,7 @@ import '../../app/app_state.dart';
 import '../../app/app_text.dart';
 import '../../app/sookta_app.dart';
 import '../../core/theme/sookta_theme.dart';
+import '../../widgets/responsive_content.dart';
 import 'history_detail_screen.dart';
 
 class HistoryTab extends StatelessWidget {
@@ -33,38 +34,50 @@ class HistoryTab extends StatelessWidget {
                 borderRadius:
                     BorderRadius.vertical(bottom: Radius.circular(32)),
               ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 680),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        thai ? 'ผลตรวจย้อนหลัง' : 'Assessment History',
-                        style: const TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              thai ? 'ผลตรวจย้อนหลัง' : 'Assessment History',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 22,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                            ),
+                            Text(
+                              thai
+                                  ? 'ประวัติการประเมินความเสี่ยงของคุณ'
+                                  : 'Your risk assessment records',
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: Colors.white.withValues(alpha: 0.8),
+                                fontSize: 14,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                      Text(
-                        thai
-                            ? 'ประวัติการประเมินความเสี่ยงของคุณ'
-                            : 'Your risk assessment records',
-                        style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.8),
+                      IconButton.filled(
+                        style: IconButton.styleFrom(
+                          backgroundColor: Colors.white.withValues(alpha: 0.2),
                         ),
+                        onPressed: () {},
+                        icon: const Icon(Icons.search, color: Colors.white),
                       ),
                     ],
                   ),
-                  IconButton.filled(
-                    style: IconButton.styleFrom(
-                      backgroundColor: Colors.white.withValues(alpha: 0.2),
-                    ),
-                    onPressed: () {},
-                    icon: const Icon(Icons.search, color: Colors.white),
-                  ),
-                ],
+                ),
               ),
             ),
             Expanded(
@@ -81,21 +94,22 @@ class HistoryTab extends StatelessWidget {
                         ],
                       ),
                     )
-                  : ListView.separated(
+                  : ResponsiveListView(
+                      maxWidth: 620,
                       padding: const EdgeInsets.all(16),
-                      itemCount: history.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: 10),
-                      itemBuilder: (context, index) {
-                        final item = history[index];
-                        return _HistoryCard(
-                          record: item,
-                          thai: thai,
-                          onTap: () => Navigator.of(context).pushNamed(
-                            HistoryDetailScreen.routeName,
-                            arguments: item.id,
+                      children: [
+                        for (final item in history) ...[
+                          _HistoryCard(
+                            record: item,
+                            thai: thai,
+                            onTap: () => Navigator.of(context).pushNamed(
+                              HistoryDetailScreen.routeName,
+                              arguments: item.id,
+                            ),
                           ),
-                        );
-                      },
+                          if (item != history.last) const SizedBox(height: 10),
+                        ],
+                      ],
                     ),
             ),
           ],
@@ -130,12 +144,19 @@ class _HistoryCard extends StatelessWidget {
                 color: Colors.white, fontWeight: FontWeight.bold),
           ),
         ),
-        title: Text(record.activityName,
-            style: const TextStyle(fontWeight: FontWeight.bold)),
+        title: Text(
+          record.activityName,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+        ),
         subtitle: Text(
           thai
-              ? 'ก่อน ${record.scoreBefore} → หลัง ${record.scoreAfter} | ลดได้ ${record.moneySaved} บาท/ปี'
-              : 'Before ${record.scoreBefore} → After ${record.scoreAfter} | Saved ${record.moneySaved} THB/year',
+              ? 'ก่อน ${record.scoreBefore} → หลัง ${record.scoreAfter} | อาจลดลง ${record.moneySaved} บาท/ปี'
+              : 'Before ${record.scoreBefore} → After ${record.scoreAfter} | Potentially reduced ${record.moneySaved} THB/year',
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(fontSize: 13),
         ),
         trailing: const Icon(Icons.navigate_next),
       ),

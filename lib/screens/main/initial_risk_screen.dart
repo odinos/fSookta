@@ -10,6 +10,8 @@ import '../../core/models/economic_impact_models.dart';
 import '../../core/models/evaluation_models.dart';
 import '../../core/services/economic_impact_service.dart';
 import '../../core/theme/sookta_theme.dart';
+import '../../widgets/research_disclaimer_card.dart';
+import '../../widgets/responsive_content.dart';
 import 'final_result_screen.dart';
 
 class InitialRiskScreen extends StatefulWidget {
@@ -47,16 +49,19 @@ class _InitialRiskScreenState extends State<InitialRiskScreen> {
       appBar: AppBar(
           title: Text(thai ? 'ผลการประเมินเบื้องต้น' : 'Initial Assessment')),
       body: SafeArea(
-        child: ListView(
+        child: ResponsiveListView(
+          maxWidth: 640,
           padding: const EdgeInsets.all(16),
           children: [
             Text(
               thai
                   ? 'กิจกรรม: ${widget.payload.activityName}'
                   : 'Activity: ${widget.payload.activityName}',
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
               style: const TextStyle(
                 color: SooktaColors.darkGreen,
-                fontSize: 18,
+                fontSize: 16,
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -73,6 +78,8 @@ class _InitialRiskScreenState extends State<InitialRiskScreen> {
               overallRisk: before.riskLevel,
               thai: thai,
             ),
+            const SizedBox(height: 12),
+            ResearchDisclaimerCard(thai: thai),
             if (before.aiRiskAlert != null) ...[
               const SizedBox(height: 16),
               _AiRiskAlertCard(
@@ -102,8 +109,8 @@ class _InitialRiskScreenState extends State<InitialRiskScreen> {
                     const SizedBox(height: 8),
                     Text(
                       thai
-                          ? 'เลือกหัวข้อด้านล่างเพื่อจำลองคะแนนหลังปรับปรุง'
-                          : 'Select actions below to simulate the improved score.',
+                          ? 'เลือกหัวข้อด้านล่างเพื่อประเมินคะแนนหลังปรับปรุง'
+                          : 'Select actions below to estimate the improved score.',
                       style: const TextStyle(color: Colors.black54),
                     ),
                     const SizedBox(height: 8),
@@ -137,7 +144,7 @@ class _InitialRiskScreenState extends State<InitialRiskScreen> {
             const SizedBox(height: 16),
             _RiskSummaryCard(
               result: after,
-              title: thai ? 'คะแนนจำลองหลังปรับปรุง' : 'Simulated After',
+              title: thai ? 'คะแนนหลังปรับปรุงโดยประมาณ' : 'Estimated After',
               suggestion: selectedKeys.isEmpty
                   ? (thai
                       ? 'ยังไม่ได้เลือกแนวทางปรับปรุง'
@@ -163,7 +170,7 @@ class _InitialRiskScreenState extends State<InitialRiskScreen> {
                 );
               },
               icon: const Icon(Icons.summarize_outlined),
-              label: Text(thai ? 'สรุปผลการปรับปรุง' : 'Summarize Improvement'),
+              label: Text(thai ? 'ดูผลหลังปรับปรุง' : 'View Improved Result'),
             ),
           ],
         ),
@@ -335,12 +342,8 @@ class _AiRiskAlertCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final percent = (alert.probability * 100).round();
     final color = _levelColor(alert.level);
-    final title = thai ? 'AI Risk Alert' : 'AI Risk Alert';
-    final modelSource = alert.usesResearchTrainedModel
-        ? (thai ? 'โมเดลจากงานวิจัย' : 'Research-trained model')
-        : (thai
-            ? 'โมเดลพื้นฐานที่รอแทนที่ด้วยโมเดลงานวิจัย'
-            : 'Baseline model pending research-trained artifacts');
+    final title =
+        thai ? 'สัญญาณช่วยเฝ้าระวังท่าทาง' : 'Posture Awareness Signal';
 
     return Card(
       child: Padding(
@@ -378,16 +381,18 @@ class _AiRiskAlertCard extends StatelessWidget {
               _levelLabel(alert.level, thai),
               style: TextStyle(color: color, fontWeight: FontWeight.bold),
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 6),
             Text(
-              modelSource,
-              style: const TextStyle(color: Colors.black54, fontSize: 12),
+              thai
+                  ? 'เป็นการประมาณแนวโน้มในต้นแบบวิจัยจากข้อมูลท่าทางและคะแนนงาน ไม่ใช่การทำนายการบาดเจ็บรายบุคคล'
+                  : 'This research-prototype estimate uses posture and task scores. It is not an individual injury prediction.',
+              style: const TextStyle(fontSize: 12, color: Colors.black54),
             ),
             const SizedBox(height: 12),
             Text(
               thai
-                  ? 'ปัจจัยสำคัญที่โมเดลใช้พิจารณา'
-                  : 'Top model feature importance',
+                  ? 'ปัจจัยที่ใช้สื่อสารความเสี่ยง'
+                  : 'Factors used for risk communication',
               style: const TextStyle(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
@@ -410,11 +415,6 @@ class _AiRiskAlertCard extends StatelessWidget {
                 ),
               ),
             ),
-            const SizedBox(height: 8),
-            Text(
-              'LR ${(alert.logisticProbability * 100).round()}% / XGBoost ${(alert.xgBoostProbability * 100).round()}%',
-              style: const TextStyle(fontSize: 12, color: Colors.black54),
-            ),
           ],
         ),
       ),
@@ -433,17 +433,17 @@ class _AiRiskAlertCard extends StatelessWidget {
   String _levelLabel(AiAlertLevel level, bool thai) {
     if (thai) {
       return switch (level) {
-        AiAlertLevel.low => 'AI แจ้งเตือน: ความเสี่ยงต่ำ',
-        AiAlertLevel.watch => 'AI แจ้งเตือน: ควรเฝ้าระวัง',
-        AiAlertLevel.high => 'AI แจ้งเตือน: ความเสี่ยงสูง',
-        AiAlertLevel.critical => 'AI แจ้งเตือน: ความเสี่ยงสูงมาก',
+        AiAlertLevel.low => 'ความเสี่ยงต่ำ',
+        AiAlertLevel.watch => 'ควรเฝ้าระวังท่าทางนี้',
+        AiAlertLevel.high => 'ความเสี่ยงสูง ควรปรับท่าทาง',
+        AiAlertLevel.critical => 'ความเสี่ยงสูงมาก ควรปรับท่าทางทันที',
       };
     }
     return switch (level) {
-      AiAlertLevel.low => 'AI alert: low risk',
-      AiAlertLevel.watch => 'AI alert: watch',
-      AiAlertLevel.high => 'AI alert: high risk',
-      AiAlertLevel.critical => 'AI alert: critical risk',
+      AiAlertLevel.low => 'Low risk',
+      AiAlertLevel.watch => 'Watch this posture',
+      AiAlertLevel.high => 'High risk, improve posture',
+      AiAlertLevel.critical => 'Very high risk, improve posture now',
     };
   }
 }
@@ -467,46 +467,63 @@ class _RiskSummaryCard extends StatelessWidget {
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
-        child: Row(
-          children: [
-            Container(
-              width: 86,
-              height: 86,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final compact = constraints.maxWidth < 320;
+            final score = Container(
+              width: compact ? 74 : 86,
+              height: compact ? 74 : 86,
               decoration: BoxDecoration(color: color, shape: BoxShape.circle),
               child: Center(
-                child: Text(
-                  '${result.userScore}',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 34,
-                    fontWeight: FontWeight.bold,
+                child: FixedTextScale(
+                  child: Text(
+                    '${result.userScore}',
+                    maxLines: 1,
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: compact ? 30 : 34,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
               ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
+            );
+            final details = Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title,
+                    style: const TextStyle(fontWeight: FontWeight.bold)),
+                const SizedBox(height: 4),
+                Text(_riskLabel(result.riskLevel, thai)),
+                const SizedBox(height: 4),
+                Text(suggestion, style: const TextStyle(color: Colors.black54)),
+                const SizedBox(height: 8),
+                Text(
+                  thai
+                      ? 'ผลกระทบประมาณ ${_money(result.economicLoss)}'
+                      : 'Estimated impact ${_money(result.economicLoss)}',
+                  style: const TextStyle(color: SooktaColors.darkGreen),
+                ),
+              ],
+            );
+            if (compact) {
+              return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title,
-                      style: const TextStyle(fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 4),
-                  Text(_riskLabel(result.riskLevel, thai)),
-                  const SizedBox(height: 4),
-                  Text(suggestion,
-                      style: const TextStyle(color: Colors.black54)),
-                  const SizedBox(height: 8),
-                  Text(
-                    thai
-                        ? 'ผลกระทบประมาณ ${_money(result.economicLoss)}'
-                        : 'Estimated impact ${_money(result.economicLoss)}',
-                    style: const TextStyle(color: SooktaColors.darkGreen),
-                  ),
+                  Center(child: score),
+                  const SizedBox(height: 12),
+                  details,
                 ],
-              ),
-            ),
-          ],
+              );
+            }
+            return Row(
+              children: [
+                score,
+                const SizedBox(width: 16),
+                Expanded(child: details),
+              ],
+            );
+          },
         ),
       ),
     );
@@ -555,8 +572,8 @@ class _EconomicImpactCard extends StatelessWidget {
                 Expanded(
                   child: Text(
                     thai
-                        ? 'ผลกระทบเงินจริงจากการทำงานผิดท่า'
-                        : 'Real-world cost impact',
+                        ? 'ผลกระทบที่อาจเกิดจากท่าทางเสี่ยง'
+                        : 'Estimated impact from risky posture',
                     style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
@@ -580,14 +597,14 @@ class _EconomicImpactCard extends StatelessWidget {
                       _money(impact.totalCost),
                       style: TextStyle(
                         color: color,
-                        fontSize: 28,
+                        fontSize: 24,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
                     Text(
                       thai
-                          ? 'ประมาณการค่าใช้จ่ายและรายได้ที่อาจหายไป'
-                          : 'Estimated care cost and income impact',
+                          ? 'ประมาณการค่าใช้จ่ายและรายได้ที่อาจลดลง'
+                          : 'Estimated care cost and potential income impact',
                       style: const TextStyle(color: Colors.black54),
                     ),
                   ],
@@ -597,7 +614,8 @@ class _EconomicImpactCard extends StatelessWidget {
             const SizedBox(height: 12),
             _ImpactRow(
               icon: Icons.medical_services_outlined,
-              label: thai ? 'ค่ารักษาตามตำแหน่งที่เสี่ยง' : 'Care by body area',
+              label:
+                  thai ? 'ค่าใช้จ่ายดูแลรักษาโดยประมาณ' : 'Estimated care cost',
               value: _money(impact.bodyTreatmentCost),
             ),
             _ImpactRow(
@@ -612,15 +630,17 @@ class _EconomicImpactCard extends StatelessWidget {
             ),
             _ImpactRow(
               icon: Icons.work_off_outlined,
-              label: thai ? 'รายได้ที่สูญเสีย/ลดลง' : 'Lost/reduced income',
+              label: thai
+                  ? 'รายได้ที่อาจสูญเสีย/ลดลง'
+                  : 'Potential lost/reduced income',
               value: _money(impact.lostIncome + impact.reducedIncome),
             ),
             if (topBodyImpacts.isNotEmpty) ...[
               const SizedBox(height: 10),
               Text(
                 thai
-                    ? 'ตำแหน่งที่มีผลต่อค่าใช้จ่าย'
-                    : 'Body areas driving the estimate',
+                    ? 'ตำแหน่งที่มีผลต่อประมาณการ'
+                    : 'Body areas affecting the estimate',
                 style: const TextStyle(fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 6),
@@ -648,8 +668,8 @@ class _EconomicImpactCard extends StatelessWidget {
             const SizedBox(height: 8),
             Text(
               thai
-                  ? 'อ้างอิงจากข้อมูลค่าใช้จ่ายจริงในกลุ่มผู้ป่วยตามรูปที่นำเข้า'
-                  : 'Based on the treatment and income-loss survey data imported from the provided tables.',
+                  ? 'ตัวเลขนี้เป็นประมาณการจากข้อมูลสำรวจค่าใช้จ่ายและรายได้ของกลุ่มตัวอย่าง ใช้เพื่อช่วยตัดสินใจเบื้องต้น ไม่ใช่ค่ารักษาเฉพาะบุคคล'
+                  : 'This is estimated from care-cost and income-impact survey data. It supports early decision-making and is not a personal medical bill.',
               style: const TextStyle(fontSize: 12, color: Colors.black54),
             ),
           ],
@@ -711,14 +731,20 @@ class _BodyMapCard extends StatelessWidget {
               style: const TextStyle(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 12),
-            SizedBox(
-              height: 300,
-              child: CustomPaint(
-                painter: _BodyRiskPainter(
-                  bodyRisks: bodyRisks,
-                  thai: thai,
-                ),
-              ),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final height =
+                    (constraints.maxWidth * 0.78).clamp(230.0, 320.0);
+                return SizedBox(
+                  height: height,
+                  child: CustomPaint(
+                    painter: _BodyRiskPainter(
+                      bodyRisks: bodyRisks,
+                      thai: thai,
+                    ),
+                  ),
+                );
+              },
             ),
             const SizedBox(height: 12),
             Wrap(

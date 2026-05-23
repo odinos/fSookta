@@ -1,9 +1,12 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 
 import '../../app/app_state.dart';
 import '../../app/app_text.dart';
 import '../../app/assets.dart';
 import '../../widgets/app_background.dart';
+import '../../widgets/responsive_content.dart';
 import 'evaluation_menu_screen.dart';
 
 class HomeTab extends StatelessWidget {
@@ -18,22 +21,26 @@ class HomeTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final width = MediaQuery.sizeOf(context).width;
+    final compact = width < 360;
+    final avatarRadius = compact ? 30.0 : 35.0;
+
     return AppBackground(
       child: SafeArea(
-        child: ListView(
+        child: ResponsiveListView(
+          maxWidth: 620,
           padding: const EdgeInsets.all(16),
           children: [
             const SizedBox(height: 16),
             Row(
               children: [
                 CircleAvatar(
-                  radius: 35,
+                  radius: avatarRadius,
                   backgroundColor: Colors.white,
-                  foregroundImage: profile.avatarAsset == null
-                      ? null
-                      : AssetImage(profile.avatarAsset!),
+                  foregroundImage: _avatarProvider(profile.avatarAsset),
                   child: profile.avatarAsset == null
-                      ? const Icon(Icons.person, size: 42, color: Colors.grey)
+                      ? Icon(Icons.person,
+                          size: avatarRadius * 1.2, color: Colors.grey)
                       : null,
                 ),
                 const SizedBox(width: 16),
@@ -44,13 +51,13 @@ class HomeTab extends StatelessWidget {
                       Text(
                         text.hello,
                         style:
-                            const TextStyle(fontSize: 18, color: Colors.grey),
+                            const TextStyle(fontSize: 16, color: Colors.grey),
                       ),
-                      Text(
-                        profile.name.isEmpty ? text.guest : profile.name,
-                        overflow: TextOverflow.ellipsis,
+                      _DisplayName(
+                        name: profile.name.isEmpty ? text.guest : profile.name,
+                        alignment: Alignment.centerLeft,
                         style: const TextStyle(
-                          fontSize: 24,
+                          fontSize: 22,
                           fontWeight: FontWeight.bold,
                           color: Color(0xFF5C9A81),
                         ),
@@ -83,6 +90,42 @@ class HomeTab extends StatelessWidget {
       ),
     );
   }
+
+  ImageProvider? _avatarProvider(String? path) {
+    if (path == null) return null;
+    if (path.startsWith('/')) {
+      final file = File(path);
+      if (!file.existsSync()) return null;
+      return FileImage(file);
+    }
+    return AssetImage(path);
+  }
+}
+
+class _DisplayName extends StatelessWidget {
+  const _DisplayName({
+    required this.name,
+    required this.style,
+    required this.alignment,
+  });
+
+  final String name;
+  final TextStyle style;
+  final Alignment alignment;
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: alignment,
+      child: Text(
+        name,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        softWrap: false,
+        style: style,
+      ),
+    );
+  }
 }
 
 class _HomeMenuCard extends StatelessWidget {
@@ -100,38 +143,56 @@ class _HomeMenuCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final width = MediaQuery.sizeOf(context).width;
+    final compact = width < 360;
+
     return Card(
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
-        child: SizedBox(
-          height: 150,
-          child: Row(
-            children: [
-              const SizedBox(width: 20),
-              Container(
-                width: 60,
-                height: 60,
-                decoration: const BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Color(0xFFE8F5E9),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(minHeight: compact ? 132 : 150),
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(
+              compact ? 14 : 20,
+              14,
+              compact ? 10 : 12,
+              14,
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: compact ? 50 : 60,
+                  height: compact ? 50 : 60,
+                  decoration: const BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Color(0xFFE8F5E9),
+                  ),
+                  child: Icon(icon,
+                      color: Colors.black54, size: compact ? 28 : 32),
                 ),
-                child: Icon(icon, color: Colors.black54, size: 32),
-              ),
-              const SizedBox(width: 18),
-              Expanded(
-                child: Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.black,
+                SizedBox(width: compact ? 12 : 18),
+                Expanded(
+                  child: Text(
+                    title,
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.black,
+                    ),
                   ),
                 ),
-              ),
-              Image.asset(imageAsset, width: 96, fit: BoxFit.contain),
-              const SizedBox(width: 12),
-            ],
+                ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxWidth: compact ? 72 : 96,
+                    maxHeight: compact ? 88 : 112,
+                  ),
+                  child: Image.asset(imageAsset, fit: BoxFit.contain),
+                ),
+              ],
+            ),
           ),
         ),
       ),

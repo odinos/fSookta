@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../app/app_state.dart';
 import '../../app/app_text.dart';
+import '../../widgets/responsive_content.dart';
 import '../onboarding/language_selection_screen.dart';
 import '../onboarding/setup_screen.dart';
 import 'contact_screen.dart';
@@ -21,13 +22,23 @@ class ProfileTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final width = MediaQuery.sizeOf(context).width;
+    final textScale = MediaQuery.textScalerOf(context).scale(1);
+    final compact = width < 380;
+    final avatarRadius = compact ? 48.0 : 60.0;
+    final headerHeight =
+        (compact ? 190.0 : 220.0) + ((textScale - 1).clamp(0.0, 1.0) * 48);
+    final statWidth = ((width - 56) / (compact ? 2 : 3)).clamp(130.0, 240.0);
+
     return Container(
       color: const Color(0xFFFDF8E1),
       child: SafeArea(
-        child: ListView(
+        child: ResponsiveListView(
+          maxWidth: 620,
+          padding: EdgeInsets.zero,
           children: [
             Container(
-              height: 220,
+              height: headerHeight,
               width: double.infinity,
               decoration: const BoxDecoration(
                 color: Color(0xFF5C9A81),
@@ -38,7 +49,7 @@ class ProfileTab extends StatelessWidget {
                 children: [
                   const SizedBox(height: 24),
                   CircleAvatar(
-                    radius: 60,
+                    radius: avatarRadius,
                     backgroundColor: Colors.white,
                     foregroundImage: _avatarProvider(profile.avatarAsset),
                     child: profile.avatarAsset == null
@@ -46,12 +57,18 @@ class ProfileTab extends StatelessWidget {
                         : null,
                   ),
                   const SizedBox(height: 12),
-                  Text(
-                    profile.name.isEmpty ? text.guest : profile.name,
-                    style: const TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: SizedBox(
+                      width: double.infinity,
+                      child: _DisplayName(
+                        name: profile.name.isEmpty ? text.guest : profile.name,
+                        style: const TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
                     ),
                   ),
                 ],
@@ -60,19 +77,25 @@ class ProfileTab extends StatelessWidget {
             const SizedBox(height: 16),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Row(
+              child: Wrap(
+                spacing: 12,
+                runSpacing: 12,
                 children: [
-                  Expanded(
-                      child: _StatCard(
-                          title: text.age, value: profile.age, unit: '')),
-                  const SizedBox(width: 12),
-                  Expanded(
-                      child: _StatCard(
-                          title: text.weight, value: profile.weight, unit: '')),
-                  const SizedBox(width: 12),
-                  Expanded(
-                      child: _StatCard(
-                          title: text.height, value: profile.height, unit: '')),
+                  SizedBox(
+                    width: statWidth,
+                    child: _StatCard(
+                        title: text.age, value: profile.age, unit: ''),
+                  ),
+                  SizedBox(
+                    width: statWidth,
+                    child: _StatCard(
+                        title: text.weight, value: profile.weight, unit: ''),
+                  ),
+                  SizedBox(
+                    width: statWidth,
+                    child: _StatCard(
+                        title: text.height, value: profile.height, unit: ''),
+                  ),
                 ],
               ),
             ),
@@ -90,14 +113,17 @@ class ProfileTab extends StatelessWidget {
             _ProfileMenuItem(
               icon: Icons.edit,
               text: text.editProfile,
-              onTap: () =>
-                  Navigator.of(context).pushNamed(SetupScreen.routeName),
+              onTap: () => Navigator.of(context).pushNamed(
+                SetupScreen.routeName,
+                arguments: true,
+              ),
             ),
             _ProfileMenuItem(
               icon: Icons.language,
               text: text.isThai ? 'เปลี่ยนภาษา' : 'Change Language',
-              onTap: () => Navigator.of(context)
-                  .pushNamed(LanguageSelectionScreen.routeName),
+              onTap: () => Navigator.of(context).pushNamed(
+                  LanguageSelectionScreen.routeName,
+                  arguments: true),
             ),
             _ProfileMenuItem(
               icon: Icons.description,
@@ -126,8 +152,34 @@ class ProfileTab extends StatelessWidget {
 
   ImageProvider? _avatarProvider(String? path) {
     if (path == null) return null;
-    if (path.startsWith('/')) return FileImage(File(path));
+    if (path.startsWith('/')) {
+      final file = File(path);
+      if (!file.existsSync()) return null;
+      return FileImage(file);
+    }
     return AssetImage(path);
+  }
+}
+
+class _DisplayName extends StatelessWidget {
+  const _DisplayName({
+    required this.name,
+    required this.style,
+  });
+
+  final String name;
+  final TextStyle style;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      name,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      softWrap: false,
+      textAlign: TextAlign.center,
+      style: style,
+    );
   }
 }
 
@@ -145,24 +197,38 @@ class _StatCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
-      child: SizedBox(
-        height: 90,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(title,
-                style: const TextStyle(fontSize: 12, color: Colors.grey)),
-            Text(
-              value.isEmpty ? '-' : value,
-              style: const TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF5C9A81),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 90),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 12, color: Colors.grey),
               ),
-            ),
-            Text(unit,
-                style: const TextStyle(fontSize: 12, color: Colors.grey)),
-          ],
+              Text(
+                value.isEmpty ? '-' : value,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF5C9A81),
+                ),
+              ),
+              Text(
+                unit,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 12, color: Colors.grey),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -188,15 +254,21 @@ class _ProfileMenuItem extends StatelessWidget {
         clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: onTap,
-          child: SizedBox(
-            height: 56,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 56),
             child: Row(
               children: [
                 const SizedBox(width: 16),
                 Icon(icon, color: const Color(0xFF5C9A81)),
                 const SizedBox(width: 16),
                 Expanded(
-                    child: Text(text, style: const TextStyle(fontSize: 16))),
+                  child: Text(
+                    text,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 16),
+                  ),
+                ),
                 const Icon(Icons.navigate_next, color: Colors.grey),
                 const SizedBox(width: 16),
               ],

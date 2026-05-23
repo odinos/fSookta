@@ -4,6 +4,7 @@ import '../../app/app_state.dart';
 import '../../app/sookta_app.dart';
 import '../../core/models/assessment_session.dart';
 import '../../core/theme/sookta_theme.dart';
+import '../../widgets/responsive_content.dart';
 import 'evaluation_form_screen.dart';
 
 class EvaluationMenuScreen extends StatelessWidget {
@@ -21,42 +22,63 @@ class EvaluationMenuScreen extends StatelessWidget {
         title: Text(thai ? 'เลือกประเภทงาน' : 'Select Job Type'),
       ),
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                thai
-                    ? 'โปรดเลือกกิจกรรมที่ต้องการประเมิน'
-                    : 'Please select an activity to evaluate',
-                style: const TextStyle(color: Colors.black54, fontSize: 16),
-              ),
-              const SizedBox(height: 16),
-              Expanded(
-                child: GridView.builder(
-                  itemCount: SooktaActivity.values.length,
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    crossAxisSpacing: 14,
-                    mainAxisSpacing: 14,
-                    childAspectRatio: 0.95,
+        child: ResponsiveListView(
+          maxWidth: 880,
+          children: [
+            SizedBox(
+              height: MediaQuery.sizeOf(context).height -
+                  MediaQuery.paddingOf(context).vertical -
+                  kToolbarHeight -
+                  32,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    thai
+                        ? 'โปรดเลือกกิจกรรมที่ต้องการประเมิน'
+                        : 'Please select an activity to evaluate',
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(color: Colors.black54, fontSize: 16),
                   ),
-                  itemBuilder: (context, index) {
-                    final activity = SooktaActivity.values[index];
-                    return _ActivityCard(
-                      activity: activity,
-                      label: activity.label(thai: thai),
-                      onTap: () => Navigator.of(context).pushNamed(
-                        EvaluationFormScreen.routeName,
-                        arguments: activity,
-                      ),
-                    );
-                  },
-                ),
+                  const SizedBox(height: 16),
+                  Expanded(
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        final columns = constraints.maxWidth >= 720
+                            ? 3
+                            : constraints.maxWidth < 340
+                                ? 1
+                                : 2;
+                        final aspectRatio = columns == 1 ? 2.4 : 0.95;
+                        return GridView.builder(
+                          itemCount: SooktaActivity.values.length,
+                          gridDelegate:
+                              SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: columns,
+                            crossAxisSpacing: 14,
+                            mainAxisSpacing: 14,
+                            childAspectRatio: aspectRatio,
+                          ),
+                          itemBuilder: (context, index) {
+                            final activity = SooktaActivity.values[index];
+                            return _ActivityCard(
+                              activity: activity,
+                              label: activity.label(thai: thai),
+                              onTap: () => Navigator.of(context).pushNamed(
+                                EvaluationFormScreen.routeName,
+                                arguments: activity,
+                              ),
+                            );
+                          },
+                        );
+                      },
+                    ),
+                  ),
+                ],
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -86,21 +108,28 @@ class _ActivityCard extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Expanded(
-                child: Image.asset(
-                  activity.imageAsset,
-                  fit: BoxFit.contain,
-                  width: double.infinity,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxHeight: 160),
+                  child: Image.asset(
+                    activity.imageAsset,
+                    fit: BoxFit.contain,
+                    width: double.infinity,
+                  ),
                 ),
               ),
               const SizedBox(height: 8),
-              Text(
-                label,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: SooktaColors.darkGreen,
-                  fontWeight: FontWeight.w700,
+              ClampedTextScale(
+                maxScale: 1.12,
+                child: Text(
+                  label,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: SooktaColors.darkGreen,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
             ],
