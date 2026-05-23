@@ -1,6 +1,6 @@
 # Android Play Store Release Checklist
 
-Updated: 2026-05-23
+Updated: 2026-05-24
 
 This app should be uploaded to Google Play as a signed Android App Bundle (`.aab`).
 The package name must stay `com.kdev.sookta` unless the store listing is intentionally
@@ -29,7 +29,7 @@ Run these from the Flutter repo root after `flutter pub get`:
 ```sh
 flutter analyze
 flutter test
-flutter build appbundle --release
+flutter build appbundle --release --build-name=1.0.0 --build-number=2
 ```
 
 The upload artifact is:
@@ -37,6 +37,19 @@ The upload artifact is:
 ```text
 build/app/outputs/bundle/release/app-release.aab
 ```
+
+Latest local verification:
+
+- Version: `1.0.0+2`
+- Package: `com.kdev.sookta`
+- Command run from non-cloud temp checkout:
+  `/private/tmp/fSookta-store-build`
+- Output:
+  `/private/tmp/fSookta-store-build/build/app/outputs/bundle/release/app-release.aab`
+- Size: about `95MB`
+- Status: build passed, but the local upload keystore is not configured in this
+  checkout yet. Rebuild after creating `android/key.properties` before uploading
+  to Play Console.
 
 If Google Play asks for native debug symbols, upload:
 
@@ -54,7 +67,7 @@ build/app/outputs/native-debug-symbols/release/native-debug-symbols.zip
 - Use screenshots from a release/profile build across small and large Android
   phones.
 - Confirm the app targets the current Google Play target API requirement before
-  uploading. As of 2026-05-23, new apps and updates must target Android 15 / API
+  uploading. As of 2026-05-24, new apps and updates must target Android 15 / API
   35 or higher.
 
 ## Final Device Smoke Test

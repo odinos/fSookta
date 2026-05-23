@@ -1,6 +1,6 @@
 # Store Readiness Final Checklist
 
-Updated: 2026-05-23
+Updated: 2026-05-24
 
 This checklist aligns the Flutter app with the Functional Design Document scope:
 SookTa is a research prototype for ergonomic risk communication, preventive
@@ -38,6 +38,17 @@ confirmed injury predictor, or exact economic forecasting system.
 - Complete Play Console Data safety, privacy policy, content rating, target
   audience, app access, ads declaration, and screenshots.
 - Test the release build on a physical Android phone before production rollout.
+
+Latest build verification:
+
+- Store version prepared in git: `1.0.0+2`.
+- iOS release build passed from `/private/tmp/fSookta-store-build`; the generated
+  app reports `CFBundleShortVersionString=1.0.0` and `CFBundleVersion=2`.
+- Android App Bundle build passed from `/private/tmp/fSookta-store-build`; output
+  is `/private/tmp/fSookta-store-build/build/app/outputs/bundle/release/app-release.aab`.
+- Android upload signing is still the remaining Play Store blocker because
+  `android/key.properties` and the upload keystore are intentionally not present
+  in git.
 
 ## Must Pass Before TestFlight/App Store Submission
 
