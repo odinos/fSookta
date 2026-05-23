@@ -28,7 +28,7 @@ class ProfileTab extends StatelessWidget {
     final avatarRadius = compact ? 48.0 : 60.0;
     final headerHeight =
         (compact ? 190.0 : 220.0) + ((textScale - 1).clamp(0.0, 1.0) * 48);
-    final statWidth = ((width - 56) / (compact ? 2 : 3)).clamp(130.0, 240.0);
+    final statSpacing = compact ? 8.0 : 12.0;
 
     return Container(
       color: const Color(0xFFFDF8E1),
@@ -77,24 +77,30 @@ class ProfileTab extends StatelessWidget {
             const SizedBox(height: 16),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Wrap(
-                spacing: 12,
-                runSpacing: 12,
+              child: Row(
                 children: [
-                  SizedBox(
-                    width: statWidth,
+                  Expanded(
                     child: _StatCard(
-                        title: text.age, value: profile.age, unit: ''),
+                      title: text.age,
+                      value: profile.age,
+                      unit: '',
+                    ),
                   ),
-                  SizedBox(
-                    width: statWidth,
+                  SizedBox(width: statSpacing),
+                  Expanded(
                     child: _StatCard(
-                        title: text.weight, value: profile.weight, unit: ''),
+                      title: text.weight,
+                      value: profile.weight,
+                      unit: '',
+                    ),
                   ),
-                  SizedBox(
-                    width: statWidth,
+                  SizedBox(width: statSpacing),
+                  Expanded(
                     child: _StatCard(
-                        title: text.height, value: profile.height, unit: ''),
+                      title: text.height,
+                      value: profile.height,
+                      unit: '',
+                    ),
                   ),
                 ],
               ),

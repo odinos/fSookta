@@ -43,7 +43,11 @@ void _disableDebugPaint() {
 }
 
 const _stressText = bool.fromEnvironment('SOOKTA_QA_STRESS_TEXT');
-const _showQaLabel = bool.fromEnvironment('SOOKTA_QA_LABEL', defaultValue: true);
+const _showQaLabel =
+    bool.fromEnvironment('SOOKTA_QA_LABEL', defaultValue: true);
+const _autoAdvance =
+    bool.fromEnvironment('SOOKTA_QA_AUTO_ADVANCE', defaultValue: true);
+const _initialScreenIndex = int.fromEnvironment('SOOKTA_QA_START_INDEX');
 final _textScale =
     double.tryParse(const String.fromEnvironment('SOOKTA_QA_TEXT_SCALE')) ?? 1;
 
@@ -59,7 +63,7 @@ class _ScreenshotHarnessAppState extends State<ScreenshotHarnessApp> {
   late final ErgoResult before;
   late final ErgoResult after;
   late final EvaluationHistoryRecord record;
-  var index = 0;
+  var index = _initialScreenIndex;
   Timer? timer;
 
   @override
@@ -110,11 +114,13 @@ class _ScreenshotHarnessAppState extends State<ScreenshotHarnessApp> {
           'ลดการยกแขนเหนือไหล่',
       ],
     );
-    timer = Timer.periodic(const Duration(seconds: 4), (_) {
-      _disableDebugPaint();
-      if (!mounted) return;
-      setState(() => index = (index + 1) % _screens.length);
-    });
+    if (_autoAdvance) {
+      timer = Timer.periodic(const Duration(seconds: 4), (_) {
+        _disableDebugPaint();
+        if (!mounted) return;
+        setState(() => index = (index + 1) % _screens.length);
+      });
+    }
   }
 
   @override
@@ -206,7 +212,8 @@ class _ScreenshotHarnessAppState extends State<ScreenshotHarnessApp> {
   @override
   Widget build(BuildContext context) {
     _disableDebugPaint();
-    final screen = _screens[index];
+    final screens = _screens;
+    final screen = screens[index % screens.length];
     return AppStateScope(
       state: appState,
       child: MaterialApp(
