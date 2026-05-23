@@ -42,6 +42,7 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
   var selectedDurationHours = 1.0;
   var selectedFrequency = 0.2;
   var selectedLoadWeight = 10.0;
+  var showAdvancedDetails = false;
   var poseBusy = false;
   String? poseStatus;
   late JobType selectedJobType;
@@ -58,6 +59,37 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
   void initState() {
     super.initState();
     selectedJobType = widget.activity.defaultJobType;
+    _applyActivityDefaults();
+  }
+
+  void _applyActivityDefaults() {
+    switch (widget.activity) {
+      case SooktaActivity.transplanting:
+        selectedDurationHours = 4.0;
+        selectedFrequency = 2.0;
+      case SooktaActivity.fertilizing:
+        selectedDurationHours = 2.0;
+        selectedFrequency = 2.0;
+        selectedLoadWeight = 15.0;
+        transportController.text = '6';
+      case SooktaActivity.pesticide:
+        selectedDurationHours = 2.0;
+        selectedFrequency = 0.2;
+        initialForceController.text = '12';
+        sustainForceController.text = '6';
+      case SooktaActivity.pruning:
+        selectedDurationHours = 2.0;
+        selectedFrequency = 2.0;
+      case SooktaActivity.harvesting:
+        selectedDurationHours = 4.0;
+        selectedFrequency = 6.5;
+        selectedLoadWeight = 10.0;
+      case SooktaActivity.transport:
+        selectedDurationHours = 2.0;
+        selectedFrequency = 2.0;
+        selectedLoadWeight = 20.0;
+        transportController.text = '8';
+    }
   }
 
   @override
@@ -77,8 +109,7 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
     final language = state.language ?? AppLanguage.th;
     final thai = language == AppLanguage.th;
     final activityName = widget.activity.label(thai: thai);
-    final canAnalyze =
-        selectedJobType != JobType.reba || selectedImagePaths.isNotEmpty;
+    final canAnalyze = selectedImagePaths.isNotEmpty && !poseBusy;
 
     return Scaffold(
       appBar: AppBar(title: Text(thai ? 'แบบฟอร์มประเมิน' : 'Evaluation Form')),
@@ -105,124 +136,156 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
               onSlotRemove: _removeImageAt,
               thai: thai,
             ),
-            if (poseStatus != null && selectedJobType != JobType.reba) ...[
-              const SizedBox(height: 8),
-              Text(
-                poseStatus!,
-                style: const TextStyle(color: SooktaColors.darkGreen),
-              ),
-            ],
             const SizedBox(height: 16),
-            _SectionCard(
-              title: thai ? 'ข้อมูลการทำงาน' : 'Work Information',
+            _SimpleAssessmentCard(
+              thai: thai,
+              activityName: activityName,
+              jobType: selectedJobType,
+              imageCount: selectedImagePaths.length,
+              poseBusy: poseBusy,
+              poseStatus: poseStatus,
+              durationHours: selectedDurationHours,
+              frequency: selectedFrequency,
+              loadWeight: selectedLoadWeight,
+              onAnalyze: canAnalyze ? _analyze : null,
+            ),
+            const SizedBox(height: 16),
+            _AdvancedDetailsCard(
+              thai: thai,
+              expanded: showAdvancedDetails,
+              onExpansionChanged: (value) =>
+                  setState(() => showAdvancedDetails = value),
               children: [
-                SegmentedButton<JobType>(
-                  segments: [
-                    ButtonSegment(
-                      value: JobType.reba,
-                      label: Text(thai ? 'REBA' : 'REBA'),
-                      icon: const Icon(Icons.accessibility_new),
+                _SectionCard(
+                  title: thai ? 'ข้อมูลสำหรับนักวิจัย' : 'Research Details',
+                  children: [
+                    Text(
+                      thai
+                          ? 'ระบบตั้งค่าให้แล้วจากกิจกรรมและรูปภาพ ปรับเฉพาะเมื่อทราบข้อมูลจริง'
+                          : 'The app pre-fills these values from the activity and photo. Adjust only when known.',
+                      style: const TextStyle(color: Colors.black54),
                     ),
-                    ButtonSegment(
-                      value: JobType.lifting,
-                      label: Text(thai ? 'ยก/แบก' : 'Lift'),
-                      icon: const Icon(Icons.inventory_2_outlined),
+                    const SizedBox(height: 12),
+                    SegmentedButton<JobType>(
+                      segments: [
+                        ButtonSegment(
+                          value: JobType.reba,
+                          label: Text(thai ? 'ท่าทาง' : 'Posture'),
+                          icon: const Icon(Icons.accessibility_new),
+                        ),
+                        ButtonSegment(
+                          value: JobType.lifting,
+                          label: Text(thai ? 'ยก/แบก' : 'Lift'),
+                          icon: const Icon(Icons.inventory_2_outlined),
+                        ),
+                        ButtonSegment(
+                          value: JobType.pushPull,
+                          label: Text(thai ? 'ดัน/ดึง' : 'Push'),
+                          icon: const Icon(Icons.open_with),
+                        ),
+                      ],
+                      selected: {selectedJobType},
+                      onSelectionChanged: (value) {
+                        setState(() {
+                          selectedJobType = value.first;
+                          poseStatus = null;
+                        });
+                        if (selectedImagePaths.isNotEmpty) {
+                          _applyPoseEstimates();
+                        }
+                      },
                     ),
-                    ButtonSegment(
-                      value: JobType.pushPull,
-                      label: Text(thai ? 'ดัน/ดึง' : 'Push'),
-                      icon: const Icon(Icons.open_with),
+                    const SizedBox(height: 12),
+                    _ChoiceRow<double>(
+                      label: thai ? 'ระยะเวลาประมาณ' : 'Estimated duration',
+                      value: selectedDurationHours,
+                      items: {
+                        1.0: thai ? 'สั้น' : 'Short',
+                        2.0: thai ? 'ประมาณ 2 ชม.' : 'About 2 hrs',
+                        4.0: thai ? 'ครึ่งวัน' : 'Half day',
+                        8.0: thai ? 'ทั้งวัน' : 'Full day',
+                      },
+                      onChanged: (value) =>
+                          setState(() => selectedDurationHours = value),
                     ),
+                    _ChoiceRow<double>(
+                      label: thai ? 'ทำซ้ำบ่อยแค่ไหน' : 'Repetition',
+                      value: selectedFrequency,
+                      items: {
+                        0.2: thai ? 'นาน ๆ ครั้ง' : 'Occasional',
+                        2.0: thai ? 'เป็นระยะ' : 'Repeated',
+                        6.5: thai ? 'บ่อยมาก' : 'Very frequent',
+                      },
+                      onChanged: (value) =>
+                          setState(() => selectedFrequency = value),
+                    ),
+                    if (selectedJobType == JobType.lifting)
+                      _ChoiceRow<double>(
+                        label: thai ? 'น้ำหนักโดยประมาณ' : 'Estimated load',
+                        value: selectedLoadWeight,
+                        items: {
+                          5.0: thai ? 'เบา' : 'Light',
+                          10.0: thai ? 'ปานกลาง' : 'Medium',
+                          15.0: thai ? 'ค่อนข้างหนัก' : 'Quite heavy',
+                          20.0: thai ? 'หนัก' : 'Heavy',
+                          25.0: thai ? 'หนักมาก' : 'Very heavy',
+                        },
+                        onChanged: (value) =>
+                            setState(() => selectedLoadWeight = value),
+                      ),
                   ],
-                  selected: {selectedJobType},
-                  onSelectionChanged: (value) {
-                    setState(() {
-                      selectedJobType = value.first;
-                      poseStatus = null;
-                    });
-                    if (selectedImagePaths.isNotEmpty) _applyPoseEstimates();
-                  },
                 ),
                 const SizedBox(height: 12),
-                _ChoiceRow<double>(
-                  label: thai ? 'ระยะเวลา' : 'Duration',
-                  value: selectedDurationHours,
-                  items: {
-                    1.0: '1 hr',
-                    2.0: '2 hrs',
-                    4.0: '4 hrs',
-                    8.0: '8 hrs',
-                  },
-                  onChanged: (value) =>
-                      setState(() => selectedDurationHours = value),
-                ),
-                _ChoiceRow<double>(
-                  label: thai ? 'ความถี่' : 'Frequency',
-                  value: selectedFrequency,
-                  items: {
-                    0.2: '< 0.2/min',
-                    2.0: '1-4/min',
-                    6.5: '> 6/min',
-                  },
-                  onChanged: (value) =>
-                      setState(() => selectedFrequency = value),
-                ),
-                if (selectedJobType == JobType.lifting)
-                  _ChoiceRow<double>(
-                    label: thai ? 'น้ำหนักวัตถุ' : 'Load weight',
-                    value: selectedLoadWeight,
-                    items: {
-                      5.0: thai ? '5 กก.' : '5 kg',
-                      10.0: thai ? '10 กก.' : '10 kg',
-                      15.0: thai ? '15 กก.' : '15 kg',
-                      20.0: thai ? '20 กก.' : '20 kg',
-                      25.0: thai ? 'มากกว่า 20 กก.' : '> 20 kg',
-                    },
-                    onChanged: (value) =>
-                        setState(() => selectedLoadWeight = value),
+                if (selectedJobType == JobType.reba)
+                  _RebaCard(
+                    thai: thai,
+                    input: rebaInput,
+                    poseBusy: poseBusy,
+                    poseStatus: poseStatus,
+                    onChanged: (input) => setState(() => rebaInput = input),
+                    onAutoFill: selectedImagePaths.isEmpty || poseBusy
+                        ? null
+                        : _applyPoseEstimates,
+                  )
+                else
+                  _IsoCard(
+                    thai: thai,
+                    jobType: selectedJobType,
+                    horizontalController: horizontalController,
+                    verticalController: verticalController,
+                    transportController: transportController,
+                    initialForceController: initialForceController,
+                    sustainForceController: sustainForceController,
                   ),
               ],
             ),
-            if (selectedJobType == JobType.reba) ...[
-              const SizedBox(height: 16),
-              _RebaCard(
-                thai: thai,
-                input: rebaInput,
-                poseBusy: poseBusy,
-                poseStatus: poseStatus,
-                onChanged: (input) => setState(() => rebaInput = input),
-                onAutoFill: selectedImagePaths.isEmpty || poseBusy
-                    ? null
-                    : _applyPoseEstimates,
+            if (showAdvancedDetails) ...[
+              const SizedBox(height: 24),
+              FilledButton.icon(
+                onPressed: canAnalyze ? _analyze : null,
+                icon: poseBusy
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.analytics_outlined),
+                label: Text(thai ? 'ดูผลประเมิน' : 'View Assessment'),
               ),
-            ] else ...[
-              const SizedBox(height: 16),
-              _IsoCard(
-                thai: thai,
-                jobType: selectedJobType,
-                horizontalController: horizontalController,
-                verticalController: verticalController,
-                transportController: transportController,
-                initialForceController: initialForceController,
-                sustainForceController: sustainForceController,
-              ),
-            ],
-            const SizedBox(height: 24),
-            FilledButton.icon(
-              onPressed: canAnalyze ? _analyze : null,
-              icon: const Icon(Icons.analytics_outlined),
-              label: Text(
-                  thai ? 'เริ่มวิเคราะห์ความเสี่ยง' : 'Start Risk Analysis'),
-            ),
-            if (!canAnalyze) ...[
-              const SizedBox(height: 8),
-              Text(
-                thai
-                    ? 'เพิ่มรูปภาพอย่างน้อย 1 รูปก่อนเริ่มวิเคราะห์ REBA'
-                    : 'Add at least one photo before starting REBA analysis.',
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: Colors.black54),
-              ),
+              if (!canAnalyze) ...[
+                const SizedBox(height: 8),
+                Text(
+                  poseBusy
+                      ? (thai
+                          ? 'กำลังอ่านรูปภาพ รอสักครู่'
+                          : 'Reading the photo. Please wait.')
+                      : (thai
+                          ? 'ถ่ายรูปหรือเลือกรูปก่อน ระบบจะช่วยคำนวณให้'
+                          : 'Take or choose a photo first. The app will calculate the rest.'),
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: Colors.black54),
+                ),
+              ],
             ],
           ],
         ),
@@ -465,9 +528,16 @@ class _ImageSlots extends StatelessWidget {
   Widget build(BuildContext context) {
     return _SectionCard(
       title: thai
-          ? 'รูปภาพประกอบ (${imagePaths.length}/4)'
-          : 'Images (${imagePaths.length}/4)',
+          ? '1. ถ่ายรูปท่าทางทำงาน (${imagePaths.length}/4)'
+          : '1. Take a Work-Posture Photo (${imagePaths.length}/4)',
       children: [
+        Text(
+          thai
+              ? 'ให้เห็นคนทำงานชัดที่สุด ระบบจะอ่านท่าทางและตั้งค่าประเมินให้อัตโนมัติ'
+              : 'Show the worker clearly. The app reads the posture and fills the assessment automatically.',
+          style: const TextStyle(color: Colors.black54),
+        ),
+        const SizedBox(height: 12),
         LayoutBuilder(
           builder: (context, constraints) {
             final columns = constraints.maxWidth < 340 ? 1 : 2;
@@ -585,6 +655,224 @@ class _ImageSlots extends StatelessWidget {
       ],
     );
   }
+}
+
+class _SimpleAssessmentCard extends StatelessWidget {
+  const _SimpleAssessmentCard({
+    required this.thai,
+    required this.activityName,
+    required this.jobType,
+    required this.imageCount,
+    required this.poseBusy,
+    required this.poseStatus,
+    required this.durationHours,
+    required this.frequency,
+    required this.loadWeight,
+    required this.onAnalyze,
+  });
+
+  final bool thai;
+  final String activityName;
+  final JobType jobType;
+  final int imageCount;
+  final bool poseBusy;
+  final String? poseStatus;
+  final double durationHours;
+  final double frequency;
+  final double loadWeight;
+  final VoidCallback? onAnalyze;
+
+  @override
+  Widget build(BuildContext context) {
+    final ready = imageCount > 0 && !poseBusy;
+    final color = ready ? SooktaColors.leafGreen : Colors.amber.shade700;
+    return Card(
+      color: ready ? const Color(0xFFEFF8EF) : const Color(0xFFFFFBEE),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(
+                  ready ? Icons.check_circle_outline : Icons.touch_app_outlined,
+                  color: color,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        thai
+                            ? (ready
+                                ? 'ระบบตั้งค่าประเมินให้แล้ว'
+                                : 'ถ่ายรูปก่อน แล้วระบบจะช่วยคำนวณ')
+                            : (ready
+                                ? 'The app prepared the assessment'
+                                : 'Take a photo and the app will calculate'),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        poseBusy
+                            ? (thai
+                                ? 'กำลังอ่านท่าทางจากรูปภาพ...'
+                                : 'Reading posture from the photo...')
+                            : (poseStatus ??
+                                (thai
+                                    ? 'ไม่ต้องกรอกตัวเลขเอง หากไม่แน่ใจให้กดดูผลได้เลย'
+                                    : 'No need to enter technical numbers. Continue when ready.')),
+                        style: const TextStyle(color: Colors.black54),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            if (poseBusy) ...[
+              const SizedBox(height: 12),
+              const LinearProgressIndicator(),
+            ],
+            const SizedBox(height: 14),
+            _SimpleFactRow(
+              icon: Icons.work_outline,
+              label: thai ? 'กิจกรรม' : 'Activity',
+              value: activityName,
+            ),
+            _SimpleFactRow(
+              icon: Icons.auto_awesome,
+              label: thai ? 'วิธีประเมิน' : 'Assessment',
+              value: _jobLabel(jobType, thai),
+            ),
+            _SimpleFactRow(
+              icon: Icons.schedule,
+              label: thai ? 'ค่าพื้นฐาน' : 'Defaults',
+              value: _defaultSummary(thai),
+            ),
+            const SizedBox(height: 14),
+            FilledButton.icon(
+              onPressed: onAnalyze,
+              icon: const Icon(Icons.arrow_forward),
+              label: Text(thai ? 'ดูผลประเมิน' : 'View Assessment'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _defaultSummary(bool thai) {
+    final duration = switch (durationHours) {
+      1.0 => thai ? 'งานสั้น' : 'short work',
+      2.0 => thai ? 'ประมาณ 2 ชม.' : 'about 2 hrs',
+      4.0 => thai ? 'ครึ่งวัน' : 'half day',
+      _ => thai ? 'ทั้งวัน' : 'full day',
+    };
+    final repetition = switch (frequency) {
+      <= 0.2 => thai ? 'ทำไม่ถี่' : 'occasional',
+      < 6.0 => thai ? 'ทำซ้ำเป็นระยะ' : 'repeated',
+      _ => thai ? 'ทำซ้ำบ่อย' : 'very frequent',
+    };
+    if (jobType == JobType.lifting) {
+      return thai
+          ? '$duration, $repetition, น้ำหนักประมาณ ${loadWeight.round()} กก.'
+          : '$duration, $repetition, about ${loadWeight.round()} kg';
+    }
+    return '$duration, $repetition';
+  }
+}
+
+class _SimpleFactRow extends StatelessWidget {
+  const _SimpleFactRow({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 18, color: SooktaColors.darkGreen),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text.rich(
+              TextSpan(
+                text: '$label: ',
+                style: const TextStyle(color: Colors.black54),
+                children: [
+                  TextSpan(
+                    text: value,
+                    style: const TextStyle(
+                      color: Colors.black87,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AdvancedDetailsCard extends StatelessWidget {
+  const _AdvancedDetailsCard({
+    required this.thai,
+    required this.expanded,
+    required this.onExpansionChanged,
+    required this.children,
+  });
+
+  final bool thai;
+  final bool expanded;
+  final ValueChanged<bool> onExpansionChanged;
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: ExpansionTile(
+        initiallyExpanded: expanded,
+        onExpansionChanged: onExpansionChanged,
+        leading: const Icon(Icons.tune, color: SooktaColors.darkGreen),
+        title: Text(
+          thai ? 'ปรับรายละเอียด ถ้าทราบ' : 'Adjust Details if Known',
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
+        subtitle: Text(
+          thai
+              ? 'ส่วนนี้ไม่จำเป็นสำหรับผู้ใช้ทั่วไป'
+              : 'Most users can leave this unchanged.',
+        ),
+        childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+        children: children,
+      ),
+    );
+  }
+}
+
+String _jobLabel(JobType jobType, bool thai) {
+  return switch (jobType) {
+    JobType.reba => thai ? 'ดูท่าทางจากรูป' : 'Posture from photo',
+    JobType.lifting => thai ? 'งานยก/แบก' : 'Lifting',
+    JobType.pushPull => thai ? 'งานดัน/ดึง' : 'Push or pull',
+  };
 }
 
 class _RebaCard extends StatelessWidget {
