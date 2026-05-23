@@ -1,11 +1,15 @@
 {
-  "version": "2026-05-17",
+  "version": "2026-05-24",
   "featureSchemaId": "movenet-thunder-v1-17x3-normalized",
   "artifacts": {
     "logisticRegression": {
       "path": "assets/models/logistic_weights.json",
       "format": "json_weights",
-      "status": "placeholder_pending_research_training"
+      "status": "reba_worksheet_pseudo_trained",
+      "trainingSampleCount": 388,
+      "trainingSource": "data/research/extracted/pose_feature_dataset.csv",
+      "labelSource": "REBA worksheet deterministic pseudo-labels",
+      "metricsPath": "data/research/extracted/reba_logistic_metrics.json"
     },
     "xgboost": {
       "path": "assets/models/xgboost_model.onnx",
@@ -14,8 +18,12 @@
     }
   },
   "requiredBeforeResearchTrainedAbTest": [
-    "Replace logistic_weights.json with research-trained coefficients using the same featureSchemaId before claiming a validated research-trained model.",
+    "Replace or confirm the REBA pseudo-trained logistic model with expert-reviewed research labels before claiming a validated research-trained model.",
     "Add xgboost_model.onnx exported from the research-trained XGBoost pipeline before enabling XGBoost A/B testing.",
     "Run offline inference tests against fixed sample joint-feature vectors from the expert-labeled research dataset."
+  ],
+  "notes": [
+    "The current Logistic Regression model is a real trained offline artifact, but its labels are deterministic pseudo-labels derived from the REBA worksheet and MoveNet geometry.",
+    "It is suitable for research-prototype risk communication and repeated data collection, not for clinical diagnosis or a validated injury prediction claim."
   ]
 }

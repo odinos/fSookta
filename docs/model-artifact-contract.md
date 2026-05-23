@@ -78,3 +78,23 @@ Do not mark the model as research-trained until all are true:
 - Expert labels include the ERGO process fields required by REBA and ISO
   11228-1/2, including trunk twist, trunk side flexion, wrist twist, coupling,
   activity, lifting inputs, and push/pull force limits.
+
+## Current REBA Pseudo-Trained Model
+
+The app now includes a first real Logistic Regression artifact trained from the
+local MoveNet research dataset:
+
+- Asset: `assets/models/logistic_weights.json`
+- Model source: `reba_worksheet_pseudo_trained`
+- Training script: `tools/research_dataset/train_reba_logistic_model.py`
+- Training rows: `388` valid MoveNet pose rows from
+  `data/research/extracted/pose_feature_dataset.csv`
+- Label source: deterministic REBA pseudo-labels derived from posture geometry,
+  task defaults, and the REBA worksheet risk bands in `/Users/kpc/Documents/Doc/REBA.pdf`
+- Metrics output: `data/research/extracted/reba_logistic_metrics.json`
+
+This is a real on-device ML artifact, but it is not yet an expert-validated
+research model. The current source data is strongly concentrated in the medium
+risk band, so the next research iteration should add or review more low, high,
+and very-high posture samples before using the model for comparative research
+claims.
