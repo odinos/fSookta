@@ -1,5 +1,6 @@
 import 'dart:io' show Platform;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 
@@ -33,29 +34,81 @@ class _SooktaTtsButtonState extends State<SooktaTtsButton> {
 
   Future<void> _configure() async {
     if (Platform.isIOS) {
-      await _tts.setSharedInstance(true);
-      await _tts.autoStopSharedSession(false);
-      await _tts.setIosAudioCategory(
+      final sharedResult = await _tts.setSharedInstance(true);
+      final categoryResult = await _tts.setIosAudioCategory(
         IosTextToSpeechAudioCategory.playback,
         [
-          IosTextToSpeechAudioCategoryOptions.defaultToSpeaker,
-          IosTextToSpeechAudioCategoryOptions.allowBluetooth,
-          IosTextToSpeechAudioCategoryOptions.allowBluetoothA2DP,
+          IosTextToSpeechAudioCategoryOptions.duckOthers,
         ],
         IosTextToSpeechAudioMode.spokenAudio,
       );
+      await _tts.autoStopSharedSession(false);
+      _debug('iOS audio shared=$sharedResult category=$categoryResult');
     }
-    await _tts.setVolume(1.0);
-    await _tts.setLanguage(widget.thai ? 'th-TH' : 'en-US');
+    final volumeResult = await _tts.setVolume(1.0);
+    final languageResult = await _configureVoice();
+    _debug('volume=$volumeResult voiceOrLanguage=$languageResult');
     await _tts.setSpeechRate(widget.thai ? 0.45 : 0.48);
     await _tts.setPitch(1.0);
     await _tts.awaitSpeakCompletion(true);
     _tts.setStartHandler(() {
+      _debug('start speaking');
       if (mounted) setState(() => _speaking = true);
     });
-    _tts.setCompletionHandler(_stopIndicator);
-    _tts.setCancelHandler(_stopIndicator);
-    _tts.setErrorHandler((_) => _stopIndicator());
+    _tts.setCompletionHandler(() {
+      _debug('completed speaking');
+      _stopIndicator();
+    });
+    _tts.setCancelHandler(() {
+      _debug('cancelled speaking');
+      _stopIndicator();
+    });
+    _tts.setErrorHandler((message) {
+      _debug('tts error: $message');
+      _stopIndicator();
+    });
+  }
+
+  Future<dynamic> _configureVoice() async {
+    final desiredLocale = widget.thai ? 'th-TH' : 'en-US';
+    if (Platform.isIOS) {
+      final voices = await _tts.getVoices;
+      final voice = _bestVoiceForLocale(voices, desiredLocale);
+      _debug('available voices=${voices is List ? voices.length : 'unknown'} '
+          'desired=$desiredLocale selected=$voice');
+      if (voice != null) {
+        return _tts.setVoice(voice);
+      }
+    }
+    final available = await _tts.isLanguageAvailable(desiredLocale);
+    _debug('language $desiredLocale available=$available');
+    return _tts.setLanguage(desiredLocale);
+  }
+
+  Map<String, String>? _bestVoiceForLocale(dynamic voices, String locale) {
+    if (voices is! List) return null;
+    final normalizedLocale = locale.toLowerCase();
+    final matching = voices.whereType<Map>().where((voice) {
+      final voiceLocale = voice['locale']?.toString().toLowerCase();
+      return voiceLocale == normalizedLocale ||
+          voiceLocale?.startsWith(normalizedLocale.split('-').first) == true;
+    }).toList();
+    if (matching.isEmpty) return null;
+    matching.sort((a, b) {
+      final aq = a['quality']?.toString() ?? '';
+      final bq = b['quality']?.toString() ?? '';
+      return _qualityRank(bq).compareTo(_qualityRank(aq));
+    });
+    return matching.first.map(
+      (key, value) => MapEntry(key.toString(), value.toString()),
+    );
+  }
+
+  int _qualityRank(String quality) {
+    final lower = quality.toLowerCase();
+    if (lower.contains('premium')) return 3;
+    if (lower.contains('enhanced')) return 2;
+    return 1;
   }
 
   @override
@@ -83,7 +136,10 @@ class _SooktaTtsButtonState extends State<SooktaTtsButton> {
       await _configured;
       if (!mounted) return;
       setState(() => _speaking = true);
-      final result = await _tts.speak(widget.text.trim());
+      final text = widget.text.trim();
+      _debug('speak requested chars=${text.length} thai=${widget.thai}');
+      final result = await _tts.speak(text);
+      _debug('speak result=$result');
       if (result == 0) {
         _showTtsError();
       }
@@ -108,6 +164,10 @@ class _SooktaTtsButtonState extends State<SooktaTtsButton> {
 
   void _stopIndicator() {
     if (mounted) setState(() => _speaking = false);
+  }
+
+  void _debug(String message) {
+    if (kDebugMode) debugPrint('SooktaTTS: $message');
   }
 
   @override

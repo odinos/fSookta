@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../app/app_state.dart';
 import '../../app/sookta_app.dart';
+import '../../widgets/tts_button.dart';
 
 class HelpScreen extends StatelessWidget {
   const HelpScreen({super.key});
@@ -61,6 +62,7 @@ class HelpScreen extends StatelessWidget {
       title: thai ? 'ความช่วยเหลือ' : 'Help',
       subtitle: thai ? 'คำแนะนำการใช้งาน' : 'Usage Guide',
       items: items,
+      thai: thai,
     );
   }
 }
@@ -125,6 +127,7 @@ class TermsScreen extends StatelessWidget {
           ? 'กรุณาอ่านและยอมรับเงื่อนไข'
           : 'Please read and accept the terms',
       items: items,
+      thai: thai,
     );
   }
 }
@@ -134,11 +137,13 @@ class _InfoListScreen extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.items,
+    required this.thai,
   });
 
   final String title;
   final String subtitle;
   final List<(String, String)> items;
+  final bool thai;
 
   @override
   Widget build(BuildContext context) {
@@ -153,13 +158,10 @@ class _InfoListScreen extends StatelessWidget {
             ...items.map(
               (item) => Card(
                 child: ListTile(
-                  leading: IconButton(
-                    onPressed: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text(item.$2)),
-                      );
-                    },
-                    icon: const Icon(Icons.volume_up_outlined),
+                  leading: SooktaTtsButton(
+                    text: item.$2,
+                    thai: thai,
+                    size: 40,
                   ),
                   title: Text(item.$1,
                       style: const TextStyle(fontWeight: FontWeight.bold)),
