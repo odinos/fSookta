@@ -257,7 +257,6 @@ class _ScreenshotHarnessAppState extends State<ScreenshotHarnessApp> {
                   ),
                 ),
               ),
-            ),
           ],
         ),
       ),
