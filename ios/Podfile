@@ -42,4 +42,25 @@ post_install do |installer|
       config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.0'
     end
   end
+
+  # CocoaPods can generate broken relative paths for Flutter's integration_test
+  # pod after this workspace is moved between folders. Archive builds then fail
+  # because Xcode resolves the headers under `/develop/flutter/...` instead of
+  # the local Flutter SDK. Force these file references back to absolute SDK
+  # paths during pod install.
+  integration_test_sources = {
+    'FLTIntegrationTestRunner.h' => 'integration_test/Sources/integration_test/include/FLTIntegrationTestRunner.h',
+    'IntegrationTestIosTest.h' => 'integration_test/Sources/integration_test/include/IntegrationTestIosTest.h',
+    'IntegrationTestPlugin.h' => 'integration_test/Sources/integration_test/include/IntegrationTestPlugin.h',
+    'FLTIntegrationTestRunner.m' => 'integration_test/Sources/integration_test/FLTIntegrationTestRunner.m',
+    'IntegrationTestIosTest.m' => 'integration_test/Sources/integration_test/IntegrationTestIosTest.m',
+    'IntegrationTestPlugin.m' => 'integration_test/Sources/integration_test/IntegrationTestPlugin.m',
+  }
+  integration_test_root = File.realpath(File.join(flutter_root, 'packages', 'integration_test', 'ios'))
+  installer.pods_project.files.each do |file_ref|
+    next unless integration_test_sources.key?(file_ref.display_name)
+
+    file_ref.source_tree = '<absolute>'
+    file_ref.path = File.join(integration_test_root, integration_test_sources[file_ref.display_name])
+  end
 end
