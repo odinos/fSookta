@@ -43,6 +43,7 @@ void _disableDebugPaint() {
 }
 
 const _stressText = bool.fromEnvironment('SOOKTA_QA_STRESS_TEXT');
+const _showQaLabel = bool.fromEnvironment('SOOKTA_QA_LABEL', defaultValue: true);
 final _textScale =
     double.tryParse(const String.fromEnvironment('SOOKTA_QA_TEXT_SCALE')) ?? 1;
 
@@ -223,28 +224,34 @@ class _ScreenshotHarnessAppState extends State<ScreenshotHarnessApp> {
         home: Stack(
           children: [
             screen.child,
-            Positioned(
-              right: 8,
-              bottom: 8,
-              child: IgnorePointer(
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.55),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Padding(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    child: MediaQuery(
-                      data: MediaQuery.of(context).copyWith(
-                        textScaler: TextScaler.noScaling,
+            if (_showQaLabel)
+              Positioned(
+                right: 8,
+                bottom: 8,
+                child: IgnorePointer(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.55),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
                       ),
-                      child: Text(
-                        screen.name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style:
-                            const TextStyle(color: Colors.white, fontSize: 9),
+                      child: MediaQuery(
+                        data: MediaQuery.of(context).copyWith(
+                          textScaler: TextScaler.noScaling,
+                        ),
+                        child: Text(
+                          screen.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 9,
+                          ),
+                        ),
                       ),
                     ),
                   ),
