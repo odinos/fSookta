@@ -87,13 +87,13 @@ Do not mark the model as research-trained until all are true:
   11228-1/2, including trunk twist, trunk side flexion, wrist twist, coupling,
   activity, lifting inputs, and push/pull force limits.
 
-## Current REBA Expert-Seeded Model
+## Current REBA + ISO Document-Guided Model
 
 The app now includes a first real Logistic Regression artifact trained from the
 local MoveNet research dataset:
 
 - Asset: `assets/models/logistic_weights.json`
-- Model source: `research_team_reba2_plus_pseudo_trained`
+- Model source: `research_team_reba2_iso11228_document_guided_trained`
 - Training script: `tools/research_dataset/train_reba_logistic_model.py`
 - Training rows: `388` valid MoveNet pose rows from
   `data/research/extracted/pose_feature_dataset.csv`
@@ -107,8 +107,10 @@ local MoveNet research dataset:
   are preferred. Ambiguous parent media folders, such as `4.1`, use the
   traceable mean of child labels such as `4.1.1` and `4.1.2`.
 - ISO 11228 research labels are extracted to
-  `data/research/expert_labels/iso11228_expert_labels.csv` for the combined
-  ergonomic/economic layer and future multi-task model work.
+  `data/research/expert_labels/iso11228_expert_labels.csv`. The current
+  Logistic Regression training uses these workbook labels where they match the
+  activity/session, then applies document-guided ISO 11228-3 pseudo labels for
+  repetitive low-load work when direct ISO labels are not available.
 - ISO 11228-1/2/3 and agriculture recommendation references are tracked in
   `data/research/reference_sources/training_reference_sources.json`; the PDFs
   remain outside the repository because several are copyright-protected
@@ -116,6 +118,8 @@ local MoveNet research dataset:
 - Metrics output: `data/research/extracted/reba_logistic_metrics.json`
 
 This is a real on-device ML artifact seeded by field labels from the research
-team. It is still not a fully validated research model because the current
-extracted pose dataset covers only a subset of sessions and some labels are
-mapped at parent-folder level.
+team and document-guided ISO 11228 rules from the supplied references. It is
+still not a fully validated research model because the current extracted pose
+dataset covers only a subset of sessions, some labels are mapped at
+parent-folder or activity level, and the ISO 11228-3 rows are deterministic
+pseudo labels rather than independent expert outcome labels.

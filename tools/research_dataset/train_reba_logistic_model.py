@@ -140,6 +140,33 @@ class ExpertRebaLabel:
 
 
 @dataclass(frozen=True)
+class Iso11228Label:
+    total_score: float
+    risk_level: str
+    label_source: str
+    matched_session_id: str
+    match_type: str
+
+    @property
+    def reba_equivalent_score(self) -> float:
+        # The app renders one 1-9 user risk score. For training the MoveNet
+        # model, ISO worksheet labels are mapped to the same soft target scale
+        # used by REBA so that combined REBA+ISO risk remains monotonic.
+        if self.total_score > 0:
+            return max(1.0, min(12.0, 1 + (self.total_score / 18) * 11))
+        return {
+            "low": 2.0,
+            "medium": 6.0,
+            "high": 9.0,
+            "veryHigh": 12.0,
+        }.get(self.risk_level, 6.0)
+
+    @property
+    def target_probability(self) -> float:
+        return max(0.0, min(1.0, (self.reba_equivalent_score - 1) / 11))
+
+
+@dataclass(frozen=True)
 class TrainingLabel:
     score: float
     risk_level: str
@@ -148,6 +175,13 @@ class TrainingLabel:
     match_type: str
     matched_session_id: str
     pseudo: RebaPseudoLabel
+    reba_score: float
+    reba_risk_level: str
+    iso_total_score: float | None = None
+    iso_risk_level: str | None = None
+    iso_label_source: str = ""
+    iso_match_type: str = ""
+    iso_matched_session_id: str = ""
 
 
 def parse_args() -> argparse.Namespace:
@@ -184,6 +218,15 @@ def parse_args() -> argparse.Namespace:
         ),
     )
     parser.add_argument(
+        "--iso-labels",
+        default="data/research/expert_labels/iso11228_expert_labels.csv",
+        help=(
+            "Optional ISO 11228 worksheet labels. Exact/prefix/session matches "
+            "are preferred; activity means and document-guided repetitive-work "
+            "pseudo labels are used when direct labels are unavailable."
+        ),
+    )
+    parser.add_argument(
         "--min-pose-score",
         type=float,
         default=0.2,
@@ -216,6 +259,12 @@ def read_rows(path: Path) -> list[dict[str, str]]:
 
 
 def load_expert_reba_labels(path: Path) -> list[dict[str, str]]:
+    if not path.exists():
+        return []
+    return read_rows(path)
+
+
+def load_iso11228_labels(path: Path) -> list[dict[str, str]]:
     if not path.exists():
         return []
     return read_rows(path)
@@ -347,6 +396,29 @@ def risk_level_for_reba_float(score: float) -> str:
     return risk_level_for_reba(int(round(score)))
 
 
+def risk_level_from_thai(value: str) -> str:
+    normalized = value.strip().lower()
+    if normalized in {"ต่ำ", "low"}:
+        return "low"
+    if normalized in {"ปานกลาง", "medium"}:
+        return "medium"
+    if normalized in {"สูง", "high"}:
+        return "high"
+    if normalized in {"สูงมาก", "veryhigh", "very_high", "critical"}:
+        return "veryHigh"
+    return "medium"
+
+
+def risk_level_for_iso_total(score: float) -> str:
+    if score <= 8:
+        return "low"
+    if score <= 13:
+        return "medium"
+    if score <= 18:
+        return "high"
+    return "veryHigh"
+
+
 def activity_defaults(activity: str) -> tuple[int, int, int]:
     normalized = activity.strip().lower()
     if normalized == "on_farm_transport":
@@ -431,25 +503,128 @@ def derive_reba_label(row: dict[str, str]) -> RebaPseudoLabel:
     )
 
 
+def iso_label_from_rows(
+    *,
+    activity: str,
+    session_id: str,
+    iso_rows: list[dict[str, str]],
+) -> Iso11228Label | None:
+    exact = [
+        row
+        for row in iso_rows
+        if row.get("activity") == activity
+        and str(row.get("session_id", "")).strip() == session_id
+    ]
+    if exact:
+        return _mean_iso_label(exact, "iso11228_exact", exact[0].get("session_id", ""))
+
+    prefix = f"{session_id}."
+    prefix_matches = [
+        row
+        for row in iso_rows
+        if row.get("activity") == activity
+        and str(row.get("session_id", "")).strip().startswith(prefix)
+    ]
+    if prefix_matches:
+        return _mean_iso_label(
+            prefix_matches,
+            "iso11228_prefix_mean",
+            "+".join(row.get("session_id", "") for row in prefix_matches),
+        )
+
+    activity_matches = [row for row in iso_rows if row.get("activity") == activity]
+    if activity_matches:
+        return _mean_iso_label(
+            activity_matches,
+            "iso11228_activity_mean",
+            "+".join(row.get("session_id", "") for row in activity_matches),
+        )
+    return None
+
+
+def _mean_iso_label(
+    rows: list[dict[str, str]],
+    match_type: str,
+    matched_session_id: str,
+) -> Iso11228Label:
+    total = sum(numeric(row, "iso11228_total_score") for row in rows) / len(rows)
+    risk_counts = Counter(
+        risk_level_from_thai(row.get("risk_level_th", "")) for row in rows
+    )
+    risk = risk_counts.most_common(1)[0][0] if risk_counts else risk_level_for_iso_total(total)
+    source = rows[0].get("label_source") or "research_team_iso11228_workbook"
+    return Iso11228Label(
+        total_score=total,
+        risk_level=risk,
+        label_source=source,
+        matched_session_id=matched_session_id,
+        match_type=match_type,
+    )
+
+
+def document_guided_iso_label(
+    row: dict[str, str],
+    pseudo: RebaPseudoLabel,
+) -> Iso11228Label | None:
+    activity = row.get("activity", "")
+    if activity not in {"pruning", "harvesting", "transplanting", "pesticide_spraying"}:
+        return None
+
+    posture = max(pseudo.trunk_score, pseudo.neck_score, pseudo.leg_score)
+    arms = max(pseudo.upper_arm_score, pseudo.wrist_score)
+    force = 1 + min(2, pseudo.load_score)
+    frequency = 2 + min(1, pseudo.activity_score)
+    reach = 3 if pseudo.upper_arm_score >= 3 else 2 if arms >= 2 else 1
+    environment = 1
+    total = posture + arms + force + frequency + reach + environment
+
+    if total < 10 and pseudo.activity_score == 0 and arms < 3:
+        return None
+
+    return Iso11228Label(
+        total_score=float(total),
+        risk_level=risk_level_for_iso_total(float(total)),
+        label_source="iso11228_3_document_guided_pseudo_label",
+        matched_session_id="",
+        match_type="document_guided_iso11228_3",
+    )
+
+
 def build_training_label(
     row: dict[str, str],
     pseudo: RebaPseudoLabel,
     *,
     exact_expert_labels: dict[tuple[str, str], ExpertRebaLabel],
     expert_labels: list[dict[str, str]],
+    iso_labels: list[dict[str, str]],
 ) -> TrainingLabel:
     activity = row.get("activity", "")
     session_id = str(row.get("session_id", "")).strip()
+    iso = iso_label_from_rows(
+        activity=activity,
+        session_id=session_id,
+        iso_rows=iso_labels,
+    ) or document_guided_iso_label(row, pseudo)
     exact = exact_expert_labels.get((activity, session_id))
     if exact is not None:
+        score = max(exact.score, iso.reba_equivalent_score) if iso else exact.score
+        probability = max(exact.target_probability, iso.target_probability) if iso else exact.target_probability
+        risk = risk_level_for_reba_float(score)
         return TrainingLabel(
-            score=exact.score,
-            risk_level=exact.risk_level,
-            target_probability=exact.target_probability,
-            label_source=exact.label_source,
-            match_type="expert_exact",
+            score=score,
+            risk_level=risk,
+            target_probability=probability,
+            label_source=exact.label_source + ("+" + iso.label_source if iso else ""),
+            match_type="expert_exact" + ("+" + iso.match_type if iso else ""),
             matched_session_id=exact.matched_session_id,
             pseudo=pseudo,
+            reba_score=exact.score,
+            reba_risk_level=exact.risk_level,
+            iso_total_score=iso.total_score if iso else None,
+            iso_risk_level=iso.risk_level if iso else None,
+            iso_label_source=iso.label_source if iso else "",
+            iso_match_type=iso.match_type if iso else "",
+            iso_matched_session_id=iso.matched_session_id if iso else "",
         )
 
     prefix_matches = []
@@ -463,24 +638,47 @@ def build_training_label(
     if prefix_matches:
         score = sum(numeric(label, "reba_score") for label in prefix_matches) / len(prefix_matches)
         matched_sessions = "+".join(label["session_id"] for label in prefix_matches)
+        reba_risk = risk_level_for_reba_float(score)
+        combined_score = max(score, iso.reba_equivalent_score) if iso else score
+        probability = max(0.0, min(1.0, (score - 1) / 11))
+        if iso:
+            probability = max(probability, iso.target_probability)
         return TrainingLabel(
-            score=score,
-            risk_level=risk_level_for_reba_float(score),
-            target_probability=max(0.0, min(1.0, (score - 1) / 11)),
-            label_source="research_team_reba2_prefix_mean",
-            match_type="expert_prefix_mean",
+            score=combined_score,
+            risk_level=risk_level_for_reba_float(combined_score),
+            target_probability=probability,
+            label_source="research_team_reba2_prefix_mean"
+            + ("+" + iso.label_source if iso else ""),
+            match_type="expert_prefix_mean" + ("+" + iso.match_type if iso else ""),
             matched_session_id=matched_sessions,
             pseudo=pseudo,
+            reba_score=score,
+            reba_risk_level=reba_risk,
+            iso_total_score=iso.total_score if iso else None,
+            iso_risk_level=iso.risk_level if iso else None,
+            iso_label_source=iso.label_source if iso else "",
+            iso_match_type=iso.match_type if iso else "",
+            iso_matched_session_id=iso.matched_session_id if iso else "",
         )
 
+    score = max(float(pseudo.score), iso.reba_equivalent_score) if iso else float(pseudo.score)
+    probability = max(pseudo.target_probability, iso.target_probability) if iso else pseudo.target_probability
     return TrainingLabel(
-        score=float(pseudo.score),
-        risk_level=pseudo.risk_level,
-        target_probability=pseudo.target_probability,
-        label_source="reba_worksheet_pseudo_label",
-        match_type="pseudo_fallback",
+        score=score,
+        risk_level=risk_level_for_reba_float(score),
+        target_probability=probability,
+        label_source="reba_worksheet_pseudo_label"
+        + ("+" + iso.label_source if iso else ""),
+        match_type="pseudo_fallback" + ("+" + iso.match_type if iso else ""),
         matched_session_id="",
         pseudo=pseudo,
+        reba_score=float(pseudo.score),
+        reba_risk_level=pseudo.risk_level,
+        iso_total_score=iso.total_score if iso else None,
+        iso_risk_level=iso.risk_level if iso else None,
+        iso_label_source=iso.label_source if iso else "",
+        iso_match_type=iso.match_type if iso else "",
+        iso_matched_session_id=iso.matched_session_id if iso else "",
     )
 
 
@@ -664,7 +862,7 @@ def build_metrics(
         confusion.setdefault(actual, Counter())[predicted] += 1
     return {
         "trainedAt": date.today().isoformat(),
-        "modelSource": "research_team_reba2_plus_pseudo_label",
+        "modelSource": "research_team_reba2_iso11228_document_guided_label",
         "featureSchemaId": FEATURE_SCHEMA_ID,
         "inputFeatureCount": len(FEATURE_COLUMNS),
         "featureCount": len(feature_names()),
@@ -674,6 +872,16 @@ def build_metrics(
         "rebaScoreDistribution": dict(Counter(round(label.score, 2) for label in labels)),
         "labelSourceDistribution": dict(Counter(label.label_source for label in labels)),
         "labelMatchDistribution": dict(Counter(label.match_type for label in labels)),
+        "isoLabelSourceDistribution": dict(
+            Counter(label.iso_label_source for label in labels if label.iso_label_source)
+        ),
+        "isoLabelMatchDistribution": dict(
+            Counter(label.iso_match_type for label in labels if label.iso_match_type)
+        ),
+        "isoMatchedSampleCount": sum(1 for label in labels if label.iso_match_type),
+        "combinedLabelSampleCount": sum(
+            1 for label in labels if label.iso_match_type and label.score > label.reba_score
+        ),
         "expertMatchedSampleCount": sum(
             1 for label in labels if label.match_type.startswith("expert_")
         ),
@@ -684,9 +892,11 @@ def build_metrics(
         "lossCurve": [round(value, 6) for value in losses],
         "labelingNote": (
             "Research-team REBA labels are used when they match the media session. "
-            "Rows without a matching expert label fall back to deterministic "
-            "pseudo-labels derived from MoveNet posture geometry and the REBA "
-            "worksheet risk bands."
+            "Rows without a matching expert REBA label fall back to deterministic "
+            "pseudo-labels derived from MoveNet posture geometry. ISO 11228 "
+            "workbook labels and document-guided ISO 11228-3 pseudo labels are "
+            "combined by taking the higher REBA-equivalent risk target, matching "
+            "the app's REBA + ISO combined-risk rule."
         ),
     }
 
@@ -715,6 +925,13 @@ def write_labeled_dataset(
         "pseudo_reba_load_score",
         "pseudo_reba_coupling_score",
         "pseudo_reba_activity_score",
+        "training_reba_component_score",
+        "training_reba_component_risk_level",
+        "training_iso11228_total_score",
+        "training_iso11228_risk_level",
+        "training_iso11228_label_source",
+        "training_iso11228_match_type",
+        "training_iso11228_matched_session_id",
     ]
     fieldnames = [*rows[0].keys()]
     for name in extra:
@@ -744,6 +961,15 @@ def write_labeled_dataset(
                     "pseudo_reba_load_score": str(label.pseudo.load_score),
                     "pseudo_reba_coupling_score": str(label.pseudo.coupling_score),
                     "pseudo_reba_activity_score": str(label.pseudo.activity_score),
+                    "training_reba_component_score": f"{label.reba_score:.2f}".rstrip("0").rstrip("."),
+                    "training_reba_component_risk_level": label.reba_risk_level,
+                    "training_iso11228_total_score": (
+                        "" if label.iso_total_score is None else f"{label.iso_total_score:.2f}".rstrip("0").rstrip(".")
+                    ),
+                    "training_iso11228_risk_level": label.iso_risk_level or "",
+                    "training_iso11228_label_source": label.iso_label_source,
+                    "training_iso11228_match_type": label.iso_match_type,
+                    "training_iso11228_matched_session_id": label.iso_matched_session_id,
                 }
             )
             writer.writerow(out)
@@ -753,6 +979,7 @@ def main() -> None:
     args = parse_args()
     rows = read_rows(Path(args.dataset))
     expert_rows = load_expert_reba_labels(Path(args.expert_labels))
+    iso_rows = load_iso11228_labels(Path(args.iso_labels))
     exact_expert_labels: dict[tuple[str, str], ExpertRebaLabel] = {}
     for row in expert_rows:
         activity = row.get("activity", "")
@@ -782,6 +1009,7 @@ def main() -> None:
                 pseudo,
                 exact_expert_labels=exact_expert_labels,
                 expert_labels=expert_rows,
+                iso_labels=iso_rows,
             )
         )
 
@@ -811,13 +1039,15 @@ def main() -> None:
     metrics = build_metrics(labels, probabilities, thresholds, losses)
 
     model = {
-        "version": f"reba-pseudo-logistic-{date.today().isoformat()}",
+        "version": f"reba-iso-document-guided-logistic-{date.today().isoformat()}",
         "featureSchemaId": FEATURE_SCHEMA_ID,
-        "modelSource": "research_team_reba2_plus_pseudo_trained",
+        "modelSource": "research_team_reba2_iso11228_document_guided_trained",
         "description": (
             "Offline Logistic Regression trained from MoveNet research media "
-            "with research-team REBA labels where sessions match, falling back "
-            "to deterministic REBA worksheet pseudo-labels for unmatched rows. "
+            "with research-team REBA labels, ISO 11228 worksheet labels, and "
+            "document-guided ISO 11228-3 pseudo labels where direct ISO labels "
+            "are unavailable. REBA and ISO targets are combined by taking the "
+            "higher REBA-equivalent risk, matching the app's combined-risk rule. "
             "Use for research risk communication until full expert validation."
         ),
         "inputFeatureCount": len(FEATURE_COLUMNS),

@@ -58,22 +58,29 @@ offline.
 - Training sample count: `388`
 - Raw input feature count: `51`
 - Model feature count after `reba_angle_features_v1`: `71`
-- Label source: research-team REBA-2 labels for the extracted sessions
+- Label source: research-team REBA-2 labels combined with ISO 11228 workbook
+  labels and document-guided ISO 11228-3 pseudo labels
 - Label match distribution:
-  - exact expert session match: `264`
-  - parent-session mean from child labels: `124`
+  - REBA exact expert + ISO 11228-3 document-guided: `235`
+  - REBA parent-session mean + ISO 11228-3 document-guided: `124`
+  - REBA exact expert + ISO 11228 workbook activity mean: `29`
+- ISO label source distribution:
+  - ISO 11228-3 document-guided pseudo label: `359`
+  - Research-team ISO 11228 workbook: `29`
 - Risk distribution:
-  - low: `29`
-  - medium: `154`
-  - high: `205`
-  - very high: `0`
-- Training-set risk accuracy: `0.5644`
-- REBA score mean absolute error: `1.5791`
+  - low: `0`
+  - medium: `13`
+  - high: `346`
+  - very high: `29`
+- Training-set risk accuracy: `0.8789`
+- Combined REBA-equivalent score mean absolute error: `0.5884`
 
-The previous pseudo-label model reported higher accuracy because almost every
-sample was labeled medium risk. The current metrics are more conservative but
-more useful for research because they are anchored to field labels from the
-research team.
+The current model intentionally shifts upward because the training target now
+uses the app's combined-risk rule: calculate REBA for every row, add ISO 11228
+where the research workbook or supplied ISO documents indicate an applicable
+dimension, then train against the higher REBA-equivalent risk. These
+document-guided labels are auditable and useful for field data collection, but
+they are not a substitute for future expert-reviewed outcome labels.
 
 ## Feature Engineering
 
@@ -104,13 +111,13 @@ assets/models/logistic_weights.json
 
 The exported JSON now contains:
 
-- `modelSource: research_team_reba2_plus_pseudo_trained`
+- `modelSource: research_team_reba2_iso11228_document_guided_trained`
 - `inputFeatureCount: 51`
 - `featureCount: 71`
 - `featureEngineering: reba_angle_features_v1`
 - `mean` and `standardDeviation` used for the same preprocessing at inference
 - `weights` and `intercept`
-- probability thresholds mapped to the REBA risk bands
+- probability thresholds mapped to combined REBA-equivalent risk bands
 - embedded training metrics for auditability
 
 ## Economic Impact Layer
@@ -119,7 +126,7 @@ Treatment-cost survey data is intentionally used after risk assessment, not as
 the ML training label. The current flow is:
 
 ```text
-MoveNet features -> REBA expert-seeded Logistic Regression -> risk/body areas
+MoveNet features -> REBA + ISO document-guided Logistic Regression -> risk/body areas
 -> EconomicImpactService -> estimated impact shown to the farmer
 ```
 
