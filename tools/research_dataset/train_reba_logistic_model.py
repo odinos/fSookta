@@ -127,6 +127,29 @@ class RebaPseudoLabel:
     pose_quality: float
 
 
+@dataclass(frozen=True)
+class ExpertRebaLabel:
+    score: float
+    risk_level: str
+    label_source: str
+    matched_session_id: str
+
+    @property
+    def target_probability(self) -> float:
+        return max(0.0, min(1.0, (self.score - 1) / 11))
+
+
+@dataclass(frozen=True)
+class TrainingLabel:
+    score: float
+    risk_level: str
+    target_probability: float
+    label_source: str
+    match_type: str
+    matched_session_id: str
+    pseudo: RebaPseudoLabel
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Train fSookta Logistic Regression from REBA pseudo-labels.",
@@ -152,6 +175,15 @@ def parse_args() -> argparse.Namespace:
         help="Pose dataset copy with deterministic REBA labels.",
     )
     parser.add_argument(
+        "--expert-labels",
+        default="data/research/expert_labels/reba2_expert_labels.csv",
+        help=(
+            "Optional research-team REBA labels. Exact session_id matches are "
+            "preferred; dotted child sessions can be averaged for a parent "
+            "media folder such as 4.1 from 4.1.1 and 4.1.2."
+        ),
+    )
+    parser.add_argument(
         "--min-pose-score",
         type=float,
         default=0.2,
@@ -160,19 +192,19 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--epochs",
         type=int,
-        default=4000,
+        default=15000,
         help="Gradient descent epochs.",
     )
     parser.add_argument(
         "--learning-rate",
         type=float,
-        default=0.08,
+        default=0.04,
         help="Gradient descent learning rate.",
     )
     parser.add_argument(
         "--l2",
         type=float,
-        default=0.01,
+        default=0.0001,
         help="L2 regularization strength.",
     )
     return parser.parse_args()
@@ -181,6 +213,12 @@ def parse_args() -> argparse.Namespace:
 def read_rows(path: Path) -> list[dict[str, str]]:
     with path.open(newline="", encoding="utf-8") as handle:
         return list(csv.DictReader(handle))
+
+
+def load_expert_reba_labels(path: Path) -> list[dict[str, str]]:
+    if not path.exists():
+        return []
+    return read_rows(path)
 
 
 def numeric(row: dict[str, str], key: str, default: float = 0.0) -> float:
@@ -305,6 +343,10 @@ def risk_level_for_reba(score: int) -> str:
     return "veryHigh"
 
 
+def risk_level_for_reba_float(score: float) -> str:
+    return risk_level_for_reba(int(round(score)))
+
+
 def activity_defaults(activity: str) -> tuple[int, int, int]:
     normalized = activity.strip().lower()
     if normalized == "on_farm_transport":
@@ -386,6 +428,59 @@ def derive_reba_label(row: dict[str, str]) -> RebaPseudoLabel:
         coupling_score=coupling_score,
         activity_score=activity_score,
         pose_quality=numeric(row, "pose_score"),
+    )
+
+
+def build_training_label(
+    row: dict[str, str],
+    pseudo: RebaPseudoLabel,
+    *,
+    exact_expert_labels: dict[tuple[str, str], ExpertRebaLabel],
+    expert_labels: list[dict[str, str]],
+) -> TrainingLabel:
+    activity = row.get("activity", "")
+    session_id = str(row.get("session_id", "")).strip()
+    exact = exact_expert_labels.get((activity, session_id))
+    if exact is not None:
+        return TrainingLabel(
+            score=exact.score,
+            risk_level=exact.risk_level,
+            target_probability=exact.target_probability,
+            label_source=exact.label_source,
+            match_type="expert_exact",
+            matched_session_id=exact.matched_session_id,
+            pseudo=pseudo,
+        )
+
+    prefix_matches = []
+    prefix = f"{session_id}."
+    for label in expert_labels:
+        if label.get("activity") != activity:
+            continue
+        candidate_session = str(label.get("session_id", "")).strip()
+        if candidate_session.startswith(prefix):
+            prefix_matches.append(label)
+    if prefix_matches:
+        score = sum(numeric(label, "reba_score") for label in prefix_matches) / len(prefix_matches)
+        matched_sessions = "+".join(label["session_id"] for label in prefix_matches)
+        return TrainingLabel(
+            score=score,
+            risk_level=risk_level_for_reba_float(score),
+            target_probability=max(0.0, min(1.0, (score - 1) / 11)),
+            label_source="research_team_reba2_prefix_mean",
+            match_type="expert_prefix_mean",
+            matched_session_id=matched_sessions,
+            pseudo=pseudo,
+        )
+
+    return TrainingLabel(
+        score=float(pseudo.score),
+        risk_level=pseudo.risk_level,
+        target_probability=pseudo.target_probability,
+        label_source="reba_worksheet_pseudo_label",
+        match_type="pseudo_fallback",
+        matched_session_id="",
+        pseudo=pseudo,
     )
 
 
@@ -554,7 +649,7 @@ def probability_to_risk(probability: float, thresholds: dict[str, float]) -> str
 
 
 def build_metrics(
-    labels: list[RebaPseudoLabel],
+    labels: list[TrainingLabel],
     probabilities: np.ndarray,
     thresholds: dict[str, float],
     losses: list[float],
@@ -569,35 +664,46 @@ def build_metrics(
         confusion.setdefault(actual, Counter())[predicted] += 1
     return {
         "trainedAt": date.today().isoformat(),
-        "modelSource": "reba_worksheet_pseudo_label",
+        "modelSource": "research_team_reba2_plus_pseudo_label",
         "featureSchemaId": FEATURE_SCHEMA_ID,
         "inputFeatureCount": len(FEATURE_COLUMNS),
         "featureCount": len(feature_names()),
         "featureEngineering": ENGINEERED_FEATURE_SCHEMA,
         "sampleCount": len(labels),
         "riskDistribution": dict(Counter(actual_risks)),
-        "rebaScoreDistribution": dict(Counter(label.score for label in labels)),
+        "rebaScoreDistribution": dict(Counter(round(label.score, 2) for label in labels)),
+        "labelSourceDistribution": dict(Counter(label.label_source for label in labels)),
+        "labelMatchDistribution": dict(Counter(label.match_type for label in labels)),
+        "expertMatchedSampleCount": sum(
+            1 for label in labels if label.match_type.startswith("expert_")
+        ),
         "thresholds": thresholds,
         "riskAccuracyOnTrainingSet": round(accuracy, 4),
         "rebaScoreMeanAbsoluteError": round(mae, 4),
         "confusionMatrix": {k: dict(v) for k, v in confusion.items()},
         "lossCurve": [round(value, 6) for value in losses],
         "labelingNote": (
-            "Labels are deterministic pseudo-labels derived from MoveNet posture "
-            "geometry and the REBA worksheet risk bands, not manually verified "
-            "expert labels."
+            "Research-team REBA labels are used when they match the media session. "
+            "Rows without a matching expert label fall back to deterministic "
+            "pseudo-labels derived from MoveNet posture geometry and the REBA "
+            "worksheet risk bands."
         ),
     }
 
 
 def write_labeled_dataset(
     rows: list[dict[str, str]],
-    labels: list[RebaPseudoLabel],
+    labels: list[TrainingLabel],
     output: Path,
 ) -> None:
     output.parent.mkdir(parents=True, exist_ok=True)
     extra = [
         "label_source",
+        "training_reba_score",
+        "training_risk_level",
+        "training_label_source",
+        "training_label_match_type",
+        "training_matched_session_id",
         "pseudo_reba_score",
         "pseudo_risk_level",
         "pseudo_reba_trunk_score",
@@ -621,18 +727,23 @@ def write_labeled_dataset(
             out = dict(row)
             out.update(
                 {
-                    "label_source": "reba_worksheet_pseudo_label",
-                    "pseudo_reba_score": str(label.score),
-                    "pseudo_risk_level": label.risk_level,
-                    "pseudo_reba_trunk_score": str(label.trunk_score),
-                    "pseudo_reba_neck_score": str(label.neck_score),
-                    "pseudo_reba_leg_score": str(label.leg_score),
-                    "pseudo_reba_upper_arm_score": str(label.upper_arm_score),
-                    "pseudo_reba_lower_arm_score": str(label.lower_arm_score),
-                    "pseudo_reba_wrist_score": str(label.wrist_score),
-                    "pseudo_reba_load_score": str(label.load_score),
-                    "pseudo_reba_coupling_score": str(label.coupling_score),
-                    "pseudo_reba_activity_score": str(label.activity_score),
+                    "label_source": label.label_source,
+                    "training_reba_score": f"{label.score:.2f}".rstrip("0").rstrip("."),
+                    "training_risk_level": label.risk_level,
+                    "training_label_source": label.label_source,
+                    "training_label_match_type": label.match_type,
+                    "training_matched_session_id": label.matched_session_id,
+                    "pseudo_reba_score": str(label.pseudo.score),
+                    "pseudo_risk_level": label.pseudo.risk_level,
+                    "pseudo_reba_trunk_score": str(label.pseudo.trunk_score),
+                    "pseudo_reba_neck_score": str(label.pseudo.neck_score),
+                    "pseudo_reba_leg_score": str(label.pseudo.leg_score),
+                    "pseudo_reba_upper_arm_score": str(label.pseudo.upper_arm_score),
+                    "pseudo_reba_lower_arm_score": str(label.pseudo.lower_arm_score),
+                    "pseudo_reba_wrist_score": str(label.pseudo.wrist_score),
+                    "pseudo_reba_load_score": str(label.pseudo.load_score),
+                    "pseudo_reba_coupling_score": str(label.pseudo.coupling_score),
+                    "pseudo_reba_activity_score": str(label.pseudo.activity_score),
                 }
             )
             writer.writerow(out)
@@ -641,15 +752,38 @@ def write_labeled_dataset(
 def main() -> None:
     args = parse_args()
     rows = read_rows(Path(args.dataset))
+    expert_rows = load_expert_reba_labels(Path(args.expert_labels))
+    exact_expert_labels: dict[tuple[str, str], ExpertRebaLabel] = {}
+    for row in expert_rows:
+        activity = row.get("activity", "")
+        session_id = str(row.get("session_id", "")).strip()
+        score = numeric(row, "reba_score")
+        if not activity or not session_id or score <= 0:
+            continue
+        exact_expert_labels[(activity, session_id)] = ExpertRebaLabel(
+            score=score,
+            risk_level=row.get("risk_level") or risk_level_for_reba_float(score),
+            label_source=row.get("label_source") or "research_team_reba2_summary",
+            matched_session_id=session_id,
+        )
+
     selected: list[dict[str, str]] = []
-    labels: list[RebaPseudoLabel] = []
+    labels: list[TrainingLabel] = []
     for row in rows:
         if row.get("pose_status") != "ok":
             continue
         if numeric(row, "pose_score") < args.min_pose_score:
             continue
+        pseudo = derive_reba_label(row)
         selected.append(row)
-        labels.append(derive_reba_label(row))
+        labels.append(
+            build_training_label(
+                row,
+                pseudo,
+                exact_expert_labels=exact_expert_labels,
+                expert_labels=expert_rows,
+            )
+        )
 
     if len(selected) < 10:
         raise SystemExit("Not enough valid pose rows to train a model.")
@@ -679,11 +813,12 @@ def main() -> None:
     model = {
         "version": f"reba-pseudo-logistic-{date.today().isoformat()}",
         "featureSchemaId": FEATURE_SCHEMA_ID,
-        "modelSource": "reba_worksheet_pseudo_trained",
+        "modelSource": "research_team_reba2_plus_pseudo_trained",
         "description": (
             "Offline Logistic Regression trained from MoveNet research media "
-            "with deterministic pseudo-labels derived from the REBA worksheet. "
-            "Use for research risk communication only until expert validation."
+            "with research-team REBA labels where sessions match, falling back "
+            "to deterministic REBA worksheet pseudo-labels for unmatched rows. "
+            "Use for research risk communication until full expert validation."
         ),
         "inputFeatureCount": len(FEATURE_COLUMNS),
         "featureCount": len(feature_names()),

@@ -84,13 +84,13 @@ Do not mark the model as research-trained until all are true:
   11228-1/2, including trunk twist, trunk side flexion, wrist twist, coupling,
   activity, lifting inputs, and push/pull force limits.
 
-## Current REBA Pseudo-Trained Model
+## Current REBA Expert-Seeded Model
 
 The app now includes a first real Logistic Regression artifact trained from the
 local MoveNet research dataset:
 
 - Asset: `assets/models/logistic_weights.json`
-- Model source: `reba_worksheet_pseudo_trained`
+- Model source: `research_team_reba2_plus_pseudo_trained`
 - Training script: `tools/research_dataset/train_reba_logistic_model.py`
 - Training rows: `388` valid MoveNet pose rows from
   `data/research/extracted/pose_feature_dataset.csv`
@@ -99,12 +99,16 @@ local MoveNet research dataset:
 - Engineered features: trunk angle, neck angle, arm angles, elbow deviation,
   knee flexion, shoulder/hip slope and width, upper-body lean, and visibility
   quality features
-- Label source: deterministic REBA pseudo-labels derived from posture geometry,
-  task defaults, and the REBA worksheet risk bands in `/Users/kpc/Documents/Doc/REBA.pdf`
+- Label source: research-team REBA-2 labels extracted to
+  `data/research/expert_labels/reba2_expert_labels.csv`. Exact session matches
+  are preferred. Ambiguous parent media folders, such as `4.1`, use the
+  traceable mean of child labels such as `4.1.1` and `4.1.2`.
+- ISO 11228 research labels are extracted to
+  `data/research/expert_labels/iso11228_expert_labels.csv` for the combined
+  ergonomic/economic layer and future multi-task model work.
 - Metrics output: `data/research/extracted/reba_logistic_metrics.json`
 
-This is a real on-device ML artifact, but it is not yet an expert-validated
-research model. The current source data is strongly concentrated in the medium
-risk band, so the next research iteration should add or review more low, high,
-and very-high posture samples before using the model for comparative research
-claims.
+This is a real on-device ML artifact seeded by field labels from the research
+team. It is still not a fully validated research model because the current
+extracted pose dataset covers only a subset of sessions and some labels are
+mapped at parent-folder level.

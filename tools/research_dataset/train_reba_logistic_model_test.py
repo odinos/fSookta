@@ -2,6 +2,8 @@ import unittest
 
 from tools.research_dataset.train_reba_logistic_model import (
     ENGINEERED_FEATURE_NAMES,
+    ExpertRebaLabel,
+    build_training_label,
     derive_reba_label,
     feature_vector,
     probability_to_risk,
@@ -68,6 +70,28 @@ class TrainRebaLogisticModelTest(unittest.TestCase):
 
         self.assertEqual(len(ENGINEERED_FEATURE_NAMES), 20)
         self.assertEqual(len(features), 71)
+
+    def test_training_label_prefers_exact_expert_reba_score(self):
+        row = base_pose_row(activity="harvesting", session_id="5.3")
+        pseudo = derive_reba_label(row)
+
+        label = build_training_label(
+            row,
+            pseudo,
+            exact_expert_labels={
+                ("harvesting", "5.3"): ExpertRebaLabel(
+                    score=9,
+                    risk_level="high",
+                    label_source="research_team_reba2_summary",
+                    matched_session_id="5.3",
+                )
+            },
+            expert_labels=[],
+        )
+
+        self.assertEqual(label.score, 9)
+        self.assertEqual(label.risk_level, "high")
+        self.assertEqual(label.match_type, "expert_exact")
 
 
 if __name__ == "__main__":

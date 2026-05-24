@@ -1,0 +1,46 @@
+source_file,activity,activity_label,session_id,reba_score,risk_level,label_source
+ผลวิเคราะห์ REBA-2.xlsx,transplanting,Transplanting,1.1,8,high,research_team_reba2_summary
+ผลวิเคราะห์ REBA-2.xlsx,transplanting,Transplanting,1.2,8,high,research_team_reba2_summary
+ผลวิเคราะห์ REBA-2.xlsx,transplanting,Transplanting,1.3,6,medium,research_team_reba2_summary
+ผลวิเคราะห์ REBA-2.xlsx,transplanting,Transplanting,1.4,7,medium,research_team_reba2_summary
+ผลวิเคราะห์ REBA-2.xlsx,transplanting,Transplanting,1.5,6,medium,research_team_reba2_summary
+ผลวิเคราะห์ REBA-2.xlsx,fertilizing,Fertilizing,2.1.1,6,medium,research_team_reba2_summary
+ผลวิเคราะห์ REBA-2.xlsx,fertilizing,Fertilizing,2.1.2,5,medium,research_team_reba2_summary
+ผลวิเคราะห์ REBA-2.xlsx,fertilizing,Fertilizing,2.2,2,low,research_team_reba2_summary
+ผลวิเคราะห์ REBA-2.xlsx,fertilizing,Fertilizing,2.3,2,low,research_team_reba2_summary
+ผลวิเคราะห์ REBA-2.xlsx,fertilizing,Fertilizing,2.4,1,low,research_team_reba2_summary
+ผลวิเคราะห์ REBA-2.xlsx,fertilizing,Fertilizing,2.5,2,low,research_team_reba2_summary
+ผลวิเคราะห์ REBA-2.xlsx,fertilizing,Fertilizing,2.6,1,low,research_team_reba2_summary
+ผลวิเคราะห์ REBA-2.xlsx,pesticide_spraying,Pesticide spraying,3.1,4,medium,research_team_reba2_summary
+ผลวิเคราะห์ REBA-2.xlsx,pesticide_spraying,Pesticide spraying,3.2,8,high,research_team_reba2_summary
+ผลวิเคราะห์ REBA-2.xlsx,pesticide_spraying,Pesticide spraying,3.3,5,medium,research_team_reba2_summary
+ผลวิเคราะห์ REBA-2.xlsx,pesticide_spraying,Pesticide spraying,3.4,3,low,research_team_reba2_summary
+ผลวิเคราะห์ REBA-2.xlsx,pesticide_spraying,Pesticide spraying,3.5,3,low,research_team_reba2_summary
+ผลวิเคราะห์ REBA-2.xlsx,pruning,Pruning,4.1.1,8,high,research_team_reba2_summary
+ผลวิเคราะห์ REBA-2.xlsx,pruning,Pruning,4.1.2,10,high,research_team_reba2_summary
+ผลวิเคราะห์ REBA-2.xlsx,pruning,Pruning,4.2,6,medium,research_team_reba2_summary
+ผลวิเคราะห์ REBA-2.xlsx,pruning,Pruning,4.3,4,medium,research_team_reba2_summary
+ผลวิเคราะห์ REBA-2.xlsx,pruning,Pruning,4.4,9,high,research_team_reba2_summary
+ผลวิเคราะห์ REBA-2.xlsx,pruning,Pruning,4.5,10,high,research_team_reba2_summary
+ผลวิเคราะห์ REBA-2.xlsx,pruning,Pruning,4.6,10,high,research_team_reba2_summary
+ผลวิเคราะห์ REBA-2.xlsx,pruning,Pruning,4.7,10,high,research_team_reba2_summary
+ผลวิเคราะห์ REBA-2.xlsx,harvesting,Harvesting,5.1,9,high,research_team_reba2_summary
+ผลวิเคราะห์ REBA-2.xlsx,harvesting,Harvesting,5.2.1,4,medium,research_team_reba2_summary
+ผลวิเคราะห์ REBA-2.xlsx,harvesting,Harvesting,5.2.2,5,medium,research_team_reba2_summary
+ผลวิเคราะห์ REBA-2.xlsx,harvesting,Harvesting,5.2.3,4,medium,research_team_reba2_summary
+ผลวิเคราะห์ REBA-2.xlsx,harvesting,Harvesting,5.2.4,7,medium,research_team_reba2_summary
+ผลวิเคราะห์ REBA-2.xlsx,harvesting,Harvesting,5.2.5,10,high,research_team_reba2_summary
+ผลวิเคราะห์ REBA-2.xlsx,harvesting,Harvesting,5.3,9,high,research_team_reba2_summary
+ผลวิเคราะห์ REBA-2.xlsx,harvesting,Harvesting,5.4,4,medium,research_team_reba2_summary
+ผลวิเคราะห์ REBA-2.xlsx,harvesting,Harvesting,5.5,7,medium,research_team_reba2_summary
+ผลวิเคราะห์ REBA-2.xlsx,harvesting,Harvesting,5.6,6,medium,research_team_reba2_summary
+ผลวิเคราะห์ REBA-2.xlsx,harvesting,Harvesting,5.7,4,medium,research_team_reba2_summary
+ผลวิเคราะห์ REBA-2.xlsx,on_farm_transport,On-farm transport,6.1.1,7,medium,research_team_reba2_summary
+ผลวิเคราะห์ REBA-2.xlsx,on_farm_transport,On-farm transport,6.1.2,9,high,research_team_reba2_summary
+ผลวิเคราะห์ REBA-2.xlsx,on_farm_transport,On-farm transport,6.2,2,low,research_team_reba2_summary
+ผลวิเคราะห์ REBA-2.xlsx,on_farm_transport,On-farm transport,6.3,13,veryHigh,research_team_reba2_summary
+ผลวิเคราะห์ REBA-2.xlsx,on_farm_transport,On-farm transport,6.4.1,10,high,research_team_reba2_summary
+ผลวิเคราะห์ REBA-2.xlsx,on_farm_transport,On-farm transport,6.4.2,7,medium,research_team_reba2_summary
+ผลวิเคราะห์ REBA-2.xlsx,on_farm_transport,On-farm transport,6.4.3,9,high,research_team_reba2_summary
+ผลวิเคราะห์ REBA-2.xlsx,on_farm_transport,On-farm transport,6.5,13,veryHigh,research_team_reba2_summary
+ผลวิเคราะห์ REBA-2.xlsx,on_farm_transport,On-farm transport,6.6,12,veryHigh,research_team_reba2_summary

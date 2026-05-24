@@ -5,13 +5,15 @@
     "logisticRegression": {
       "path": "assets/models/logistic_weights.json",
       "format": "json_weights",
-      "status": "reba_worksheet_pseudo_trained",
+      "status": "research_team_reba2_plus_pseudo_trained",
       "inputFeatureCount": 51,
       "featureCount": 71,
       "featureEngineering": "reba_angle_features_v1",
       "trainingSampleCount": 388,
       "trainingSource": "data/research/extracted/pose_feature_dataset.csv",
-      "labelSource": "REBA worksheet deterministic pseudo-labels",
+      "labelSource": "Research-team REBA-2 labels with REBA worksheet pseudo-label fallback",
+      "expertLabelSource": "data/research/expert_labels/reba2_expert_labels.csv",
+      "iso11228LabelSource": "data/research/expert_labels/iso11228_expert_labels.csv",
       "metricsPath": "data/research/extracted/reba_logistic_metrics.json"
     },
     "xgboost": {
@@ -21,12 +23,12 @@
     }
   },
   "requiredBeforeResearchTrainedAbTest": [
-    "Replace or confirm the REBA pseudo-trained logistic model with expert-reviewed research labels before claiming a validated research-trained model.",
+    "Expand expert labels to more media sessions before claiming a fully validated research-trained model.",
     "Add xgboost_model.onnx exported from the research-trained XGBoost pipeline before enabling XGBoost A/B testing.",
     "Run offline inference tests against fixed sample joint-feature vectors from the expert-labeled research dataset."
   ],
   "notes": [
-    "The current Logistic Regression model is a real trained offline artifact, but its labels are deterministic pseudo-labels derived from the REBA worksheet and MoveNet geometry.",
+    "The current Logistic Regression model is a real trained offline artifact using research-team REBA-2 labels for all currently extracted pose rows; ambiguous parent sessions use a traceable mean of child expert labels.",
     "It is suitable for research-prototype risk communication and repeated data collection, not for clinical diagnosis or a validated injury prediction claim."
   ]
 }

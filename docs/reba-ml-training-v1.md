@@ -11,6 +11,12 @@ keeping the research claims honest.
 - REBA worksheet: `/Users/kpc/Documents/Doc/REBA.pdf`
 - Secondary REBA implementation reference:
   `https://ergo-plus.com/reba-assessment-tool-guide/`
+- Research-team REBA-2 labels:
+  `data/research/expert_labels/reba2_expert_labels.csv`, extracted from
+  `/Users/kpc/Documents/Doc/ผลวิเคราะห์ REBA-2.xlsx`
+- Research-team ISO 11228 labels:
+  `data/research/expert_labels/iso11228_expert_labels.csv`, extracted from
+  `/Users/kpc/Documents/Doc/ISO11228 Pirawan.xlsx`
 - Pose dataset: `data/research/extracted/pose_feature_dataset.csv`
 - Feature schema: `assets/models/joint_feature_schema.json`
 - Flutter model asset: `assets/models/logistic_weights.json`
@@ -47,17 +53,22 @@ offline.
 - Training sample count: `388`
 - Raw input feature count: `51`
 - Model feature count after `reba_angle_features_v1`: `71`
-- Label source: deterministic REBA pseudo-labels
+- Label source: research-team REBA-2 labels for the extracted sessions
+- Label match distribution:
+  - exact expert session match: `264`
+  - parent-session mean from child labels: `124`
 - Risk distribution:
-  - low: `3`
-  - medium: `381`
-  - high: `4`
+  - low: `29`
+  - medium: `154`
+  - high: `205`
   - very high: `0`
-- Training-set risk accuracy: `0.982`
-- REBA score mean absolute error: `0.396`
+- Training-set risk accuracy: `0.5644`
+- REBA score mean absolute error: `1.5791`
 
-The high accuracy is mostly caused by the dataset being dominated by medium-risk
-samples. It should not be interpreted as proof of validated model quality.
+The previous pseudo-label model reported higher accuracy because almost every
+sample was labeled medium risk. The current metrics are more conservative but
+more useful for research because they are anchored to field labels from the
+research team.
 
 ## Feature Engineering
 
@@ -88,7 +99,7 @@ assets/models/logistic_weights.json
 
 The exported JSON now contains:
 
-- `modelSource: reba_worksheet_pseudo_trained`
+- `modelSource: research_team_reba2_plus_pseudo_trained`
 - `inputFeatureCount: 51`
 - `featureCount: 71`
 - `featureEngineering: reba_angle_features_v1`
@@ -103,7 +114,7 @@ Treatment-cost survey data is intentionally used after risk assessment, not as
 the ML training label. The current flow is:
 
 ```text
-MoveNet features -> REBA pseudo-trained Logistic Regression -> risk/body areas
+MoveNet features -> REBA expert-seeded Logistic Regression -> risk/body areas
 -> EconomicImpactService -> estimated impact shown to the farmer
 ```
 
@@ -120,8 +131,9 @@ practical financial impact from the cost tables.
 
 ## Next Research Iteration
 
-1. Review the generated pseudo-label dataset with the research team.
-2. Add or capture more clear low-risk, high-risk, and very-high-risk examples.
-3. Replace pseudo-labels with expert-reviewed labels where available.
-4. Retrain Logistic Regression and compare metrics.
-5. Train XGBoost and export `assets/models/xgboost_model.onnx` for A/B testing.
+1. Extract pose rows for more sessions listed in the REBA-2 workbook.
+2. Replace parent-session mean labels with exact frame/session labels where the
+   research team can identify them.
+3. Add ISO 11228 labels to the structured evaluation/risk-alert model path.
+4. Train XGBoost and export `assets/models/xgboost_model.onnx` for A/B testing.
+5. Run fixed-vector on-device inference tests against expert-labeled samples.
