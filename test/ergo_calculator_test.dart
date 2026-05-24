@@ -169,6 +169,27 @@ void main() {
     });
   });
 
+  test('activity-specific recommendation text is bundled in both languages',
+      () {
+    const th = SooktaStrings(SooktaLocale.th);
+    const en = SooktaStrings(SooktaLocale.en);
+    const keys = [
+      'act_transplant_raise_bed',
+      'act_transplant_low_stool',
+      'act_spray_extension',
+      'act_harvest_empty_often',
+      'act_harvest_move_closer',
+      'act_fert_split_load',
+      'act_transport_two_person',
+      'act_transport_clear_path',
+    ];
+
+    for (final key in keys) {
+      expect(th.get(key), isNot(key));
+      expect(en.get(key), isNot(key));
+    }
+  });
+
   test('pose landmarks can auto-fill REBA posture scores', () {
     const person = Person(
       score: 0.9,

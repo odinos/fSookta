@@ -190,15 +190,45 @@ class _InitialRiskScreenState extends State<InitialRiskScreen> {
   List<String> _suggestionsFor(ErgoResult result, SooktaActivity activity) {
     final keys = <String>{
       ...result.suggestionKeys,
-      switch (activity) {
-        SooktaActivity.pesticide => 'act_extra_spray_strap',
-        SooktaActivity.pruning => 'act_extra_prune_tool',
-        SooktaActivity.fertilizing => 'act_extra_fert_cart',
-        _ => 'act_rest_stretch',
-      },
+      ..._activitySuggestionKeys(activity),
     };
     if (keys.isEmpty) keys.add('act_rest_stretch');
     return keys.toList();
+  }
+
+  List<String> _activitySuggestionKeys(SooktaActivity activity) {
+    return switch (activity) {
+      SooktaActivity.transplanting => [
+          'act_transplant_raise_bed',
+          'act_transplant_low_stool',
+          'act_rest_stretch',
+        ],
+      SooktaActivity.fertilizing => [
+          'act_fert_split_load',
+          'act_extra_fert_cart',
+          'act_avoid_twist',
+        ],
+      SooktaActivity.pesticide => [
+          'act_extra_spray_strap',
+          'act_spray_extension',
+          'act_extra_spray_switch',
+        ],
+      SooktaActivity.pruning => [
+          'act_extra_prune_tool',
+          'act_extra_prune_ladder',
+          'act_reduce_arm_raise',
+        ],
+      SooktaActivity.harvesting => [
+          'act_harvest_empty_often',
+          'act_harvest_move_closer',
+          'act_reduce_arm_raise',
+        ],
+      SooktaActivity.transport => [
+          'act_use_cart_distance',
+          'act_transport_two_person',
+          'act_transport_clear_path',
+        ],
+    };
   }
 
   ErgoResult _simulateAfter(ErgoResult before) {
@@ -273,6 +303,14 @@ class _InitialRiskScreenState extends State<InitialRiskScreen> {
           scoreReduction: 1,
           bodyParts: {BodyPart.wrists, BodyPart.arms},
         ),
+      'act_transplant_raise_bed' => const _ImprovementAction(
+          scoreReduction: 2,
+          bodyParts: {BodyPart.trunk, BodyPart.neck, BodyPart.legs},
+        ),
+      'act_transplant_low_stool' => const _ImprovementAction(
+          scoreReduction: 1,
+          bodyParts: {BodyPart.trunk, BodyPart.legs},
+        ),
       'act_extra_spray_strap' => const _ImprovementAction(
           scoreReduction: 1,
           bodyParts: {BodyPart.arms, BodyPart.trunk},
@@ -280,6 +318,10 @@ class _InitialRiskScreenState extends State<InitialRiskScreen> {
       'act_extra_spray_switch' => const _ImprovementAction(
           scoreReduction: 1,
           bodyParts: {BodyPart.arms, BodyPart.trunk},
+        ),
+      'act_spray_extension' => const _ImprovementAction(
+          scoreReduction: 1,
+          bodyParts: {BodyPart.arms, BodyPart.wrists, BodyPart.neck},
         ),
       'act_extra_prune_ladder' => const _ImprovementAction(
           scoreReduction: 1,
@@ -289,9 +331,29 @@ class _InitialRiskScreenState extends State<InitialRiskScreen> {
           scoreReduction: 1,
           bodyParts: {BodyPart.neck, BodyPart.arms},
         ),
+      'act_harvest_empty_often' => const _ImprovementAction(
+          scoreReduction: 2,
+          bodyParts: {BodyPart.trunk, BodyPart.arms, BodyPart.legs},
+        ),
+      'act_harvest_move_closer' => const _ImprovementAction(
+          scoreReduction: 1,
+          bodyParts: {BodyPart.trunk, BodyPart.arms, BodyPart.wrists},
+        ),
       'act_extra_fert_cart' => const _ImprovementAction(
           scoreReduction: 2,
           bodyParts: {BodyPart.trunk, BodyPart.arms, BodyPart.legs},
+        ),
+      'act_fert_split_load' => const _ImprovementAction(
+          scoreReduction: 2,
+          bodyParts: {BodyPart.trunk, BodyPart.arms, BodyPart.wrists},
+        ),
+      'act_transport_two_person' => const _ImprovementAction(
+          scoreReduction: 2,
+          bodyParts: {BodyPart.trunk, BodyPart.arms, BodyPart.legs},
+        ),
+      'act_transport_clear_path' => const _ImprovementAction(
+          scoreReduction: 1,
+          bodyParts: {BodyPart.legs, BodyPart.trunk},
         ),
       _ => const _ImprovementAction(
           scoreReduction: 1,

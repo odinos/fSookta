@@ -42,11 +42,26 @@ class SooktaStrings {
     'act_reduce_arm_raise': 'Reduce prolonged arm raising',
     'act_adj_wrist': 'Keep wrist in neutral position',
     'act_rest_stretch': 'Take breaks to stretch muscles',
+    'act_transplant_raise_bed':
+        'Raise seedling trays or work height to reduce deep bending',
+    'act_transplant_low_stool':
+        'Use a low stool or knee pad instead of squatting for long periods',
     'act_extra_spray_strap': 'Adjust sprayer straps tightly',
     'act_extra_spray_switch': 'Switch shoulders to balance load',
+    'act_spray_extension':
+        'Use an extension wand so the arm does not stay raised or overreached',
     'act_extra_prune_ladder': 'Use stable ladder instead of reaching',
     'act_extra_prune_tool': 'Use long-handled pruning shears',
+    'act_harvest_empty_often':
+        'Empty the basket more often to reduce accumulated carrying load',
+    'act_harvest_move_closer':
+        'Move closer to the plant before picking instead of overreaching',
     'act_extra_fert_cart': 'Use cart instead of carrying sacks',
+    'act_fert_split_load': 'Split fertilizer into smaller loads per round',
+    'act_transport_two_person':
+        'Ask another person to help lift heavy produce when needed',
+    'act_transport_clear_path':
+        'Clear the path and keep the walking surface even before transport',
   };
 
   static const _th = <String, String>{
@@ -77,10 +92,22 @@ class SooktaStrings {
     'act_reduce_arm_raise': 'ลดการยกแขนสูงเหนือไหล่เป็นเวลานาน',
     'act_adj_wrist': 'ปรับด้ามจับเครื่องมือให้ข้อมืออยู่ในแนวตรง',
     'act_rest_stretch': 'ควรพักเบรกเพื่อยืดเหยียดกล้ามเนื้อ',
+    'act_transplant_raise_bed':
+        'ยกถาดกล้าหรือพื้นที่ทำงานให้สูงขึ้น เพื่อลดการก้มหลังลึก',
+    'act_transplant_low_stool':
+        'ใช้เก้าอี้เตี้ยหรือเบาะรองเข่า แทนการนั่งยองนาน ๆ',
     'act_extra_spray_strap': 'ปรับสายสะพายเครื่องพ่นยาให้กระชับ',
     'act_extra_spray_switch': 'สลับข้างสะพายถังเพื่อลดการกดทับไหล่เดียว',
+    'act_spray_extension': 'ใช้ด้ามต่อหัวพ่น เพื่อลดการยกแขนสูงหรือเอื้อมไกล',
     'act_extra_prune_ladder': 'ใช้บันไดที่มั่นคงแทนการเอื้อมสุดแขน',
     'act_extra_prune_tool': 'ใช้กรรไกรตัดกิ่งด้ามยาว',
+    'act_harvest_empty_often':
+        'เทผลผลิตออกจากตะกร้าให้บ่อยขึ้น เพื่อลดน้ำหนักสะสม',
+    'act_harvest_move_closer': 'ขยับเข้าใกล้ต้นก่อนเก็บ เพื่อลดการเอื้อมไกล',
     'act_extra_fert_cart': 'ใช้รถเข็นบรรทุกกระสอบปุ๋ยแทนการแบก',
+    'act_fert_split_load': 'แบ่งปุ๋ยเป็นน้ำหนักน้อยลงในแต่ละรอบ',
+    'act_transport_two_person': 'ให้คนช่วยยกเมื่อผลผลิตหนักเกินไป',
+    'act_transport_clear_path':
+        'จัดทางเดินให้เรียบและไม่มีสิ่งกีดขวางก่อนขนย้าย',
   };
 }

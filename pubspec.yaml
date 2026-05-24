@@ -1,7 +1,7 @@
 name: fsookta
 description: Flutter migration of the Sookta ergonomic risk assessment app.
 publish_to: "none"
-version: 1.0.1+3
+version: 1.0.1+4
 
 environment:
   sdk: ">=3.4.0 <4.0.0"
