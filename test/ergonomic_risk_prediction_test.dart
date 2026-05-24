@@ -43,6 +43,33 @@ void main() {
     );
   });
 
+  test('logistic predictor expands MoveNet features for REBA angle model',
+      () async {
+    final predictor = LogisticRegressionPredictor.fromWeights(
+      LogisticRegressionWeights(
+        version: 'test',
+        featureSchemaId: 'test-schema',
+        modelSource: 'test',
+        inputFeatureCount: 51,
+        featureEngineering: 'reba_angle_features_v1',
+        intercept: 0,
+        weights: List<double>.filled(71, 0.01),
+        thresholds: const RiskThresholds(),
+        mean: List<double>.filled(71, 0),
+        standardDeviation: List<double>.filled(71, 1),
+      ),
+    );
+
+    final rawMoveNetFeatures = List<double>.filled(51, 0.5);
+    for (var index = 2; index < rawMoveNetFeatures.length; index += 3) {
+      rawMoveNetFeatures[index] = 0.9;
+    }
+
+    final result = await predictor.predictRiskLevel(rawMoveNetFeatures);
+
+    expect(result.confidenceScore, inInclusiveRange(0, 1));
+  });
+
   test('assess risk use case initializes predictor lazily', () async {
     final useCase = AssessRiskUseCase(
       LogisticRegressionPredictor(

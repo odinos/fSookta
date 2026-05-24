@@ -44,7 +44,10 @@ Required fields:
 - `version`
 - `featureSchemaId`
 - `modelSource`
+- `inputFeatureCount`, the raw MoveNet feature count accepted by the app
 - `featureCount`
+- `featureEngineering`, when the app must expand raw MoveNet values before
+  inference
 - `intercept`
 - `weights`, length must equal `featureCount`
 - `thresholds.medium`
@@ -55,6 +58,8 @@ Optional fields:
 
 - `mean`, length must equal `featureCount`
 - `standardDeviation`, length must equal `featureCount`
+- `featureNames`, length should equal `featureCount`
+- `engineeredFeatureNames`, when `featureEngineering` is present
 - `mlAlgoModelJson`, exported `ml_algo` model JSON if the training pipeline
   uses native `ml_algo` serialization
 
@@ -89,6 +94,11 @@ local MoveNet research dataset:
 - Training script: `tools/research_dataset/train_reba_logistic_model.py`
 - Training rows: `388` valid MoveNet pose rows from
   `data/research/extracted/pose_feature_dataset.csv`
+- Input feature count: `51` raw MoveNet values
+- Model feature count: `71`, after appending `reba_angle_features_v1`
+- Engineered features: trunk angle, neck angle, arm angles, elbow deviation,
+  knee flexion, shoulder/hip slope and width, upper-body lean, and visibility
+  quality features
 - Label source: deterministic REBA pseudo-labels derived from posture geometry,
   task defaults, and the REBA worksheet risk bands in `/Users/kpc/Documents/Doc/REBA.pdf`
 - Metrics output: `data/research/extracted/reba_logistic_metrics.json`

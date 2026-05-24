@@ -9,6 +9,10 @@ class LogisticRegressionWeights {
     required this.intercept,
     required this.weights,
     required this.thresholds,
+    this.inputFeatureCount,
+    this.featureEngineering,
+    this.featureNames = const [],
+    this.engineeredFeatureNames = const [],
     this.mean = const [],
     this.standardDeviation = const [],
   });
@@ -19,10 +23,17 @@ class LogisticRegressionWeights {
   final double intercept;
   final List<double> weights;
   final RiskThresholds thresholds;
+  final int? inputFeatureCount;
+  final String? featureEngineering;
+  final List<String> featureNames;
+  final List<String> engineeredFeatureNames;
   final List<double> mean;
   final List<double> standardDeviation;
 
   int get featureCount => weights.length;
+  int get expectedInputFeatureCount => inputFeatureCount ?? featureCount;
+  bool get usesRebaAngleFeatures =>
+      featureEngineering == 'reba_angle_features_v1';
 
   bool get hasStandardization =>
       mean.length == weights.length &&
@@ -58,6 +69,10 @@ class LogisticRegressionWeights {
         high: (thresholds['high'] as num?)?.toDouble() ?? 0.6,
         veryHigh: (thresholds['veryHigh'] as num?)?.toDouble() ?? 0.82,
       ),
+      inputFeatureCount: (json['inputFeatureCount'] as num?)?.toInt(),
+      featureEngineering: json['featureEngineering'] as String?,
+      featureNames: _strings(json['featureNames']),
+      engineeredFeatureNames: _strings(json['engineeredFeatureNames']),
       mean: _numbers(json['mean'], fieldName: 'mean', allowEmpty: true),
       standardDeviation: _numbers(
         json['standardDeviation'] ?? json['std'],
@@ -81,6 +96,20 @@ class LogisticRegressionWeights {
         throw ModelLoadException('$fieldName contains a non-numeric value.');
       }
       return value.toDouble();
+    }).toList(growable: false);
+  }
+
+  static List<String> _strings(Object? raw) {
+    if (raw == null) return const [];
+    if (raw is! List) {
+      throw const ModelLoadException('String field must be an array.');
+    }
+    return raw.map((value) {
+      if (value is! String) {
+        throw const ModelLoadException(
+            'String array contains a non-string value.');
+      }
+      return value;
     }).toList(growable: false);
   }
 }

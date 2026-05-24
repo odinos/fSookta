@@ -79,6 +79,29 @@ FEATURE_COLUMNS = [
     "rightAnkle_y",
     "rightAnkle_score",
 ]
+ENGINEERED_FEATURE_SCHEMA = "reba_angle_features_v1"
+ENGINEERED_FEATURE_NAMES = [
+    "trunk_angle",
+    "neck_angle",
+    "left_upper_arm_angle",
+    "right_upper_arm_angle",
+    "worst_upper_arm_angle",
+    "left_elbow_angle",
+    "right_elbow_angle",
+    "worst_lower_arm_deviation",
+    "left_knee_angle",
+    "right_knee_angle",
+    "worst_knee_flexion",
+    "shoulder_slope",
+    "hip_slope",
+    "shoulder_width",
+    "hip_width",
+    "upper_body_lean",
+    "visible_keypoint_ratio",
+    "average_keypoint_score",
+    "lower_body_visibility",
+    "upper_body_visibility",
+]
 
 
 @dataclass(frozen=True)
@@ -191,6 +214,16 @@ def vertical_angle(p1: Point, p2: Point) -> float:
     return math.degrees(math.atan2(dx, dy))
 
 
+def horizontal_angle(p1: Point, p2: Point) -> float:
+    dx = abs(p2.x - p1.x)
+    dy = abs(p2.y - p1.y)
+    return math.degrees(math.atan2(dy, dx))
+
+
+def distance(p1: Point, p2: Point) -> float:
+    return math.hypot(p2.x - p1.x, p2.y - p1.y)
+
+
 def three_point_angle(p1: Point, p2: Point, p3: Point) -> float:
     a1 = math.atan2(p1.y - p2.y, p1.x - p2.x)
     a2 = math.atan2(p3.y - p2.y, p3.x - p2.x)
@@ -200,6 +233,30 @@ def three_point_angle(p1: Point, p2: Point, p3: Point) -> float:
     if angle > 180:
         angle = 360 - angle
     return angle
+
+
+def angle_or_zero(points: tuple[Point | None, Point | None]) -> float:
+    first, second = points
+    if first is None or second is None:
+        return 0.0
+    return vertical_angle(first, second)
+
+
+def joint_angle_or_zero(points: tuple[Point | None, Point | None, Point | None]) -> float:
+    first, second, third = points
+    if first is None or second is None or third is None:
+        return 0.0
+    return three_point_angle(first, second, third)
+
+
+def lower_arm_deviation(angle: float) -> float:
+    if angle <= 0:
+        return 0.0
+    if 60 <= angle <= 100:
+        return 0.0
+    if angle < 60:
+        return 60 - angle
+    return angle - 100
 
 
 def side_triplet(row: dict[str, str], names: tuple[str, str, str]) -> tuple[Point, Point, Point] | None:
@@ -332,8 +389,129 @@ def derive_reba_label(row: dict[str, str]) -> RebaPseudoLabel:
     )
 
 
+def engineered_features(row: dict[str, str]) -> list[float]:
+    left_shoulder = point(row, "leftShoulder")
+    right_shoulder = point(row, "rightShoulder")
+    left_elbow = point(row, "leftElbow")
+    right_elbow = point(row, "rightElbow")
+    left_wrist = point(row, "leftWrist")
+    right_wrist = point(row, "rightWrist")
+    left_hip = point(row, "leftHip")
+    right_hip = point(row, "rightHip")
+    left_knee = point(row, "leftKnee")
+    right_knee = point(row, "rightKnee")
+    left_ankle = point(row, "leftAnkle")
+    right_ankle = point(row, "rightAnkle")
+    shoulders = midpoint([left_shoulder, right_shoulder])
+    hips = midpoint([left_hip, right_hip])
+    head = midpoint([point(row, "nose"), point(row, "leftEar"), point(row, "rightEar")])
+
+    trunk_angle = angle_or_zero((hips, shoulders))
+    neck_angle = angle_or_zero((shoulders, head))
+    left_upper_arm_angle = angle_or_zero((left_shoulder, left_elbow))
+    right_upper_arm_angle = angle_or_zero((right_shoulder, right_elbow))
+    worst_upper_arm_angle = max(left_upper_arm_angle, right_upper_arm_angle)
+    left_elbow_angle = joint_angle_or_zero((left_shoulder, left_elbow, left_wrist))
+    right_elbow_angle = joint_angle_or_zero((right_shoulder, right_elbow, right_wrist))
+    worst_lower_arm_deviation = max(
+        lower_arm_deviation(left_elbow_angle),
+        lower_arm_deviation(right_elbow_angle),
+    )
+    left_knee_angle = joint_angle_or_zero((left_hip, left_knee, left_ankle))
+    right_knee_angle = joint_angle_or_zero((right_hip, right_knee, right_ankle))
+    worst_knee_flexion = max(0.0, 180 - min(left_knee_angle or 180, right_knee_angle or 180))
+    shoulder_slope = (
+        horizontal_angle(left_shoulder, right_shoulder)
+        if left_shoulder is not None and right_shoulder is not None
+        else 0.0
+    )
+    hip_slope = (
+        horizontal_angle(left_hip, right_hip)
+        if left_hip is not None and right_hip is not None
+        else 0.0
+    )
+    shoulder_width = (
+        distance(left_shoulder, right_shoulder)
+        if left_shoulder is not None and right_shoulder is not None
+        else 0.0
+    )
+    hip_width = (
+        distance(left_hip, right_hip)
+        if left_hip is not None and right_hip is not None
+        else 0.0
+    )
+    upper_body_lean = abs(shoulders.x - hips.x) if shoulders is not None and hips is not None else 0.0
+
+    scores = [numeric(row, column) for column in FEATURE_COLUMNS if column.endswith("_score")]
+    visible = [score for score in scores if score >= 0.3]
+    upper_scores = [
+        numeric(row, f"{landmark}_score")
+        for landmark in [
+            "nose",
+            "leftEar",
+            "rightEar",
+            "leftShoulder",
+            "rightShoulder",
+            "leftElbow",
+            "rightElbow",
+            "leftWrist",
+            "rightWrist",
+        ]
+    ]
+    lower_scores = [
+        numeric(row, f"{landmark}_score")
+        for landmark in [
+            "leftHip",
+            "rightHip",
+            "leftKnee",
+            "rightKnee",
+            "leftAnkle",
+            "rightAnkle",
+        ]
+    ]
+    return [
+        trunk_angle,
+        neck_angle,
+        left_upper_arm_angle,
+        right_upper_arm_angle,
+        worst_upper_arm_angle,
+        left_elbow_angle,
+        right_elbow_angle,
+        worst_lower_arm_deviation,
+        left_knee_angle,
+        right_knee_angle,
+        worst_knee_flexion,
+        shoulder_slope,
+        hip_slope,
+        shoulder_width,
+        hip_width,
+        upper_body_lean,
+        len(visible) / len(scores),
+        sum(scores) / len(scores),
+        sum(1 for score in lower_scores if score >= 0.3) / len(lower_scores),
+        sum(1 for score in upper_scores if score >= 0.3) / len(upper_scores),
+    ]
+
+
 def feature_vector(row: dict[str, str]) -> list[float]:
-    return [numeric(row, column) for column in FEATURE_COLUMNS]
+    # Keep the canonical MoveNet 51 values, then append REBA-oriented geometry
+    # features. The Flutter app performs the same expansion at inference time.
+    return [numeric(row, column) for column in FEATURE_COLUMNS] + engineered_features(row)
+
+
+def feature_names() -> list[str]:
+    return [*FEATURE_COLUMNS, *ENGINEERED_FEATURE_NAMES]
+
+
+def validate_feature_engineering_contract() -> None:
+    if len(ENGINEERED_FEATURE_NAMES) != 20:
+        raise SystemExit("Unexpected REBA engineered feature count.")
+    if len(feature_names()) != 71:
+        raise SystemExit("Unexpected full training feature count.")
+
+
+validate_feature_engineering_contract()
+
 
 
 def train_logistic_regression(
@@ -393,6 +571,9 @@ def build_metrics(
         "trainedAt": date.today().isoformat(),
         "modelSource": "reba_worksheet_pseudo_label",
         "featureSchemaId": FEATURE_SCHEMA_ID,
+        "inputFeatureCount": len(FEATURE_COLUMNS),
+        "featureCount": len(feature_names()),
+        "featureEngineering": ENGINEERED_FEATURE_SCHEMA,
         "sampleCount": len(labels),
         "riskDistribution": dict(Counter(actual_risks)),
         "rebaScoreDistribution": dict(Counter(label.score for label in labels)),
@@ -504,7 +685,11 @@ def main() -> None:
             "with deterministic pseudo-labels derived from the REBA worksheet. "
             "Use for research risk communication only until expert validation."
         ),
-        "featureCount": len(FEATURE_COLUMNS),
+        "inputFeatureCount": len(FEATURE_COLUMNS),
+        "featureCount": len(feature_names()),
+        "featureEngineering": ENGINEERED_FEATURE_SCHEMA,
+        "featureNames": feature_names(),
+        "engineeredFeatureNames": ENGINEERED_FEATURE_NAMES,
         "trainingSampleCount": len(labels),
         "trainingMetrics": metrics,
         "intercept": round(float(intercept), 10),

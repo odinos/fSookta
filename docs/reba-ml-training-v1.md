@@ -9,6 +9,8 @@ keeping the research claims honest.
 ## Source
 
 - REBA worksheet: `/Users/kpc/Documents/Doc/REBA.pdf`
+- Secondary REBA implementation reference:
+  `https://ergo-plus.com/reba-assessment-tool-guide/`
 - Pose dataset: `data/research/extracted/pose_feature_dataset.csv`
 - Feature schema: `assets/models/joint_feature_schema.json`
 - Flutter model asset: `assets/models/logistic_weights.json`
@@ -43,6 +45,8 @@ offline.
 ## Current Metrics
 
 - Training sample count: `388`
+- Raw input feature count: `51`
+- Model feature count after `reba_angle_features_v1`: `71`
 - Label source: deterministic REBA pseudo-labels
 - Risk distribution:
   - low: `3`
@@ -50,10 +54,29 @@ offline.
   - high: `4`
   - very high: `0`
 - Training-set risk accuracy: `0.982`
-- REBA score mean absolute error: `0.4839`
+- REBA score mean absolute error: `0.396`
 
 The high accuracy is mostly caused by the dataset being dominated by medium-risk
 samples. It should not be interpreted as proof of validated model quality.
+
+## Feature Engineering
+
+The app still receives the canonical 51-value MoveNet vector. Before Logistic
+Regression inference, both the training script and the Flutter predictor append
+20 REBA-oriented geometry features:
+
+- trunk angle and neck angle
+- left/right/worst upper-arm angle
+- left/right elbow angle and worst lower-arm deviation from the REBA lower-arm
+  comfort band
+- left/right knee angle and worst knee flexion
+- shoulder and hip slope/width
+- upper-body lean
+- visible keypoint ratio, average keypoint score, lower-body visibility, and
+  upper-body visibility
+
+This makes the current Logistic Regression model closer to REBA reasoning while
+keeping the on-device input contract stable for MoveNet.
 
 ## App Integration
 
@@ -66,6 +89,9 @@ assets/models/logistic_weights.json
 The exported JSON now contains:
 
 - `modelSource: reba_worksheet_pseudo_trained`
+- `inputFeatureCount: 51`
+- `featureCount: 71`
+- `featureEngineering: reba_angle_features_v1`
 - `mean` and `standardDeviation` used for the same preprocessing at inference
 - `weights` and `intercept`
 - probability thresholds mapped to the REBA risk bands

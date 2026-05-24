@@ -1,7 +1,9 @@
 import unittest
 
 from tools.research_dataset.train_reba_logistic_model import (
+    ENGINEERED_FEATURE_NAMES,
     derive_reba_label,
+    feature_vector,
     probability_to_risk,
     risk_level_for_reba,
 )
@@ -60,6 +62,12 @@ class TrainRebaLogisticModelTest(unittest.TestCase):
 
         self.assertLess(low_load.load_score, high_load.load_score)
         self.assertGreaterEqual(high_load.score, low_load.score)
+
+    def test_feature_vector_appends_reba_angle_features(self):
+        features = feature_vector(base_pose_row())
+
+        self.assertEqual(len(ENGINEERED_FEATURE_NAMES), 20)
+        self.assertEqual(len(features), 71)
 
 
 if __name__ == "__main__":
