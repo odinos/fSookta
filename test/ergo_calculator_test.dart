@@ -125,12 +125,27 @@ void main() {
       const input = ErgoInputData(
         jobType: JobType.lifting,
         loadWeight: 20,
+        horizontalDist: 60,
+        verticalHeight: 30,
+        liftFrequency: 5,
+        durationHours: 4,
         transportDistance: 12,
       );
 
       final result = ErgoCalculator.calculateLiftingRisk(input);
 
-      expect(result.suggestionKeys, contains('act_use_cart_distance'));
+      expect(
+        result.suggestionKeys,
+        containsAll([
+          'act_reduce_weight',
+          'act_iso_keep_load_close',
+          'act_iso_lift_height',
+          'act_iso_reduce_frequency',
+          'act_iso_improve_grip',
+          'act_iso_plan_recovery',
+          'act_use_cart_distance',
+        ]),
+      );
       expect(
         const SooktaStrings(SooktaLocale.th).get('act_use_cart_distance'),
         isNot('act_use_cart_distance'),
@@ -147,8 +162,16 @@ void main() {
       final result = ErgoCalculator.calculatePushPullRisk(input);
 
       expect(result.riskLevel, RiskLevel.high);
-      expect(result.suggestionKeys,
-          containsAll(['act_check_wheels', 'act_use_legs']));
+      expect(
+          result.suggestionKeys,
+          containsAll([
+            'act_check_wheels',
+            'act_use_legs',
+            'act_iso_push_smooth',
+            'act_iso_push_handle_height',
+            'act_iso_floor_level',
+            'act_iso_push_not_pull',
+          ]));
     });
 
     test('Notion ISO lifting multiplier floor keeps RWL in expected range', () {
@@ -220,6 +243,19 @@ void main() {
       'act_fert_split_load',
       'act_transport_two_person',
       'act_transport_clear_path',
+      'act_iso_keep_load_close',
+      'act_iso_lift_height',
+      'act_iso_reduce_frequency',
+      'act_iso_improve_grip',
+      'act_iso_plan_recovery',
+      'act_iso_push_smooth',
+      'act_iso_push_handle_height',
+      'act_iso_reduce_push_distance',
+      'act_iso_floor_level',
+      'act_iso_push_not_pull',
+      'act_iso_job_rotation',
+      'act_iso_neutral_reach',
+      'act_iso_tool_handle_fit',
     ];
 
     for (final key in keys) {

@@ -130,6 +130,14 @@ class ErgoCalculator {
     final risk = _mapLiToRiskLevel(li);
     final suggestionKeys = <String>[
       if (risk >= RiskLevel.medium) 'act_reduce_weight',
+      if (data.horizontalDist > 40.0) 'act_iso_keep_load_close',
+      if (data.verticalHeight < 50.0 || data.verticalHeight > 120.0)
+        'act_iso_lift_height',
+      if (data.liftFrequency > 4.0 || data.durationHours >= 4.0)
+        'act_iso_reduce_frequency',
+      if (risk >= RiskLevel.medium) 'act_iso_improve_grip',
+      if (data.liftFrequency > 1.0 || data.durationHours >= 2.0)
+        'act_iso_plan_recovery',
       if (data.transportDistance > 10.0) 'act_use_cart_distance',
     ];
 
@@ -185,7 +193,15 @@ class ErgoCalculator {
         bodyPartRisks,
       ),
       suggestionKeys: [
-        if (risk >= RiskLevel.medium) ...['act_check_wheels', 'act_use_legs'],
+        if (risk >= RiskLevel.medium) ...[
+          'act_check_wheels',
+          'act_use_legs',
+          'act_iso_push_smooth',
+          'act_iso_push_handle_height',
+          'act_iso_floor_level',
+        ],
+        if (data.transportDistance > 10.0) 'act_iso_reduce_push_distance',
+        if (risk >= RiskLevel.high) 'act_iso_push_not_pull',
       ],
       bodyPartRisks: bodyPartRisks,
     );
@@ -218,6 +234,14 @@ class ErgoCalculator {
       if (input.neckScore >= 2) 'act_adj_eye_level',
       if (input.upperArmScore >= 3) 'act_reduce_arm_raise',
       if (adjustedWristScore >= 2) 'act_adj_wrist',
+      if (input.activityScore >= 1) ...[
+        'act_iso_plan_recovery',
+        'act_iso_job_rotation',
+      ],
+      if (input.upperArmScore >= 3 || adjustedWristScore >= 2)
+        'act_iso_neutral_reach',
+      if (adjustedWristScore >= 2 || input.couplingScore >= 1)
+        'act_iso_tool_handle_fit',
     ];
     if (suggestionKeys.isEmpty && risk != RiskLevel.low) {
       suggestionKeys.add('act_rest_stretch');

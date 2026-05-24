@@ -31,10 +31,30 @@ class SooktaStrings {
     'sugg_reba_high': 'High Risk: Change soon',
     'sugg_reba_vhigh': 'Very High Risk: Change immediately!',
     'act_reduce_weight': 'Reduce load weight',
+    'act_iso_keep_load_close':
+        'Keep the load close to the body before lifting or carrying',
+    'act_iso_lift_height':
+        'Place the load around knuckle-to-elbow height before lifting',
+    'act_iso_reduce_frequency':
+        'Reduce lifting frequency or split the task into shorter rounds',
+    'act_iso_improve_grip':
+        'Use containers or handles that are easy to grip securely',
+    'act_iso_plan_recovery':
+        'Plan short recovery breaks or rotate tasks during repeated work',
     'act_use_cart_distance':
         'Use a cart or handling aid for long distance transport',
     'act_check_wheels': 'Check cart wheels for friction',
     'act_use_legs': 'Use leg muscles, not back',
+    'act_iso_push_smooth':
+        'Push or pull smoothly and avoid sudden jerking force',
+    'act_iso_push_handle_height':
+        'Adjust handles near elbow height so the body can push steadily',
+    'act_iso_reduce_push_distance':
+        'Shorten push/pull distance or divide the route into shorter sections',
+    'act_iso_floor_level':
+        'Keep floors firm, level, dry, and clear of obstacles',
+    'act_iso_push_not_pull':
+        'Push with body weight when possible instead of pulling with the arms',
     'act_reduce_load_tool': 'Reduce load or use assist tools',
     'act_avoid_bend': 'Avoid deep bending or use back support',
     'act_avoid_twist': 'Avoid twisting or side bending while working',
@@ -42,6 +62,12 @@ class SooktaStrings {
     'act_reduce_arm_raise': 'Reduce prolonged arm raising',
     'act_adj_wrist': 'Keep wrist in neutral position',
     'act_rest_stretch': 'Take breaks to stretch muscles',
+    'act_iso_job_rotation':
+        'Rotate tasks so the same muscles are not used continuously',
+    'act_iso_neutral_reach':
+        'Keep hands near the body and avoid extreme reach or joint positions',
+    'act_iso_tool_handle_fit':
+        'Use padded, non-slip tool handles sized for a secure grip',
     'act_transplant_raise_bed':
         'Raise seedling trays or work height to reduce deep bending',
     'act_transplant_low_stool':
@@ -82,9 +108,23 @@ class SooktaStrings {
     'sugg_reba_high': 'ความเสี่ยงสูง: จำเป็นต้องแก้ไขโดยเร็ว',
     'sugg_reba_vhigh': 'ความเสี่ยงสูงมาก: ต้องแก้ไขทันที!',
     'act_reduce_weight': 'ลดน้ำหนักที่ยก',
+    'act_iso_keep_load_close': 'วางของให้ชิดลำตัวก่อนยกหรือขนย้าย',
+    'act_iso_lift_height': 'จัดของให้อยู่ระดับประมาณข้อนิ้วถึงข้อศอกก่อนยก',
+    'act_iso_reduce_frequency': 'ลดความถี่ในการยก หรือแบ่งงานเป็นรอบสั้นลง',
+    'act_iso_improve_grip': 'ใช้ภาชนะหรือด้ามจับที่จับได้ถนัดและมั่นคง',
+    'act_iso_plan_recovery': 'วางแผนพักสั้น ๆ หรือสลับงานเมื่อต้องทำซ้ำหลายรอบ',
     'act_use_cart_distance': 'ใช้รถเข็นหรืออุปกรณ์ช่วยขนย้ายเมื่อต้องขนไกล',
     'act_check_wheels': 'ตรวจสอบล้อรถเข็นว่าฝืดหรือไม่',
     'act_use_legs': 'ใช้แรงจากขาในการออกแรง ไม่ใช่หลัง',
+    'act_iso_push_smooth': 'ออกแรงดันหรือลากอย่างต่อเนื่อง ไม่กระชาก',
+    'act_iso_push_handle_height':
+        'ปรับด้ามจับให้อยู่ใกล้ระดับข้อศอก เพื่อใช้แรงได้มั่นคง',
+    'act_iso_reduce_push_distance':
+        'ลดระยะทางดัน/ลาก หรือแบ่งเส้นทางเป็นช่วงสั้นลง',
+    'act_iso_floor_level':
+        'จัดพื้นทางเดินให้เรียบ แห้ง ไม่ลื่น และไม่มีสิ่งกีดขวาง',
+    'act_iso_push_not_pull':
+        'ถ้าทำได้ให้ดันโดยใช้น้ำหนักตัว แทนการลากด้วยแรงแขน',
     'act_reduce_load_tool': 'ลดน้ำหนักสิ่งของ หรือใช้เครื่องทุ่นแรง',
     'act_avoid_bend': 'หลีกเลี่ยงการก้มหลังมาก หรือใช้เข็มขัดพยุงหลัง',
     'act_avoid_twist': 'หลีกเลี่ยงการบิดลำตัวหรือเอียงตัวขณะทำงาน',
@@ -92,6 +132,12 @@ class SooktaStrings {
     'act_reduce_arm_raise': 'ลดการยกแขนสูงเหนือไหล่เป็นเวลานาน',
     'act_adj_wrist': 'ปรับด้ามจับเครื่องมือให้ข้อมืออยู่ในแนวตรง',
     'act_rest_stretch': 'ควรพักเบรกเพื่อยืดเหยียดกล้ามเนื้อ',
+    'act_iso_job_rotation':
+        'สลับงานเพื่อลดการใช้กล้ามเนื้อกลุ่มเดิมต่อเนื่องนานเกินไป',
+    'act_iso_neutral_reach':
+        'ทำงานใกล้ลำตัว ลดการเอื้อมไกลหรือขยับข้อไปสุดช่วง',
+    'act_iso_tool_handle_fit':
+        'ใช้ด้ามจับที่ไม่ลื่น มีขนาดพอดีมือ และลดแรงบีบจับ',
     'act_transplant_raise_bed':
         'ยกถาดกล้าหรือพื้นที่ทำงานให้สูงขึ้น เพื่อลดการก้มหลังลึก',
     'act_transplant_low_stool':

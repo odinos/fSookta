@@ -203,31 +203,44 @@ class _InitialRiskScreenState extends State<InitialRiskScreen> {
           'act_transplant_raise_bed',
           'act_transplant_low_stool',
           'act_rest_stretch',
+          'act_iso_plan_recovery',
+          'act_iso_job_rotation',
         ],
       SooktaActivity.fertilizing => [
           'act_fert_split_load',
           'act_extra_fert_cart',
+          'act_iso_keep_load_close',
+          'act_iso_lift_height',
+          'act_iso_reduce_frequency',
           'act_avoid_twist',
         ],
       SooktaActivity.pesticide => [
           'act_extra_spray_strap',
           'act_spray_extension',
           'act_extra_spray_switch',
+          'act_iso_push_smooth',
+          'act_iso_floor_level',
         ],
       SooktaActivity.pruning => [
           'act_extra_prune_tool',
           'act_extra_prune_ladder',
           'act_reduce_arm_raise',
+          'act_iso_tool_handle_fit',
+          'act_iso_job_rotation',
         ],
       SooktaActivity.harvesting => [
           'act_harvest_empty_often',
           'act_harvest_move_closer',
           'act_reduce_arm_raise',
+          'act_iso_keep_load_close',
+          'act_iso_neutral_reach',
         ],
       SooktaActivity.transport => [
           'act_use_cart_distance',
           'act_transport_two_person',
           'act_transport_clear_path',
+          'act_iso_lift_height',
+          'act_iso_reduce_push_distance',
         ],
     };
   }
@@ -284,6 +297,57 @@ class _InitialRiskScreenState extends State<InitialRiskScreen> {
           scoreReduction: 1,
           bodyParts: {BodyPart.trunk, BodyPart.legs},
         ),
+      'act_iso_keep_load_close' => const _ImprovementAction(
+          scoreReduction: 1,
+          bodyParts: {BodyPart.trunk, BodyPart.arms},
+        ),
+      'act_iso_lift_height' => const _ImprovementAction(
+          scoreReduction: 1,
+          bodyParts: {BodyPart.trunk, BodyPart.arms},
+        ),
+      'act_iso_reduce_frequency' => const _ImprovementAction(
+          scoreReduction: 1,
+          bodyParts: {
+            BodyPart.trunk,
+            BodyPart.arms,
+            BodyPart.wrists,
+            BodyPart.legs,
+          },
+        ),
+      'act_iso_improve_grip' => const _ImprovementAction(
+          scoreReduction: 1,
+          bodyParts: {BodyPart.arms, BodyPart.wrists},
+        ),
+      'act_iso_plan_recovery' => const _ImprovementAction(
+          scoreReduction: 1,
+          bodyParts: {
+            BodyPart.neck,
+            BodyPart.trunk,
+            BodyPart.arms,
+            BodyPart.wrists,
+            BodyPart.legs,
+          },
+        ),
+      'act_iso_push_smooth' => const _ImprovementAction(
+          scoreReduction: 1,
+          bodyParts: {BodyPart.trunk, BodyPart.arms},
+        ),
+      'act_iso_push_handle_height' => const _ImprovementAction(
+          scoreReduction: 1,
+          bodyParts: {BodyPart.trunk, BodyPart.arms, BodyPart.wrists},
+        ),
+      'act_iso_reduce_push_distance' => const _ImprovementAction(
+          scoreReduction: 1,
+          bodyParts: {BodyPart.trunk, BodyPart.arms, BodyPart.legs},
+        ),
+      'act_iso_floor_level' => const _ImprovementAction(
+          scoreReduction: 1,
+          bodyParts: {BodyPart.legs, BodyPart.trunk},
+        ),
+      'act_iso_push_not_pull' => const _ImprovementAction(
+          scoreReduction: 1,
+          bodyParts: {BodyPart.trunk, BodyPart.arms},
+        ),
       'act_reduce_load_tool' => const _ImprovementAction(
           scoreReduction: 2,
           bodyParts: {BodyPart.trunk, BodyPart.arms, BodyPart.wrists},
@@ -303,6 +367,24 @@ class _InitialRiskScreenState extends State<InitialRiskScreen> {
       'act_adj_wrist' => const _ImprovementAction(
           scoreReduction: 1,
           bodyParts: {BodyPart.wrists, BodyPart.arms},
+        ),
+      'act_iso_job_rotation' => const _ImprovementAction(
+          scoreReduction: 1,
+          bodyParts: {
+            BodyPart.neck,
+            BodyPart.trunk,
+            BodyPart.arms,
+            BodyPart.wrists,
+            BodyPart.legs,
+          },
+        ),
+      'act_iso_neutral_reach' => const _ImprovementAction(
+          scoreReduction: 1,
+          bodyParts: {BodyPart.neck, BodyPart.trunk, BodyPart.arms},
+        ),
+      'act_iso_tool_handle_fit' => const _ImprovementAction(
+          scoreReduction: 1,
+          bodyParts: {BodyPart.arms, BodyPart.wrists},
         ),
       'act_transplant_raise_bed' => const _ImprovementAction(
           scoreReduction: 2,
