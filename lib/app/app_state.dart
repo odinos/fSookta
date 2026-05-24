@@ -4,13 +4,17 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../core/models/assessment_session.dart';
 import '../core/models/evaluation_models.dart';
 
 enum AppLanguage { th, en }
 
 class UserProfile {
   const UserProfile({
+    this.farmerId = '',
     this.name = '',
+    this.role = '',
+    this.location = '',
     this.age = '',
     this.gender = 'Male',
     this.weight = '',
@@ -19,7 +23,10 @@ class UserProfile {
     this.avatarAsset,
   });
 
+  final String farmerId;
   final String name;
+  final String role;
+  final String location;
   final String age;
   final String gender;
   final String weight;
@@ -28,7 +35,10 @@ class UserProfile {
   final String? avatarAsset;
 
   UserProfile copyWith({
+    String? farmerId,
     String? name,
+    String? role,
+    String? location,
     String? age,
     String? gender,
     String? weight,
@@ -37,7 +47,10 @@ class UserProfile {
     String? avatarAsset,
   }) {
     return UserProfile(
+      farmerId: farmerId ?? this.farmerId,
       name: name ?? this.name,
+      role: role ?? this.role,
+      location: location ?? this.location,
       age: age ?? this.age,
       gender: gender ?? this.gender,
       weight: weight ?? this.weight,
@@ -49,7 +62,10 @@ class UserProfile {
 
   Map<String, Object?> toJson() {
     return {
+      'farmerId': farmerId,
       'name': name,
+      'role': role,
+      'location': location,
       'age': age,
       'gender': gender,
       'weight': weight,
@@ -61,7 +77,10 @@ class UserProfile {
 
   factory UserProfile.fromJson(Map<String, Object?> json) {
     return UserProfile(
+      farmerId: json['farmerId'] as String? ?? '',
       name: json['name'] as String? ?? '',
+      role: json['role'] as String? ?? '',
+      location: json['location'] as String? ?? '',
       age: json['age'] as String? ?? '',
       gender: json['gender'] as String? ?? 'Male',
       weight: json['weight'] as String? ?? '',
@@ -187,9 +206,12 @@ class SooktaAppState extends ChangeNotifier {
     required ErgoResult before,
     required ErgoResult after,
     required List<String> selectedSuggestions,
+    SooktaActivity? activity,
+    AssessmentBreakdown? assessmentBreakdown,
   }) {
     final record = EvaluationHistoryRecord(
       id: _nextHistoryId++,
+      activity: activity,
       activityName: activityName,
       dateTime: DateTime.now(),
       scoreBefore: before.userScore,
@@ -206,6 +228,7 @@ class SooktaAppState extends ChangeNotifier {
           : (before.aiRiskAlert!.probability * 100).round(),
       aiAlertLevel: before.aiRiskAlert?.level,
       aiModelSource: before.aiRiskAlert?.modelSource,
+      assessmentBreakdown: assessmentBreakdown,
     );
     _history.insert(0, record);
     _persistSoon();
@@ -247,6 +270,7 @@ class SooktaAppState extends ChangeNotifier {
 class EvaluationHistoryRecord {
   const EvaluationHistoryRecord({
     required this.id,
+    this.activity,
     required this.activityName,
     required this.dateTime,
     required this.scoreBefore,
@@ -260,9 +284,11 @@ class EvaluationHistoryRecord {
     this.aiRiskPercent,
     this.aiAlertLevel,
     this.aiModelSource,
+    this.assessmentBreakdown,
   });
 
   final int id;
+  final SooktaActivity? activity;
   final String activityName;
   final DateTime dateTime;
   final int scoreBefore;
@@ -276,10 +302,12 @@ class EvaluationHistoryRecord {
   final int? aiRiskPercent;
   final AiAlertLevel? aiAlertLevel;
   final String? aiModelSource;
+  final AssessmentBreakdown? assessmentBreakdown;
 
   Map<String, Object?> toJson() {
     return {
       'id': id,
+      'activity': activity?.name,
       'activityName': activityName,
       'dateTime': dateTime.toIso8601String(),
       'scoreBefore': scoreBefore,
@@ -295,12 +323,14 @@ class EvaluationHistoryRecord {
       'aiRiskPercent': aiRiskPercent,
       'aiAlertLevel': aiAlertLevel?.name,
       'aiModelSource': aiModelSource,
+      'assessmentBreakdown': assessmentBreakdown?.toJson(),
     };
   }
 
   factory EvaluationHistoryRecord.fromJson(Map<String, Object?> json) {
     return EvaluationHistoryRecord(
       id: json['id'] as int? ?? 0,
+      activity: _activityFromName(json['activity'] as String?),
       activityName: json['activityName'] as String? ?? '',
       dateTime: DateTime.tryParse(json['dateTime'] as String? ?? '') ??
           DateTime.now(),
@@ -318,7 +348,23 @@ class EvaluationHistoryRecord {
       aiRiskPercent: json['aiRiskPercent'] as int?,
       aiAlertLevel: _aiAlertFromName(json['aiAlertLevel'] as String?),
       aiModelSource: json['aiModelSource'] as String?,
+      assessmentBreakdown: _assessmentBreakdownFromJson(
+        json['assessmentBreakdown'],
+      ),
     );
+  }
+
+  static AssessmentBreakdown? _assessmentBreakdownFromJson(Object? raw) {
+    if (raw is! Map) return null;
+    return AssessmentBreakdown.fromJson(Map<String, Object?>.from(raw));
+  }
+
+  static SooktaActivity? _activityFromName(String? name) {
+    if (name == null) return null;
+    return SooktaActivity.values.cast<SooktaActivity?>().firstWhere(
+          (activity) => activity?.name == name,
+          orElse: () => null,
+        );
   }
 
   static RiskLevel _riskFromName(String? name) {

@@ -175,6 +175,7 @@ class _InitialRiskScreenState extends State<InitialRiskScreen> {
                     before: before,
                     after: after,
                     selectedSuggestionKeys: selectedKeys.toList(),
+                    breakdown: widget.payload.breakdown,
                   ),
                 );
               },

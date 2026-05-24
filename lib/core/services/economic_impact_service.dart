@@ -270,6 +270,10 @@ class EconomicImpactService {
     return people == 0 ? 0 : total / people;
   }
 
+  static int estimatedLostWorkDays(RiskLevel risk) {
+    return _lostWorkDays(risk).round();
+  }
+
   static double _riskMultiplier(RiskLevel risk) {
     return switch (risk) {
       RiskLevel.low => 0,

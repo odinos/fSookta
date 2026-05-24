@@ -115,6 +115,28 @@ class ProfileTab extends StatelessWidget {
                 unit: text.baht,
               ),
             ),
+            const SizedBox(height: 12),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(14),
+                  child: Column(
+                    children: [
+                      _ProfileLine(
+                        label: text.farmerId,
+                        value: profile.farmerId,
+                      ),
+                      _ProfileLine(label: text.role, value: profile.role),
+                      _ProfileLine(
+                        label: text.location,
+                        value: profile.location,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
             const SizedBox(height: 24),
             _ProfileMenuItem(
               icon: Icons.edit,
@@ -164,6 +186,45 @@ class ProfileTab extends StatelessWidget {
       return FileImage(file);
     }
     return AssetImage(path);
+  }
+}
+
+class _ProfileLine extends StatelessWidget {
+  const _ProfileLine({
+    required this.label,
+    required this.value,
+  });
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(color: Colors.black54),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              value.isEmpty ? '-' : value,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.end,
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 

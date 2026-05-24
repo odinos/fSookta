@@ -21,7 +21,10 @@ class SetupScreen extends StatefulWidget {
 }
 
 class _SetupScreenState extends State<SetupScreen> {
+  final farmerIdController = TextEditingController();
   final nameController = TextEditingController();
+  final roleController = TextEditingController();
+  final locationController = TextEditingController();
   final ageController = TextEditingController();
   final weightController = TextEditingController();
   final heightController = TextEditingController();
@@ -41,7 +44,10 @@ class _SetupScreenState extends State<SetupScreen> {
     super.didChangeDependencies();
     if (loadedInitialData) return;
     final profile = AppStateScope.of(context).profile;
+    farmerIdController.text = profile.farmerId;
     nameController.text = profile.name;
+    roleController.text = profile.role;
+    locationController.text = profile.location;
     ageController.text = profile.age;
     weightController.text = profile.weight;
     heightController.text = profile.height;
@@ -52,7 +58,10 @@ class _SetupScreenState extends State<SetupScreen> {
 
   @override
   void dispose() {
+    farmerIdController.dispose();
     nameController.dispose();
+    roleController.dispose();
+    locationController.dispose();
     ageController.dispose();
     weightController.dispose();
     heightController.dispose();
@@ -87,7 +96,19 @@ class _SetupScreenState extends State<SetupScreen> {
               ),
             ),
             const SizedBox(height: 20),
+            _SooktaTextField(
+              controller: farmerIdController,
+              label: text.farmerId,
+            ),
+            const SizedBox(height: 12),
             _SooktaTextField(controller: nameController, label: text.fullName),
+            const SizedBox(height: 12),
+            _SooktaTextField(controller: roleController, label: text.role),
+            const SizedBox(height: 12),
+            _SooktaTextField(
+              controller: locationController,
+              label: text.location,
+            ),
             const SizedBox(height: 12),
             _SooktaTextField(
               controller: ageController,
@@ -161,14 +182,19 @@ class _SetupScreenState extends State<SetupScreen> {
   }
 
   void _saveAndContinue() {
+    final currentProfile = AppStateScope.of(context).profile;
     AppStateScope.of(context).saveProfile(
       UserProfile(
+        farmerId: farmerIdController.text.trim(),
         name: nameController.text,
+        role: roleController.text.trim(),
+        location: locationController.text.trim(),
         age: ageController.text,
         gender: gender,
         weight: weightController.text,
         height: heightController.text,
         incomePerYear: incomeController.text,
+        avatarAsset: currentProfile.avatarAsset,
       ),
     );
     if (widget.editMode) {

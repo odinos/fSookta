@@ -19,6 +19,9 @@ class AppText {
   String get addProfile => isThai ? 'เพิ่มข้อมูลของคุณ' : 'Add Your Profile';
   String get editProfile => isThai ? 'แก้ไขข้อมูลของคุณ' : 'Edit Your Profile';
   String get fullName => isThai ? 'ชื่อ-นามสกุล' : 'Full Name';
+  String get farmerId => isThai ? 'รหัสผู้เข้าร่วมวิจัย' : 'Farmer ID';
+  String get role => isThai ? 'บทบาท/หน้าที่' : 'Role';
+  String get location => isThai ? 'พื้นที่/สวน' : 'Location';
   String get age => isThai ? 'อายุ (ปี)' : 'Age (Years)';
   String get gender => isThai ? 'เพศ' : 'Gender';
   String get male => isThai ? 'ชาย' : 'Male';

@@ -36,8 +36,31 @@ void main() {
         before: before,
         after: after,
         selectedSuggestionKeys: ['act_avoid_bend'],
+        breakdown: AssessmentBreakdown(
+          primaryMethod: AssessmentMethod.reba,
+          rebaInput: RebaInputData(
+            trunkScore: 4,
+            neckScore: 2,
+            legScore: 2,
+            upperArmScore: 3,
+            lowerArmScore: 2,
+            wristScore: 2,
+            trunkTwist: true,
+            loadScore: 1,
+            couplingScore: 1,
+            activityScore: 1,
+          ),
+          rebaResult: before,
+          ergoInput: ErgoInputData(jobType: JobType.reba),
+        ),
       ),
-      profile: const UserProfile(name: 'สมหญิง', incomePerYear: '120000'),
+      profile: const UserProfile(
+        farmerId: 'FARM-001',
+        name: 'สมหญิง',
+        role: 'ชาวสวน',
+        location: 'สวนตัวอย่าง',
+        incomePerYear: '120000',
+      ),
       selectedSuggestions: const ['หลีกเลี่ยงการก้มหลังค้างนาน'],
       beforeImpact: const EconomicImpactBreakdown(
         bodyTreatmentCost: 100,
@@ -63,7 +86,16 @@ void main() {
 
     expect(csv.startsWith('\uFEFF'), isTrue);
     expect(csv, contains('การเก็บเกี่ยว'));
+    expect(csv, contains('Worksheet Template Data Input for Application'));
+    expect(csv, contains('Farmer ID'));
+    expect(csv, contains('FARM-001'));
+    expect(csv, contains('REBA Score'));
+    expect(csv, contains('ISO 11228 Risk Level'));
+    expect(csv, contains('Productivity Loss (THB)'));
     expect(csv, contains('ค่าพบแพทย์/คลินิก'));
+    expect(csv, contains('รายละเอียดการประเมิน REBA/ISO11228'));
+    expect(csv, contains('ข้อมูลย่อย REBA'));
+    expect(csv, contains('ข้อมูลย่อย ISO11228'));
     expect(csv, contains('หลีกเลี่ยงการก้มหลังค้างนาน'));
   });
 
@@ -71,6 +103,7 @@ void main() {
     final csv = AssessmentExportService.buildHistoryRecordCsv(
       record: EvaluationHistoryRecord(
         id: 7,
+        activity: SooktaActivity.pruning,
         activityName: 'การตัดแต่งกิ่ง',
         dateTime: DateTime(2026, 5, 24, 8, 30),
         scoreBefore: 8,
@@ -81,13 +114,48 @@ void main() {
         moneySaved: 4000,
         selectedSuggestions: const ['ใช้ด้ามต่อเพื่อลดการยกแขนสูง'],
         bodyPartRisks: const {BodyPart.arms: RiskLevel.high},
+        assessmentBreakdown: const AssessmentBreakdown(
+          primaryMethod: AssessmentMethod.iso11228PushPull,
+          rebaInput: RebaInputData(),
+          rebaResult: ErgoResult(
+            riskLevel: RiskLevel.medium,
+            techScore: 6,
+            userScore: 6,
+            userScoreColor: 0xFFFFF176,
+            limitValue: 15,
+            suggestionKey: 'sugg_reba_med',
+          ),
+          ergoInput: ErgoInputData(
+            jobType: JobType.pushPull,
+            initialForce: 30,
+            sustainForce: 12,
+          ),
+          isoMethod: AssessmentMethod.iso11228PushPull,
+          isoResult: ErgoResult(
+            riskLevel: RiskLevel.high,
+            techScore: 1.5,
+            userScore: 8,
+            userScoreColor: 0xFFFF5252,
+            limitValue: 20,
+            suggestionKey: 'sugg_push_pull_high',
+          ),
+        ),
       ),
-      profile: const UserProfile(name: 'สมชาย'),
+      profile: const UserProfile(
+        farmerId: 'FARM-002',
+        name: 'สมชาย',
+        role: 'เจ้าของสวน',
+        location: 'แปลงเหนือ',
+      ),
     );
 
     expect(csv, contains('เลขประเมิน'));
     expect(csv, contains('การตัดแต่งกิ่ง'));
+    expect(csv, contains('FARM-002'));
+    expect(csv, contains('Maintenance / Pruning'));
     expect(csv, contains('ผลกระทบหลังปรับโดยประมาณ'));
+    expect(csv, contains('ISO11228-2'));
+    expect(csv, contains('แรงเริ่มต้นดัน/ลาก'));
     expect(csv, contains('8000'));
   });
 }

@@ -41,11 +41,13 @@ class _FinalResultScreenState extends State<FinalResultScreen> {
       final strings = _strings(context);
       setState(() {
         savedRecord = AppStateScope.of(context).saveEvaluation(
+          activity: widget.bundle.activity,
           activityName: widget.bundle.activityName,
           before: widget.bundle.before,
           after: widget.bundle.after,
           selectedSuggestions:
               widget.bundle.selectedSuggestionKeys.map(strings.get).toList(),
+          assessmentBreakdown: widget.bundle.breakdown,
         );
       });
     });

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../app/app_state.dart';
 import '../../app/app_text.dart';
 import '../../app/assets.dart';
+import '../../app/sookta_app.dart';
 import '../../widgets/app_background.dart';
 import '../../widgets/responsive_content.dart';
 import 'evaluation_menu_screen.dart';
@@ -21,6 +22,8 @@ class HomeTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final state = AppStateScope.of(context);
+    final latestRecord = state.history.isEmpty ? null : state.history.first;
     final width = MediaQuery.sizeOf(context).width;
     final compact = width < 360;
     final avatarRadius = compact ? 30.0 : 35.0;
@@ -68,6 +71,8 @@ class HomeTab extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 34),
+            _DashboardSummaryCard(text: text, record: latestRecord),
+            const SizedBox(height: 18),
             Text(
               text.startEvaluation,
               style: const TextStyle(
@@ -99,6 +104,89 @@ class HomeTab extends StatelessWidget {
       return FileImage(file);
     }
     return AssetImage(path);
+  }
+}
+
+class _DashboardSummaryCard extends StatelessWidget {
+  const _DashboardSummaryCard({
+    required this.text,
+    required this.record,
+  });
+
+  final AppText text;
+  final EvaluationHistoryRecord? record;
+
+  @override
+  Widget build(BuildContext context) {
+    final thai = text.isThai;
+    final record = this.record;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: record == null
+            ? Row(
+                children: [
+                  const Icon(Icons.dashboard_outlined,
+                      color: Color(0xFF5C9A81)),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      thai
+                          ? 'ยังไม่มีคะแนนล่าสุด เริ่มประเมินเพื่อดูภาพรวมความเสี่ยง'
+                          : 'No latest score yet. Start an assessment to see your dashboard.',
+                    ),
+                  ),
+                ],
+              )
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.dashboard_outlined,
+                          color: Color(0xFF5C9A81)),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          thai
+                              ? 'ภาพรวมความเสี่ยงล่าสุด'
+                              : 'Latest Risk Overview',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      CircleAvatar(
+                        backgroundColor: Color(record.riskBefore.colorHex),
+                        child: Text(
+                          '${record.scoreBefore}',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          thai
+                              ? '${record.activityName} • ก่อน ${record.scoreBefore} หลัง ${record.scoreAfter}'
+                              : '${record.activityName} • Before ${record.scoreBefore} After ${record.scoreAfter}',
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+      ),
+    );
   }
 }
 
