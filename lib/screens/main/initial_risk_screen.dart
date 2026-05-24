@@ -619,6 +619,12 @@ class _EconomicImpactCard extends StatelessWidget {
               value: _money(impact.bodyTreatmentCost),
             ),
             _ImpactRow(
+              icon: Icons.local_hospital_outlined,
+              label:
+                  thai ? 'ค่าพบแพทย์/คลินิกโดยประมาณ' : 'Estimated visit cost',
+              value: _money(impact.medicalVisitCost),
+            ),
+            _ImpactRow(
               icon: Icons.medication_outlined,
               label: thai ? 'ค่ายาและเวชภัณฑ์' : 'Medicine and supplies',
               value: _money(impact.medicineAndSuppliesCost),

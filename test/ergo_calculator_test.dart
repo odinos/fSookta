@@ -46,7 +46,7 @@ void main() {
       expect(result.techScore, greaterThanOrEqualTo(8));
       expect(result.userScore, 9);
       expect({RiskLevel.high, RiskLevel.veryHigh}, contains(result.riskLevel));
-      expect(result.economicLoss, 31116);
+      expect(result.economicLoss, 32244);
     });
 
     test('upper limb strain keeps medium/high risk behavior', () {

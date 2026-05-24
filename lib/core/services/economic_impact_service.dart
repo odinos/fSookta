@@ -177,6 +177,7 @@ class EconomicImpactService {
     if (overallRisk == RiskLevel.low) {
       return const EconomicImpactBreakdown(
         bodyTreatmentCost: 0,
+        medicalVisitCost: 0,
         medicineAndSuppliesCost: 0,
         travelCost: 0,
         lostIncome: 0,
@@ -211,6 +212,7 @@ class EconomicImpactService {
         0,
         (sum, impact) => sum + impact.estimatedTreatmentCost,
       ),
+      medicalVisitCost: (averageMedicalVisitCost() * overallMultiplier).round(),
       medicineAndSuppliesCost:
           (averageTreatmentCost('รวมค่ายาและเวชภัณฑ์') * overallMultiplier)
               .round(),
@@ -238,6 +240,22 @@ class EconomicImpactService {
           ),
         )
         .averageCost;
+  }
+
+  static double averageMedicalVisitCost() {
+    const visitLabels = {
+      'โรงพยาบาลรัฐ ค่าตรวจ+ค่ายา',
+      'โรงพยาบาลเอกชน ค่าตรวจ+ค่ายา',
+      'คลินิกเอกชน/หมอเอกชน',
+    };
+    var people = 0;
+    var total = 0.0;
+    for (final record in treatmentCostRecords) {
+      if (!visitLabels.contains(record.labelTh)) continue;
+      people += record.peopleCount;
+      total += record.totalCost;
+    }
+    return people == 0 ? 0 : total / people;
   }
 
   static double bodyPartAverageCost(BodyPart part) {

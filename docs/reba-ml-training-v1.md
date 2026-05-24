@@ -71,6 +71,27 @@ The exported JSON now contains:
 - probability thresholds mapped to the REBA risk bands
 - embedded training metrics for auditability
 
+## Economic Impact Layer
+
+Treatment-cost survey data is intentionally used after risk assessment, not as
+the ML training label. The current flow is:
+
+```text
+MoveNet features -> REBA pseudo-trained Logistic Regression -> risk/body areas
+-> EconomicImpactService -> estimated impact shown to the farmer
+```
+
+The economic layer combines:
+
+- body-area treatment costs, such as neck, shoulder, wrist, back, hip, thigh,
+  and knee
+- weighted average medical visit costs from public hospital, private hospital,
+  and private clinic/doctor records
+- medicine/supplies, travel, lost income, and reduced income survey rows
+
+This keeps the model focused on posture risk while still communicating the
+practical financial impact from the cost tables.
+
 ## Next Research Iteration
 
 1. Review the generated pseudo-label dataset with the research team.

@@ -12,6 +12,10 @@ void main() {
       EconomicImpactService.bodyPartAverageCost(BodyPart.legs),
       closeTo(860.0, 0.01),
     );
+    expect(
+      EconomicImpactService.averageMedicalVisitCost(),
+      closeTo(1128.478724, 0.001),
+    );
   });
 
   test('estimates cost impact from risk level and affected body parts', () {
@@ -25,6 +29,7 @@ void main() {
     );
 
     expect(impact.bodyTreatmentCost, greaterThan(0));
+    expect(impact.medicalVisitCost, greaterThan(0));
     expect(impact.travelCost, greaterThan(0));
     expect(impact.lostIncome, greaterThan(0));
     expect(impact.totalCost, greaterThan(impact.directCareCost));

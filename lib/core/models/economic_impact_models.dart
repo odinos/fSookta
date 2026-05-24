@@ -53,6 +53,7 @@ class BodyPartCostImpact {
 class EconomicImpactBreakdown {
   const EconomicImpactBreakdown({
     required this.bodyTreatmentCost,
+    required this.medicalVisitCost,
     required this.medicineAndSuppliesCost,
     required this.travelCost,
     required this.lostIncome,
@@ -62,6 +63,7 @@ class EconomicImpactBreakdown {
   });
 
   final int bodyTreatmentCost;
+  final int medicalVisitCost;
   final int medicineAndSuppliesCost;
   final int travelCost;
   final int lostIncome;
@@ -71,11 +73,15 @@ class EconomicImpactBreakdown {
 
   int get totalCost =>
       bodyTreatmentCost +
+      medicalVisitCost +
       medicineAndSuppliesCost +
       travelCost +
       lostIncome +
       reducedIncome;
 
   int get directCareCost =>
-      bodyTreatmentCost + medicineAndSuppliesCost + travelCost;
+      bodyTreatmentCost +
+      medicalVisitCost +
+      medicineAndSuppliesCost +
+      travelCost;
 }
