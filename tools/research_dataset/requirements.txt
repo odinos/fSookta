@@ -1,0 +1,6 @@
+numpy>=1.26,<3
+opencv-python>=4.9,<5
+tensorflow>=2.15,<3
+
+# Optional faster/lighter runtime when a compatible wheel exists:
+# tflite-runtime>=2.14,<3

@@ -1,14 +1,17 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:fsookta/main.dart';
+import 'package:fsookta/app/sookta_app.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
-  testWidgets('renders starter home screen', (tester) async {
-    await tester.pumpWidget(const FSooktaApp());
+  testWidgets('renders onboarding language screen after splash',
+      (tester) async {
+    SharedPreferences.setMockInitialValues({});
 
-    expect(find.text('fSookta'), findsOneWidget);
-    expect(find.text('Flutter starter is ready'), findsOneWidget);
-    expect(find.byIcon(Icons.auto_awesome), findsOneWidget);
+    await tester.pumpWidget(const SooktaApp());
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pumpAndSettle();
+
+    expect(find.text('สุขท่า'), findsOneWidget);
+    expect(find.text('กรุณาเลือกภาษาเพื่อเริ่มต้นใช้งาน'), findsOneWidget);
   });
 }
-

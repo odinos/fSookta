@@ -1,0 +1,12 @@
+source_file,activity,session_id,iso11228_total_score,risk_level_th,A_trunk_neck,B_arm_shoulder_hand,C_force,D_frequency_duration,E_reach_tool_position,F_environment,label_source
+ISO11228 Pirawan.xlsx,transplanting,1.1,13,ปานกลาง,2,2,2,3,2,2,research_team_iso11228_workbook
+ISO11228 Pirawan.xlsx,transplanting,1.2,12,ปานกลาง,2,2,2,2,2,2,research_team_iso11228_workbook
+ISO11228 Pirawan.xlsx,transplanting,1.3,13,ปานกลาง,2,2,2,3,2,2,research_team_iso11228_workbook
+ISO11228 Pirawan.xlsx,transplanting,1.4,14,สูง,3,2,2,3,2,2,research_team_iso11228_workbook
+ISO11228 Pirawan.xlsx,fertilizing,2.1,14,สูง,3,2,2,3,2,2,research_team_iso11228_workbook
+ISO11228 Pirawan.xlsx,fertilizing,2.2,15,สูง,3,2,3,3,2,2,research_team_iso11228_workbook
+ISO11228 Pirawan.xlsx,fertilizing,2.3,15,สูง,3,3,2,3,2,2,research_team_iso11228_workbook
+ISO11228 Pirawan.xlsx,fertilizing,2.4,14,สูง,3,2,2,3,2,2,research_team_iso11228_workbook
+ISO11228 Pirawan.xlsx,fertilizing,2.5,15,สูง,2,3,2,3,2,3,research_team_iso11228_workbook
+ISO11228 Pirawan.xlsx,pesticide_spraying,3.4,15,สูง,2,3,2,3,2,3,research_team_iso11228_workbook
+ISO11228 Pirawan.xlsx,on_farm_transport,6.1,18,สูง,3,3,3,3,3,3,research_team_iso11228_workbook

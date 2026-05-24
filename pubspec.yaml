@@ -1,7 +1,7 @@
 name: fsookta
-description: Starter Flutter application for Android and iOS.
+description: Flutter migration of the Sookta ergonomic risk assessment app.
 publish_to: "none"
-version: 0.1.0+1
+version: 1.0.1+4
 
 environment:
   sdk: ">=3.4.0 <4.0.0"
@@ -9,13 +9,31 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  camera: ^0.11.0+2
   cupertino_icons: ^1.0.8
+  flutter_tts: ^4.2.3
+  image: ^4.3.0
+  image_picker: ^1.1.2
+  ml_algo: ^16.18.0
+  ml_dataframe: ^1.6.0
+  onnxruntime: ^1.4.1
+  path: ^1.9.0
+  path_provider: ^2.1.5
+  shared_preferences: ^2.3.3
+  tflite_flutter: ^0.11.0
+  share_plus: ^13.1.0
 
 dev_dependencies:
   flutter_test:
+    sdk: flutter
+  integration_test:
     sdk: flutter
   flutter_lints: ^5.0.0
 
 flutter:
   uses-material-design: true
-
+  assets:
+    - assets/images/
+    - assets/ml/movenet_thunder.tflite
+    - assets/ml/risk_alert_models.json
+    - assets/models/
