@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../app/app_state.dart';
 import '../../app/app_text.dart';
 import '../../app/sookta_app.dart';
+import '../../core/services/assessment_export_service.dart';
 import '../../core/theme/sookta_theme.dart';
 import '../../widgets/responsive_content.dart';
 import 'history_detail_screen.dart';
@@ -106,6 +108,12 @@ class HistoryTab extends StatelessWidget {
                               HistoryDetailScreen.routeName,
                               arguments: item.id,
                             ),
+                            onExport: (buttonContext) => _exportRecord(
+                              context: buttonContext,
+                              state: state,
+                              record: item,
+                              thai: thai,
+                            ),
                           ),
                           if (item != history.last) const SizedBox(height: 10),
                         ],
@@ -117,6 +125,52 @@ class HistoryTab extends StatelessWidget {
       ),
     );
   }
+
+  Future<void> _exportRecord({
+    required BuildContext context,
+    required SooktaAppState state,
+    required EvaluationHistoryRecord record,
+    required bool thai,
+  }) async {
+    try {
+      final file = await AssessmentExportService.exportHistoryRecordCsv(
+        record: record,
+        profile: state.profile,
+        thai: thai,
+      );
+      if (!context.mounted) return;
+      await SharePlus.instance.share(
+        ShareParams(
+          title: thai ? 'ไฟล์ประวัติผลประเมินสุขท่า' : 'Sookta history export',
+          subject:
+              thai ? 'ไฟล์ประวัติผลประเมินสุขท่า' : 'Sookta history export',
+          text: thai
+              ? 'ไฟล์ CSV นี้เปิดด้วย Excel ได้ สำหรับเจ้าหน้าที่ใช้ติดตามผลประเมินย้อนหลัง'
+              : 'This CSV opens in Excel for staff history review.',
+          files: [XFile(file.path, mimeType: 'text/csv')],
+          fileNameOverrides: [file.uri.pathSegments.last],
+          sharePositionOrigin: _shareOrigin(context),
+        ),
+      );
+    } catch (_) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            thai
+                ? 'ยังส่งออกไฟล์ประวัติไม่ได้ กรุณาลองอีกครั้ง'
+                : 'Could not export history. Please try again.',
+          ),
+        ),
+      );
+    }
+  }
+
+  Rect? _shareOrigin(BuildContext context) {
+    final box = context.findRenderObject();
+    if (box is! RenderBox) return null;
+    return box.localToGlobal(Offset.zero) & box.size;
+  }
 }
 
 class _HistoryCard extends StatelessWidget {
@@ -124,11 +178,13 @@ class _HistoryCard extends StatelessWidget {
     required this.record,
     required this.thai,
     required this.onTap,
+    required this.onExport,
   });
 
   final EvaluationHistoryRecord record;
   final bool thai;
   final VoidCallback onTap;
+  final ValueChanged<BuildContext> onExport;
 
   @override
   Widget build(BuildContext context) {
@@ -158,7 +214,19 @@ class _HistoryCard extends StatelessWidget {
           overflow: TextOverflow.ellipsis,
           style: const TextStyle(fontSize: 13),
         ),
-        trailing: const Icon(Icons.navigate_next),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Builder(
+              builder: (buttonContext) => IconButton(
+                tooltip: thai ? 'ส่งออก Excel' : 'Export Excel',
+                onPressed: () => onExport(buttonContext),
+                icon: const Icon(Icons.download_outlined),
+              ),
+            ),
+            const Icon(Icons.navigate_next),
+          ],
+        ),
       ),
     );
   }

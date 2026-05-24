@@ -39,6 +39,24 @@ class AssessmentExportService {
     );
   }
 
+  static Future<File> exportHistoryRecordCsv({
+    required EvaluationHistoryRecord record,
+    required UserProfile profile,
+    bool thai = true,
+  }) async {
+    final directory = await getApplicationDocumentsDirectory();
+    final timestamp = DateTime.now()
+        .toIso8601String()
+        .replaceAll(':', '')
+        .replaceAll('.', '');
+    final file =
+        File('${directory.path}/sookta_history_${record.id}_$timestamp.csv');
+    return file.writeAsString(
+      buildHistoryRecordCsv(record: record, profile: profile, thai: thai),
+      flush: true,
+    );
+  }
+
   static String buildExcelCsv({
     required AssessmentBundle bundle,
     required UserProfile profile,
@@ -139,6 +157,74 @@ class AssessmentExportService {
         thai
             ? 'ไฟล์นี้เป็น CSV ที่เปิดด้วย Excel ได้ ใช้เพื่อการติดตามงานวิจัย ไม่ใช่ใบรับรองทางการแพทย์'
             : 'This CSV opens in Excel and is for research follow-up, not medical certification.',
+      ],
+    ];
+    return '\uFEFF${rows.map(_csvRow).join('\n')}\n';
+  }
+
+  static String buildHistoryRecordCsv({
+    required EvaluationHistoryRecord record,
+    required UserProfile profile,
+    bool thai = true,
+  }) {
+    final estimatedAfterImpact =
+        (record.economicLoss - record.moneySaved).clamp(0, 999999);
+    final rows = <List<Object?>>[
+      [thai ? 'หัวข้อ' : 'Field', thai ? 'ข้อมูล' : 'Value'],
+      [thai ? 'เลขประเมิน' : 'Record ID', record.id],
+      [
+        thai ? 'วันที่ประเมิน' : 'Assessment date',
+        record.dateTime.toIso8601String()
+      ],
+      [thai ? 'กิจกรรม' : 'Activity', record.activityName],
+      [thai ? 'ชื่อผู้ใช้' : 'Name', profile.name],
+      [thai ? 'อายุ' : 'Age', profile.age],
+      [thai ? 'เพศ' : 'Gender', profile.gender],
+      [thai ? 'น้ำหนัก' : 'Weight', profile.weight],
+      [thai ? 'ส่วนสูง' : 'Height', profile.height],
+      [thai ? 'รายได้เฉลี่ยต่อปี' : 'Annual income', profile.incomePerYear],
+      [],
+      [thai ? 'ผลก่อนและหลัง' : 'Before and after'],
+      [thai ? 'คะแนนก่อนปรับ' : 'Before score', record.scoreBefore],
+      [thai ? 'ระดับก่อนปรับ' : 'Before risk', _risk(record.riskBefore, thai)],
+      [thai ? 'คะแนนหลังปรับ' : 'After score', record.scoreAfter],
+      [thai ? 'ระดับหลังปรับ' : 'After risk', _risk(record.riskAfter, thai)],
+      [
+        thai ? 'ผลกระทบก่อนปรับ (บาท)' : 'Before impact (THB)',
+        record.economicLoss,
+      ],
+      [
+        thai
+            ? 'ผลกระทบหลังปรับโดยประมาณ (บาท)'
+            : 'Estimated after impact (THB)',
+        estimatedAfterImpact,
+      ],
+      [
+        thai ? 'ผลกระทบที่ลดลง (บาท)' : 'Reduced impact (THB)',
+        record.moneySaved,
+      ],
+      if (record.aiRiskPercent != null) ...[
+        [],
+        [thai ? 'สัญญาณช่วยเฝ้าระวัง' : 'Posture awareness signal'],
+        [thai ? 'เปอร์เซ็นต์' : 'Percent', record.aiRiskPercent],
+        [thai ? 'ระดับ AI' : 'AI level', record.aiAlertLevel?.name ?? '-'],
+        [thai ? 'แหล่งโมเดล' : 'Model source', record.aiModelSource ?? '-'],
+      ],
+      [],
+      [thai ? 'ตำแหน่งร่างกายที่เสี่ยง' : 'Risky body parts'],
+      [thai ? 'ส่วนร่างกาย' : 'Body part', thai ? 'ระดับ' : 'Risk level'],
+      ...record.bodyPartRisks.entries.map(
+        (entry) => [_bodyPart(entry.key, thai), _risk(entry.value, thai)],
+      ),
+      [],
+      [thai ? 'คำแนะนำที่เลือก' : 'Selected recommendations'],
+      ...record.selectedSuggestions.map((suggestion) => [suggestion]),
+      [],
+      [
+        thai ? 'หมายเหตุ' : 'Note',
+        thai
+            ? 'ไฟล์นี้ส่งออกจากหน้าประวัติ เป็น CSV ที่เปิดด้วย Excel ได้ ใช้เพื่อการติดตามงานวิจัย ไม่ใช่ใบรับรองทางการแพทย์'
+            : 'This history export is a CSV that opens in Excel and is for research follow-up, not medical certification.',
       ],
     ];
     return '\uFEFF${rows.map(_csvRow).join('\n')}\n';

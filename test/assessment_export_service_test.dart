@@ -66,4 +66,28 @@ void main() {
     expect(csv, contains('ค่าพบแพทย์/คลินิก'));
     expect(csv, contains('หลีกเลี่ยงการก้มหลังค้างนาน'));
   });
+
+  test('builds history export CSV from saved record', () {
+    final csv = AssessmentExportService.buildHistoryRecordCsv(
+      record: EvaluationHistoryRecord(
+        id: 7,
+        activityName: 'การตัดแต่งกิ่ง',
+        dateTime: DateTime(2026, 5, 24, 8, 30),
+        scoreBefore: 8,
+        scoreAfter: 6,
+        riskBefore: RiskLevel.high,
+        riskAfter: RiskLevel.medium,
+        economicLoss: 12000,
+        moneySaved: 4000,
+        selectedSuggestions: const ['ใช้ด้ามต่อเพื่อลดการยกแขนสูง'],
+        bodyPartRisks: const {BodyPart.arms: RiskLevel.high},
+      ),
+      profile: const UserProfile(name: 'สมชาย'),
+    );
+
+    expect(csv, contains('เลขประเมิน'));
+    expect(csv, contains('การตัดแต่งกิ่ง'));
+    expect(csv, contains('ผลกระทบหลังปรับโดยประมาณ'));
+    expect(csv, contains('8000'));
+  });
 }

@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../app/app_state.dart';
 import '../../app/sookta_app.dart';
 import '../../core/models/evaluation_models.dart';
+import '../../core/services/assessment_export_service.dart';
 import '../../core/theme/sookta_theme.dart';
 import '../../widgets/body_risk_map_card.dart';
 import '../../widgets/research_disclaimer_card.dart';
@@ -125,6 +127,21 @@ class HistoryDetailScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 12),
                   ResearchDisclaimerCard(thai: thai),
+                  const SizedBox(height: 12),
+                  OutlinedButton.icon(
+                    onPressed: () => _exportRecord(
+                      context: context,
+                      state: state,
+                      record: record,
+                      thai: thai,
+                    ),
+                    icon: const Icon(Icons.download_outlined),
+                    label: Text(
+                      thai
+                          ? 'ส่งออกไฟล์ Excel สำหรับเจ้าหน้าที่'
+                          : 'Export Excel file for staff',
+                    ),
+                  ),
                   if (record.aiRiskPercent != null &&
                       record.aiAlertLevel != null) ...[
                     const SizedBox(height: 16),
@@ -204,6 +221,52 @@ class HistoryDetailScreen extends StatelessWidget {
     return '${date.day.toString().padLeft(2, '0')}/'
         '${date.month.toString().padLeft(2, '0')}/${date.year} '
         '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+  }
+
+  Future<void> _exportRecord({
+    required BuildContext context,
+    required SooktaAppState state,
+    required EvaluationHistoryRecord record,
+    required bool thai,
+  }) async {
+    try {
+      final file = await AssessmentExportService.exportHistoryRecordCsv(
+        record: record,
+        profile: state.profile,
+        thai: thai,
+      );
+      if (!context.mounted) return;
+      await SharePlus.instance.share(
+        ShareParams(
+          title: thai ? 'ไฟล์ประวัติผลประเมินสุขท่า' : 'Sookta history export',
+          subject:
+              thai ? 'ไฟล์ประวัติผลประเมินสุขท่า' : 'Sookta history export',
+          text: thai
+              ? 'ไฟล์ CSV นี้เปิดด้วย Excel ได้ สำหรับเจ้าหน้าที่ใช้ติดตามผลประเมินย้อนหลัง'
+              : 'This CSV opens in Excel for staff history review.',
+          files: [XFile(file.path, mimeType: 'text/csv')],
+          fileNameOverrides: [file.uri.pathSegments.last],
+          sharePositionOrigin: _shareOrigin(context),
+        ),
+      );
+    } catch (_) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            thai
+                ? 'ยังส่งออกไฟล์ประวัติไม่ได้ กรุณาลองอีกครั้ง'
+                : 'Could not export history. Please try again.',
+          ),
+        ),
+      );
+    }
+  }
+
+  Rect? _shareOrigin(BuildContext context) {
+    final box = context.findRenderObject();
+    if (box is! RenderBox) return null;
+    return box.localToGlobal(Offset.zero) & box.size;
   }
 
   Color _aiColor(AiAlertLevel level) {
