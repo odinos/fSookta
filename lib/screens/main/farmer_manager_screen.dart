@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../app/app_state.dart';
 import '../../app/app_text.dart';
+import '../../app/research_profile_defaults.dart';
 import '../../app/sookta_app.dart';
 import '../../core/theme/sookta_theme.dart';
 import '../../widgets/responsive_content.dart';
@@ -91,15 +92,22 @@ class FarmerManagerScreen extends StatelessWidget {
   }) async {
     final state = AppStateScope.of(context);
     final thai = text.isThai;
-    final farmerId = TextEditingController(text: farmer?.farmerId ?? '');
+    final farmerId = TextEditingController(
+      text: farmer?.farmerId.isNotEmpty == true
+          ? farmer!.farmerId
+          : ResearchProfileDefaults.participantCode(),
+    );
     final name = TextEditingController(text: farmer?.name ?? '');
-    final role = TextEditingController(text: farmer?.role ?? '');
     final location = TextEditingController(text: farmer?.location ?? '');
     final age = TextEditingController(text: farmer?.age ?? '');
     final weight = TextEditingController(text: farmer?.weight ?? '');
     final height = TextEditingController(text: farmer?.height ?? '');
     final income = TextEditingController(text: farmer?.incomePerYear ?? '');
     var gender = farmer?.gender ?? 'Male';
+    var selectedRole = ResearchProfileDefaults.normalizedRole(
+      farmer?.role ?? '',
+      text.language,
+    );
 
     final saved = await showDialog<bool>(
       context: context,
@@ -116,10 +124,56 @@ class FarmerManagerScreen extends StatelessWidget {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    _Field(controller: farmerId, label: text.farmerId),
+                    _Field(
+                      controller: farmerId,
+                      label: text.farmerId,
+                      helperText: text.participantCodeHint,
+                      suffixIcon: IconButton(
+                        tooltip: thai ? 'สุ่มรหัสใหม่' : 'Generate new code',
+                        onPressed: () {
+                          setDialogState(() {
+                            farmerId.text =
+                                ResearchProfileDefaults.participantCode();
+                          });
+                        },
+                        icon: const Icon(Icons.refresh),
+                      ),
+                    ),
                     _Field(controller: name, label: text.fullName),
-                    _Field(controller: role, label: text.role),
-                    _Field(controller: location, label: text.location),
+                    Align(
+                      alignment: AlignmentDirectional.centerStart,
+                      child: Text(
+                        text.role,
+                        style: const TextStyle(color: SooktaColors.darkGreen),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    SegmentedButton<String>(
+                      segments: [
+                        ButtonSegment(
+                          value: text.roleFarmer,
+                          label: Text(text.roleFarmer),
+                        ),
+                        ButtonSegment(
+                          value: text.roleStaff,
+                          label: Text(text.roleStaff),
+                        ),
+                      ],
+                      selected: {
+                        selectedRole == text.roleStaff
+                            ? text.roleStaff
+                            : text.roleFarmer,
+                      },
+                      onSelectionChanged: (selection) {
+                        setDialogState(() => selectedRole = selection.first);
+                      },
+                    ),
+                    const SizedBox(height: 10),
+                    _Field(
+                      controller: location,
+                      label: text.location,
+                      helperText: text.optionalLocationNote,
+                    ),
                     _Field(
                       controller: age,
                       label: text.age,
@@ -176,7 +230,7 @@ class FarmerManagerScreen extends StatelessWidget {
       profileId: farmer?.profileId ?? '',
       farmerId: farmerId.text.trim(),
       name: name.text.trim(),
-      role: role.text.trim(),
+      role: selectedRole,
       location: location.text.trim(),
       age: age.text.trim(),
       gender: gender,
@@ -298,11 +352,15 @@ class _Field extends StatelessWidget {
     required this.controller,
     required this.label,
     this.keyboardType,
+    this.helperText,
+    this.suffixIcon,
   });
 
   final TextEditingController controller;
   final String label;
   final TextInputType? keyboardType;
+  final String? helperText;
+  final Widget? suffixIcon;
 
   @override
   Widget build(BuildContext context) {
@@ -311,7 +369,11 @@ class _Field extends StatelessWidget {
       child: TextField(
         controller: controller,
         keyboardType: keyboardType,
-        decoration: InputDecoration(labelText: label),
+        decoration: InputDecoration(
+          labelText: label,
+          helperText: helperText,
+          suffixIcon: suffixIcon,
+        ),
       ),
     );
   }

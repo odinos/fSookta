@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../app/app_state.dart';
 import '../../app/app_text.dart';
+import '../../app/research_profile_defaults.dart';
 import '../../app/sookta_app.dart';
 import '../../widgets/responsive_content.dart';
 import 'avatar_selection_screen.dart';
@@ -23,13 +24,13 @@ class SetupScreen extends StatefulWidget {
 class _SetupScreenState extends State<SetupScreen> {
   final farmerIdController = TextEditingController();
   final nameController = TextEditingController();
-  final roleController = TextEditingController();
   final locationController = TextEditingController();
   final ageController = TextEditingController();
   final weightController = TextEditingController();
   final heightController = TextEditingController();
   final incomeController = TextEditingController();
   String gender = 'Male';
+  String selectedRole = '';
   bool loadedInitialData = false;
 
   @override
@@ -44,9 +45,15 @@ class _SetupScreenState extends State<SetupScreen> {
     super.didChangeDependencies();
     if (loadedInitialData) return;
     final profile = AppStateScope.of(context).profile;
-    farmerIdController.text = profile.farmerId;
+    final language = AppStateScope.of(context).language ?? AppLanguage.th;
+    farmerIdController.text = profile.farmerId.isEmpty
+        ? ResearchProfileDefaults.participantCode()
+        : profile.farmerId;
     nameController.text = profile.name;
-    roleController.text = profile.role;
+    selectedRole = ResearchProfileDefaults.normalizedRole(
+      profile.role,
+      language,
+    );
     locationController.text = profile.location;
     ageController.text = profile.age;
     weightController.text = profile.weight;
@@ -60,7 +67,6 @@ class _SetupScreenState extends State<SetupScreen> {
   void dispose() {
     farmerIdController.dispose();
     nameController.dispose();
-    roleController.dispose();
     locationController.dispose();
     ageController.dispose();
     weightController.dispose();
@@ -99,15 +105,44 @@ class _SetupScreenState extends State<SetupScreen> {
             _SooktaTextField(
               controller: farmerIdController,
               label: text.farmerId,
+              helperText: text.participantCodeHint,
+              suffixIcon: IconButton(
+                tooltip: text.isThai ? 'สุ่มรหัสใหม่' : 'Generate new code',
+                onPressed: () {
+                  setState(() {
+                    farmerIdController.text =
+                        ResearchProfileDefaults.participantCode();
+                  });
+                },
+                icon: const Icon(Icons.refresh),
+              ),
             ),
             const SizedBox(height: 12),
             _SooktaTextField(controller: nameController, label: text.fullName),
             const SizedBox(height: 12),
-            _SooktaTextField(controller: roleController, label: text.role),
+            Text(text.role, style: const TextStyle(color: Color(0xFF5C9A81))),
+            const SizedBox(height: 8),
+            SegmentedButton<String>(
+              segments: [
+                ButtonSegment(
+                    value: text.roleFarmer, label: Text(text.roleFarmer)),
+                ButtonSegment(
+                    value: text.roleStaff, label: Text(text.roleStaff)),
+              ],
+              selected: {
+                selectedRole == text.roleStaff
+                    ? text.roleStaff
+                    : text.roleFarmer,
+              },
+              onSelectionChanged: (selection) {
+                setState(() => selectedRole = selection.first);
+              },
+            ),
             const SizedBox(height: 12),
             _SooktaTextField(
               controller: locationController,
               label: text.location,
+              helperText: text.optionalLocationNote,
             ),
             const SizedBox(height: 12),
             _SooktaTextField(
@@ -188,7 +223,7 @@ class _SetupScreenState extends State<SetupScreen> {
         profileId: currentProfile.profileId,
         farmerId: farmerIdController.text.trim(),
         name: nameController.text,
-        role: roleController.text.trim(),
+        role: selectedRole.trim(),
         location: locationController.text.trim(),
         age: ageController.text,
         gender: gender,
@@ -211,11 +246,15 @@ class _SooktaTextField extends StatelessWidget {
     required this.controller,
     required this.label,
     this.keyboardType,
+    this.helperText,
+    this.suffixIcon,
   });
 
   final TextEditingController controller;
   final String label;
   final TextInputType? keyboardType;
+  final String? helperText;
+  final Widget? suffixIcon;
 
   @override
   Widget build(BuildContext context) {
@@ -224,6 +263,8 @@ class _SooktaTextField extends StatelessWidget {
       keyboardType: keyboardType,
       decoration: InputDecoration(
         labelText: label,
+        helperText: helperText,
+        suffixIcon: suffixIcon,
         filled: true,
         fillColor: Colors.white,
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
