@@ -470,16 +470,16 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
       JobType.pushPull => ErgoCalculator.calculatePushPullRisk(ergoInput),
       JobType.reba => null,
     };
-    var result = switch (selectedJobType) {
-      JobType.reba => rebaResult,
-      JobType.lifting => isoResult!,
-      JobType.pushPull => isoResult!,
-    };
-    final primaryMethod = switch (selectedJobType) {
-      JobType.reba => AssessmentMethod.reba,
-      JobType.lifting => AssessmentMethod.iso11228Lifting,
-      JobType.pushPull => AssessmentMethod.iso11228PushPull,
-    };
+    var result = isoResult == null
+        ? rebaResult
+        : ErgoCalculator.calculateCombinedRebaIsoRisk(
+            rebaResult: rebaResult,
+            isoResult: isoResult,
+            dailyIncome: dailyIncome,
+          );
+    final primaryMethod = isoResult == null
+        ? AssessmentMethod.reba
+        : AssessmentMethod.rebaIsoCombined;
 
     try {
       final aiModel = await RiskAlertModelService.load();

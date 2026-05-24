@@ -258,6 +258,47 @@ class ErgoCalculator {
     );
   }
 
+  static ErgoResult calculateCombinedRebaIsoRisk({
+    required ErgoResult rebaResult,
+    required ErgoResult isoResult,
+    required double dailyIncome,
+  }) {
+    final combinedRisk = rebaResult.riskLevel.index >= isoResult.riskLevel.index
+        ? rebaResult.riskLevel
+        : isoResult.riskLevel;
+    final combinedScore = math.max(rebaResult.userScore, isoResult.userScore);
+    final combinedBodyRisks = <BodyPart, RiskLevel>{
+      ...rebaResult.bodyPartRisks
+    };
+    for (final entry in isoResult.bodyPartRisks.entries) {
+      final current = combinedBodyRisks[entry.key];
+      if (current == null || entry.value.index > current.index) {
+        combinedBodyRisks[entry.key] = entry.value;
+      }
+    }
+    final suggestionKeys = <String>{
+      ...rebaResult.suggestionKeys,
+      ...isoResult.suggestionKeys,
+    }.toList(growable: false);
+
+    return ErgoResult(
+      riskLevel: combinedRisk,
+      techScore: combinedScore.toDouble(),
+      userScore: combinedScore,
+      userScoreColor: _colorForScore(combinedScore),
+      limitValue: isoResult.limitValue,
+      suggestionKey:
+          combinedRisk == RiskLevel.low ? 'sugg_safe' : 'sugg_improve',
+      economicLoss: _calculateHybridEconomicLoss(
+        combinedRisk,
+        dailyIncome,
+        combinedBodyRisks,
+      ),
+      suggestionKeys: suggestionKeys,
+      bodyPartRisks: combinedBodyRisks,
+    );
+  }
+
   static int _mapLiToUserScore(double li) => switch (li) {
         <= 0.5 => 1,
         <= 0.75 => 2,

@@ -167,6 +167,44 @@ void main() {
       expect(result.limitValue, closeTo(25 * 0.7 * 0.775 * 0.5, 0.001));
       expect(result.techScore, closeTo(20 / result.limitValue, 0.001));
     });
+
+    test('combined REBA and ISO keeps the higher real-task risk', () {
+      final reba = ErgoCalculator.calculateRebaRisk(
+        const RebaInputData(
+          dailyIncome: 350,
+          trunkScore: 2,
+          neckScore: 1,
+          legScore: 1,
+          upperArmScore: 1,
+          lowerArmScore: 1,
+          wristScore: 1,
+        ),
+      );
+      final iso = ErgoCalculator.calculateLiftingRisk(
+        const ErgoInputData(
+          jobType: JobType.lifting,
+          dailyIncome: 350,
+          loadWeight: 25,
+          horizontalDist: 80,
+          liftFrequency: 8,
+          transportDistance: 12,
+        ),
+      );
+
+      final combined = ErgoCalculator.calculateCombinedRebaIsoRisk(
+        rebaResult: reba,
+        isoResult: iso,
+        dailyIncome: 350,
+      );
+
+      expect(combined.riskLevel, iso.riskLevel);
+      expect(
+        combined.userScore,
+        reba.userScore > iso.userScore ? reba.userScore : iso.userScore,
+      );
+      expect(combined.bodyPartRisks[BodyPart.trunk], iso.riskLevel);
+      expect(combined.suggestionKeys, contains('act_use_cart_distance'));
+    });
   });
 
   test('activity-specific recommendation text is bundled in both languages',

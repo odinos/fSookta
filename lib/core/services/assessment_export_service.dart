@@ -497,6 +497,16 @@ class AssessmentExportService {
         thai ? 'คะแนนเทคนิค/ดัชนี' : 'Technical score/index',
         thai ? 'ค่าขีดจำกัด' : 'Limit/reference',
       ],
+      if (breakdown.primaryMethod == AssessmentMethod.rebaIsoCombined)
+        [
+          thai ? 'ผลรวม' : 'Combined',
+          _method(AssessmentMethod.rebaIsoCombined, thai),
+          _yesNo(true, thai),
+          '-',
+          '-',
+          '-',
+          '-',
+        ],
       [
         'REBA',
         _method(AssessmentMethod.reba, thai),
@@ -610,12 +620,16 @@ class AssessmentExportService {
   static String _method(AssessmentMethod method, bool thai) {
     if (thai) {
       return switch (method) {
+        AssessmentMethod.rebaIsoCombined =>
+          'REBA + ISO11228: รวมความเสี่ยงตามงานจริง',
         AssessmentMethod.reba => 'REBA: ท่าทางและส่วนร่างกาย',
         AssessmentMethod.iso11228Lifting => 'ISO11228-1: ยก/ขนย้าย',
         AssessmentMethod.iso11228PushPull => 'ISO11228-2: ดัน/ลาก',
       };
     }
     return switch (method) {
+      AssessmentMethod.rebaIsoCombined =>
+        'REBA + ISO11228: combined real-task risk',
       AssessmentMethod.reba => 'REBA: posture and body segments',
       AssessmentMethod.iso11228Lifting => 'ISO11228-1: lifting/carrying',
       AssessmentMethod.iso11228PushPull => 'ISO11228-2: pushing/pulling',

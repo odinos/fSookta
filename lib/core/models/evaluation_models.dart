@@ -29,6 +29,7 @@ enum JobType {
 }
 
 enum AssessmentMethod {
+  rebaIsoCombined,
   reba,
   iso11228Lifting,
   iso11228PushPull,
