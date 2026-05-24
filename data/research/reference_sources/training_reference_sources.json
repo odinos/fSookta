@@ -1,0 +1,123 @@
+{
+  "version": "2026-05-24",
+  "purpose": "Traceable local reference registry for ergonomic model training, label design, and recommendation evidence. The source PDFs are not committed because several are copyright-protected standards.",
+  "localSourceRoot": "/Users/kpc/Documents/Doc/fortrain",
+  "sources": [
+    {
+      "id": "iso_11228_1_2021",
+      "title": "ISO 11228-1:2021 Ergonomics - Manual handling - Part 1: Lifting, lowering and carrying",
+      "localPath": "/Users/kpc/Documents/Doc/fortrain/ISO-11228-1-2021.pdf",
+      "sha256": "02f7c1d6f86666baf210bb82d4c3b10482a8afe35bec3a8ad7d64790fb777388",
+      "documentType": "copyright_protected_standard",
+      "trainingUse": "Structured evaluation features and future ISO lifting/carrying labels.",
+      "modelFields": [
+        "load_weight_kg",
+        "horizontal_distance_cm",
+        "vertical_position_cm",
+        "lift_frequency_per_min",
+        "lift_duration_hours",
+        "transport_distance_m",
+        "lifting_index_or_risk_band"
+      ],
+      "appScope": [
+        "fertilizing",
+        "on_farm_transport",
+        "harvesting"
+      ]
+    },
+    {
+      "id": "iso_11228_2_2007",
+      "title": "ISO 11228-2:2007 Ergonomics - Manual handling - Part 2: Pushing and pulling",
+      "localPath": "/Users/kpc/Documents/Doc/fortrain/ISO-11228-2-2007.pdf",
+      "sha256": "eea06deaf3dc7be7998871fe172e80e4bb00fc3c382bf09e1eaf3ae0378d420b",
+      "documentType": "copyright_protected_standard",
+      "trainingUse": "Structured evaluation features and future ISO push/pull labels.",
+      "modelFields": [
+        "push_initial_force_n",
+        "push_sustained_force_n",
+        "push_pull_distance_m",
+        "push_pull_frequency",
+        "push_pull_duration",
+        "handle_height_cm",
+        "force_ratio_or_risk_band"
+      ],
+      "appScope": [
+        "pesticide_spraying",
+        "on_farm_transport"
+      ]
+    },
+    {
+      "id": "iso_11228_3_2007",
+      "title": "ISO 11228-3:2007 Ergonomics - Manual handling - Part 3: Handling of low loads at high frequency",
+      "localPath": "/Users/kpc/Documents/Doc/fortrain/ISO-11228-3-2007.pdf",
+      "sha256": "d7c3e34082910213f964fd8b73a5b705f6e5b08dc4a9d1be414ea629073930f3",
+      "documentType": "copyright_protected_standard",
+      "trainingUse": "Future repetitive upper-limb task labels and recommendation rules.",
+      "modelFields": [
+        "upper_limb_repetition_rate",
+        "cycle_time_seconds",
+        "force_exertion_level",
+        "recovery_time_ratio",
+        "shoulder_posture_score",
+        "wrist_posture_score",
+        "task_duration_hours"
+      ],
+      "appScope": [
+        "pruning",
+        "harvesting",
+        "pesticide_spraying",
+        "transplanting"
+      ]
+    },
+    {
+      "id": "reba_step_by_step_ergo_plus",
+      "title": "REBA: A Step-by-Step Guide",
+      "localPath": "/Users/kpc/Documents/Doc/fortrain/REBA-A-Step-by-Step-Guide.pdf",
+      "sha256": "3772bca278855c6bf9f362bdb76310397bc7742bc2f22b009923b7e0a61e946b",
+      "documentType": "public_guide",
+      "trainingUse": "Secondary REBA scoring explanation and QA checklist for REBA-derived labels.",
+      "modelFields": [
+        "trunk_score",
+        "neck_score",
+        "leg_score",
+        "upper_arm_score",
+        "lower_arm_score",
+        "wrist_score",
+        "load_score",
+        "coupling_score",
+        "activity_score",
+        "reba_score",
+        "reba_risk_band"
+      ],
+      "appScope": [
+        "transplanting",
+        "pruning",
+        "harvesting"
+      ]
+    },
+    {
+      "id": "ilo_ergonomic_checkpoints_agriculture",
+      "title": "Ergonomic checkpoints in agriculture",
+      "localPath": "/Users/kpc/Documents/Doc/fortrain/wcms_168042.pdf",
+      "sha256": "3ca8a3c621ad6efb58e818de8c5d64ec257bb13c74f191e96c5f60d4d47acf8e",
+      "documentType": "guidance",
+      "trainingUse": "Recommendation evidence for farmer-friendly risk-reduction actions and future recommendation scoring.",
+      "modelFields": [
+        "recommended_control_category",
+        "workstation_or_tool_adjustment",
+        "manual_handling_control",
+        "work_organization_control",
+        "rest_or_recovery_control"
+      ],
+      "appScope": [
+        "transplanting",
+        "fertilizing",
+        "pesticide_spraying",
+        "pruning",
+        "harvesting",
+        "on_farm_transport"
+      ]
+    }
+  ],
+  "copyrightNote": "Use these sources to derive auditable feature definitions, label schemas, and recommendation categories. Do not commit or redistribute the ISO PDF contents unless licensing permits it."
+}

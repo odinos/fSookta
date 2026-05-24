@@ -14,6 +14,9 @@ use the same MoveNet feature schema before it can be shipped in the app.
 - Missing landmark policy: emit `0.0, 0.0, 0.0`
 - ERGO process contract: `assets/models/ergo_process_detail.json`, sourced
   from the Notion page `ERGO process Detail`.
+- Training reference registry:
+  `data/research/reference_sources/training_reference_sources.json`, covering
+  local ISO 11228-1/2/3, REBA, and agriculture-checkpoint references.
 
 The landmark order is:
 
@@ -106,6 +109,10 @@ local MoveNet research dataset:
 - ISO 11228 research labels are extracted to
   `data/research/expert_labels/iso11228_expert_labels.csv` for the combined
   ergonomic/economic layer and future multi-task model work.
+- ISO 11228-1/2/3 and agriculture recommendation references are tracked in
+  `data/research/reference_sources/training_reference_sources.json`; the PDFs
+  remain outside the repository because several are copyright-protected
+  standards.
 - Metrics output: `data/research/extracted/reba_logistic_metrics.json`
 
 This is a real on-device ML artifact seeded by field labels from the research

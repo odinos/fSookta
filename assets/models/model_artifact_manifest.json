@@ -14,6 +14,7 @@
       "labelSource": "Research-team REBA-2 labels with REBA worksheet pseudo-label fallback",
       "expertLabelSource": "data/research/expert_labels/reba2_expert_labels.csv",
       "iso11228LabelSource": "data/research/expert_labels/iso11228_expert_labels.csv",
+      "trainingReferenceSources": "data/research/reference_sources/training_reference_sources.json",
       "metricsPath": "data/research/extracted/reba_logistic_metrics.json"
     },
     "xgboost": {

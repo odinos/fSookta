@@ -17,6 +17,11 @@ keeping the research claims honest.
 - Research-team ISO 11228 labels:
   `data/research/expert_labels/iso11228_expert_labels.csv`, extracted from
   `/Users/kpc/Documents/Doc/ISO11228 Pirawan.xlsx`
+- Local model-training reference registry:
+  `data/research/reference_sources/training_reference_sources.json`
+- ISO/REBA/agriculture references under `/Users/kpc/Documents/Doc/fortrain/`:
+  ISO 11228-1, ISO 11228-2, ISO 11228-3, the REBA step-by-step guide, and
+  `wcms_168042.pdf` for agriculture recommendation controls
 - Pose dataset: `data/research/extracted/pose_feature_dataset.csv`
 - Feature schema: `assets/models/joint_feature_schema.json`
 - Flutter model asset: `assets/models/logistic_weights.json`
@@ -134,6 +139,9 @@ practical financial impact from the cost tables.
 1. Extract pose rows for more sessions listed in the REBA-2 workbook.
 2. Replace parent-session mean labels with exact frame/session labels where the
    research team can identify them.
-3. Add ISO 11228 labels to the structured evaluation/risk-alert model path.
-4. Train XGBoost and export `assets/models/xgboost_model.onnx` for A/B testing.
-5. Run fixed-vector on-device inference tests against expert-labeled samples.
+3. Use ISO 11228-1/2/3 from the local reference registry to expand structured
+   lifting, push/pull, and repetitive upper-limb label fields.
+4. Use the agriculture checkpoints reference to map recommendations to auditable
+   control categories.
+5. Train XGBoost and export `assets/models/xgboost_model.onnx` for A/B testing.
+6. Run fixed-vector on-device inference tests against expert-labeled samples.
