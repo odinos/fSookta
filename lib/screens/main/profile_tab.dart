@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../app/app_state.dart';
 import '../../app/app_text.dart';
 import '../../widgets/responsive_content.dart';
+import 'farmer_manager_screen.dart';
 import '../onboarding/language_selection_screen.dart';
 import '../onboarding/setup_screen.dart';
 import 'contact_screen.dart';
@@ -138,6 +139,13 @@ class ProfileTab extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 24),
+            _ProfileMenuItem(
+              icon: Icons.groups_2_outlined,
+              text: text.isThai ? 'จัดการรายชื่อชาวสวน' : 'Manage Farmers',
+              onTap: () => Navigator.of(context).pushNamed(
+                FarmerManagerScreen.routeName,
+              ),
+            ),
             _ProfileMenuItem(
               icon: Icons.edit,
               text: text.editProfile,

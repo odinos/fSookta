@@ -8,6 +8,7 @@ import '../screens/onboarding/splash_screen.dart';
 import '../screens/main/contact_screen.dart';
 import '../screens/main/evaluation_form_screen.dart';
 import '../screens/main/evaluation_menu_screen.dart';
+import '../screens/main/farmer_manager_screen.dart';
 import '../screens/main/final_result_screen.dart';
 import '../screens/main/help_screen.dart';
 import '../screens/main/history_detail_screen.dart';
@@ -56,6 +57,7 @@ class _SooktaAppState extends State<SooktaApp> {
           AvatarSelectionScreen.routeName: (_) => const AvatarSelectionScreen(),
           MainTabsScreen.routeName: (_) => const MainTabsScreen(),
           EvaluationMenuScreen.routeName: (_) => const EvaluationMenuScreen(),
+          FarmerManagerScreen.routeName: (_) => const FarmerManagerScreen(),
           HelpScreen.routeName: (_) => const HelpScreen(),
           TermsScreen.routeName: (_) => const TermsScreen(),
           ContactScreen.routeName: (_) => const ContactScreen(),

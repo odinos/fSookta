@@ -58,6 +58,27 @@ class AssessmentExportService {
     );
   }
 
+  static Future<File> exportAllHistoryCsv({
+    required List<EvaluationHistoryRecord> records,
+    required Map<int, UserProfile> profilesByRecordId,
+    bool thai = true,
+  }) async {
+    final directory = await getApplicationDocumentsDirectory();
+    final timestamp = DateTime.now()
+        .toIso8601String()
+        .replaceAll(':', '')
+        .replaceAll('.', '');
+    final file = File('${directory.path}/sookta_all_farmers_$timestamp.csv');
+    return file.writeAsString(
+      buildAllHistoryCsv(
+        records: records,
+        profilesByRecordId: profilesByRecordId,
+        thai: thai,
+      ),
+      flush: true,
+    );
+  }
+
   static String buildExcelCsv({
     required AssessmentBundle bundle,
     required UserProfile profile,
@@ -274,6 +295,50 @@ class AssessmentExportService {
     return '\uFEFF${rows.map(_csvRow).join('\n')}\n';
   }
 
+  static String buildAllHistoryCsv({
+    required List<EvaluationHistoryRecord> records,
+    required Map<int, UserProfile> profilesByRecordId,
+    bool thai = true,
+  }) {
+    final rows = <List<Object?>>[
+      [
+        'Record ID',
+        'Farmer ID',
+        thai ? 'ชื่อผู้ใช้' : 'Name',
+        thai ? 'บทบาท/หน้าที่' : 'Role',
+        thai ? 'พื้นที่/สวน' : 'Location',
+        'Date of data entry',
+        'Activity Stage',
+        'Specific Task',
+        'Posture Description',
+        'REBA Score',
+        'ISO 11228 Risk Level',
+        'Manual Handling Weight (kg)',
+        'Manual Handling Distance (m)',
+        'Frequency per hour',
+        'Duration (minutes)',
+        'MSD Symptom Location',
+        'MSD Symptom Severity',
+        'Medical Cost (THB)',
+        'Lost Workdays',
+        'Productivity Loss (THB)',
+        'Before Score',
+        'After Score',
+        'Before Risk',
+        'After Risk',
+        'Estimated Saved (THB)',
+        'User Feedback Notes',
+      ],
+      for (final record in records)
+        _worksheetFlatRow(
+          record: record,
+          profile: profilesByRecordId[record.id] ?? const UserProfile(),
+          thai: thai,
+        ),
+    ];
+    return '\uFEFF${rows.map(_csvRow).join('\n')}\n';
+  }
+
   static String _csvRow(List<Object?> row) {
     return row.map((value) {
       final text = (value ?? '').toString();
@@ -350,6 +415,58 @@ class AssessmentExportService {
       ],
       ['Productivity Loss (THB)', productivityLoss],
       ['User Feedback Notes', userNotes],
+    ];
+  }
+
+  static List<Object?> _worksheetFlatRow({
+    required EvaluationHistoryRecord record,
+    required UserProfile profile,
+    required bool thai,
+  }) {
+    final impact = EconomicImpactService.estimate(
+      overallRisk: record.riskBefore,
+      dailyIncome: _dailyIncome(profile),
+      bodyPartRisks: record.bodyPartRisks,
+    );
+    final breakdown = record.assessmentBreakdown;
+    final ergoInput = breakdown?.ergoInput;
+    final highestRisk = _highestRisk(record.bodyPartRisks);
+    final medicalCost = impact.bodyTreatmentCost +
+        impact.medicalVisitCost +
+        impact.medicineAndSuppliesCost;
+    return [
+      record.id,
+      profile.farmerId.isEmpty ? (record.farmerId ?? '-') : profile.farmerId,
+      profile.name.isEmpty ? (record.farmerName ?? '-') : profile.name,
+      profile.role.isEmpty ? (record.farmerRole ?? '-') : profile.role,
+      profile.location.isEmpty
+          ? (record.farmerLocation ?? '-')
+          : profile.location,
+      _dateOnly(record.dateTime),
+      record.activity?.stageLabel(thai: false) ?? '-',
+      record.activityName,
+      _postureDescription(breakdown, thai),
+      breakdown?.rebaResult.userScore ?? '-',
+      breakdown?.isoResult == null
+          ? '-'
+          : _risk(breakdown!.isoResult!.riskLevel, thai),
+      ergoInput?.loadWeight ?? '-',
+      ergoInput?.transportDistance ?? '-',
+      ergoInput == null ? '-' : _num(ergoInput.liftFrequency * 60),
+      ergoInput == null ? '-' : _num(ergoInput.durationHours * 60),
+      _bodyPartList(record.bodyPartRisks, thai),
+      _risk(highestRisk, thai),
+      medicalCost,
+      EconomicImpactService.estimatedLostWorkDays(highestRisk),
+      impact.lostIncome + impact.reducedIncome,
+      record.scoreBefore,
+      record.scoreAfter,
+      _risk(record.riskBefore, thai),
+      _risk(record.riskAfter, thai),
+      record.moneySaved,
+      record.selectedSuggestions.isEmpty
+          ? '-'
+          : record.selectedSuggestions.join(' | '),
     ];
   }
 

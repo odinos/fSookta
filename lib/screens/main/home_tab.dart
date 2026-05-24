@@ -9,6 +9,7 @@ import '../../app/sookta_app.dart';
 import '../../widgets/app_background.dart';
 import '../../widgets/responsive_content.dart';
 import 'evaluation_menu_screen.dart';
+import 'farmer_manager_screen.dart';
 
 class HomeTab extends StatelessWidget {
   const HomeTab({
@@ -71,6 +72,8 @@ class HomeTab extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 34),
+            _ActiveFarmerCard(text: text, profile: profile),
+            const SizedBox(height: 12),
             _DashboardSummaryCard(text: text, record: latestRecord),
             const SizedBox(height: 18),
             Text(
@@ -104,6 +107,47 @@ class HomeTab extends StatelessWidget {
       return FileImage(file);
     }
     return AssetImage(path);
+  }
+}
+
+class _ActiveFarmerCard extends StatelessWidget {
+  const _ActiveFarmerCard({
+    required this.text,
+    required this.profile,
+  });
+
+  final AppText text;
+  final UserProfile profile;
+
+  @override
+  Widget build(BuildContext context) {
+    final thai = text.isThai;
+    return Card(
+      child: ListTile(
+        leading: const Icon(Icons.groups_2_outlined, color: Color(0xFF5C9A81)),
+        title: Text(
+          thai ? 'กำลังเก็บข้อมูลของ' : 'Current farmer',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        subtitle: Text(
+          [
+            profile.name.isEmpty
+                ? (thai ? 'ไม่ระบุชื่อ' : 'Unnamed')
+                : profile.name,
+            if (profile.farmerId.isNotEmpty) profile.farmerId,
+          ].join(' • '),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        trailing: IconButton(
+          tooltip: thai ? 'เปลี่ยนรายชื่อ' : 'Switch farmer',
+          onPressed: () =>
+              Navigator.of(context).pushNamed(FarmerManagerScreen.routeName),
+          icon: const Icon(Icons.swap_horiz),
+        ),
+      ),
+    );
   }
 }
 

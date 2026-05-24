@@ -74,8 +74,15 @@ class HistoryTab extends StatelessWidget {
                         style: IconButton.styleFrom(
                           backgroundColor: Colors.white.withValues(alpha: 0.2),
                         ),
-                        onPressed: () {},
-                        icon: const Icon(Icons.search, color: Colors.white),
+                        onPressed: history.isEmpty
+                            ? null
+                            : () => _exportAll(
+                                  context: context,
+                                  state: state,
+                                  thai: thai,
+                                ),
+                        icon: const Icon(Icons.download_outlined,
+                            color: Colors.white),
                       ),
                     ],
                   ),
@@ -135,7 +142,7 @@ class HistoryTab extends StatelessWidget {
     try {
       final file = await AssessmentExportService.exportHistoryRecordCsv(
         record: record,
-        profile: state.profile,
+        profile: state.profileForRecord(record),
         thai: thai,
       );
       if (!context.mounted) return;
@@ -160,6 +167,52 @@ class HistoryTab extends StatelessWidget {
             thai
                 ? 'ยังส่งออกไฟล์ประวัติไม่ได้ กรุณาลองอีกครั้ง'
                 : 'Could not export history. Please try again.',
+          ),
+        ),
+      );
+    }
+  }
+
+  Future<void> _exportAll({
+    required BuildContext context,
+    required SooktaAppState state,
+    required bool thai,
+  }) async {
+    try {
+      final records = state.history;
+      final file = await AssessmentExportService.exportAllHistoryCsv(
+        records: records,
+        profilesByRecordId: {
+          for (final record in records)
+            record.id: state.profileForRecord(record)
+        },
+        thai: thai,
+      );
+      if (!context.mounted) return;
+      await SharePlus.instance.share(
+        ShareParams(
+          title: thai
+              ? 'ไฟล์ประวัติผลประเมินทุกคน'
+              : 'All farmer assessment export',
+          subject: thai
+              ? 'ไฟล์ประวัติผลประเมินทุกคน'
+              : 'All farmer assessment export',
+          text: thai
+              ? 'ไฟล์ CSV รวมผลประเมินหลายคน สำหรับเจ้าหน้าที่วิจัย'
+              : 'CSV with all farmer assessment records for research staff.',
+          files: [XFile(file.path, mimeType: 'text/csv')],
+          fileNameOverrides: [file.uri.pathSegments.last],
+          sharePositionOrigin: _shareOrigin(context),
+        ),
+      );
+    } catch (_) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            thai
+                ? 'ยังส่งออกไฟล์รวมไม่ได้ กรุณาลองอีกครั้ง'
+                : 'Could not export all records. Please try again.',
           ),
         ),
       );
@@ -201,7 +254,10 @@ class _HistoryCard extends StatelessWidget {
           ),
         ),
         title: Text(
-          record.activityName,
+          [
+            if ((record.farmerName ?? '').isNotEmpty) record.farmerName!,
+            record.activityName,
+          ].join(' • '),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),

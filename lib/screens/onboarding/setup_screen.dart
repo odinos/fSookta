@@ -185,6 +185,7 @@ class _SetupScreenState extends State<SetupScreen> {
     final currentProfile = AppStateScope.of(context).profile;
     AppStateScope.of(context).saveProfile(
       UserProfile(
+        profileId: currentProfile.profileId,
         farmerId: farmerIdController.text.trim(),
         name: nameController.text,
         role: roleController.text.trim(),

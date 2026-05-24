@@ -158,4 +158,73 @@ void main() {
     expect(csv, contains('แรงเริ่มต้นดัน/ลาก'));
     expect(csv, contains('8000'));
   });
+
+  test('builds all-farmer worksheet CSV for research staff', () {
+    final record = EvaluationHistoryRecord(
+      id: 9,
+      farmerProfileId: 'profile-a',
+      farmerId: 'FARM-009',
+      farmerName: 'สมปอง',
+      farmerRole: 'ผู้ช่วยเก็บเกี่ยว',
+      farmerLocation: 'แปลงใต้',
+      activity: SooktaActivity.transport,
+      activityName: 'การขนย้ายผลผลิต',
+      dateTime: DateTime(2026, 5, 24),
+      scoreBefore: 7,
+      scoreAfter: 5,
+      riskBefore: RiskLevel.high,
+      riskAfter: RiskLevel.medium,
+      economicLoss: 9000,
+      moneySaved: 2500,
+      selectedSuggestions: const ['ใช้รถเข็น'],
+      bodyPartRisks: const {BodyPart.trunk: RiskLevel.high},
+      assessmentBreakdown: const AssessmentBreakdown(
+        primaryMethod: AssessmentMethod.iso11228Lifting,
+        rebaInput: RebaInputData(trunkScore: 3),
+        rebaResult: ErgoResult(
+          riskLevel: RiskLevel.medium,
+          techScore: 5,
+          userScore: 5,
+          userScoreColor: 0xFFFFF176,
+          limitValue: 15,
+          suggestionKey: 'sugg_reba_med',
+        ),
+        ergoInput: ErgoInputData(
+          jobType: JobType.lifting,
+          loadWeight: 15,
+          transportDistance: 8,
+          liftFrequency: 2,
+          durationHours: 1.5,
+        ),
+        isoMethod: AssessmentMethod.iso11228Lifting,
+        isoResult: ErgoResult(
+          riskLevel: RiskLevel.high,
+          techScore: 1.4,
+          userScore: 7,
+          userScoreColor: 0xFFFF5252,
+          limitValue: 10,
+          suggestionKey: 'sugg_lifting_high',
+        ),
+      ),
+    );
+
+    final csv = AssessmentExportService.buildAllHistoryCsv(
+      records: [record],
+      profilesByRecordId: const {
+        9: UserProfile(
+          profileId: 'profile-a',
+          farmerId: 'FARM-009',
+          name: 'สมปอง',
+          role: 'ผู้ช่วยเก็บเกี่ยว',
+          location: 'แปลงใต้',
+        ),
+      },
+    );
+
+    expect(csv, contains('Record ID'));
+    expect(csv, contains('FARM-009'));
+    expect(csv, contains('การขนย้ายผลผลิต'));
+    expect(csv, contains('Manual Handling Weight (kg)'));
+    expect(csv, contains('ใช้รถเข็น'));
+  });
 }
