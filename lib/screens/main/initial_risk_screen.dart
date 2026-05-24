@@ -66,6 +66,13 @@ class _InitialRiskScreenState extends State<InitialRiskScreen> {
               ),
             ),
             const SizedBox(height: 16),
+            _FarmerGuideCard(
+              before: before,
+              after: after,
+              selectedCount: selectedKeys.length,
+              thai: thai,
+            ),
+            const SizedBox(height: 16),
             _RiskSummaryCard(
               result: before,
               title: thai ? 'คะแนนก่อนปรับปรุง' : 'Before Improvement',
@@ -101,16 +108,16 @@ class _InitialRiskScreenState extends State<InitialRiskScreen> {
                   children: [
                     Text(
                       thai
-                          ? 'แนวทางปรับปรุง (เลือกสิ่งที่ทำได้)'
-                          : 'Improvement Plan',
+                          ? 'เลือกวิธีลดความเสี่ยง'
+                          : 'Choose risk-reduction actions',
                       style: const TextStyle(
                           fontSize: 16, fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 8),
                     Text(
                       thai
-                          ? 'เลือกหัวข้อด้านล่างเพื่อประเมินคะแนนหลังปรับปรุง'
-                          : 'Select actions below to estimate the improved score.',
+                          ? 'แตะเลือกเฉพาะข้อที่ทำได้จริง ระบบจะคำนวณคะแนนหลังปรับให้ทันที'
+                          : 'Tap only the actions you can really do. The app recalculates the after score immediately.',
                       style: const TextStyle(color: Colors.black54),
                     ),
                     const SizedBox(height: 8),
@@ -144,13 +151,15 @@ class _InitialRiskScreenState extends State<InitialRiskScreen> {
             const SizedBox(height: 16),
             _RiskSummaryCard(
               result: after,
-              title: thai ? 'คะแนนหลังปรับปรุงโดยประมาณ' : 'Estimated After',
+              title: thai
+                  ? 'ถ้าทำตามที่เลือก คะแนนจะเป็น'
+                  : 'If selected actions are done',
               suggestion: selectedKeys.isEmpty
                   ? (thai
-                      ? 'ยังไม่ได้เลือกแนวทางปรับปรุง'
-                      : 'No improvement selected')
+                      ? 'ยังไม่ได้เลือกวิธีลดความเสี่ยง'
+                      : 'No risk-reduction action selected')
                   : (thai
-                      ? 'คะแนนลดลงตามแนวทางที่เลือก'
+                      ? 'คะแนนลดลงตามวิธีที่เลือก'
                       : 'Score reduced by selected actions'),
               thai: thai,
             ),
@@ -326,6 +335,83 @@ class _InitialRiskScreenState extends State<InitialRiskScreen> {
       0xFFFF5252,
     ];
     return colors[(score - 1).clamp(0, 8).toInt()];
+  }
+}
+
+class _FarmerGuideCard extends StatelessWidget {
+  const _FarmerGuideCard({
+    required this.before,
+    required this.after,
+    required this.selectedCount,
+    required this.thai,
+  });
+
+  final ErgoResult before;
+  final ErgoResult after;
+  final int selectedCount;
+  final bool thai;
+
+  @override
+  Widget build(BuildContext context) {
+    final improved = selectedCount > 0 && after.userScore < before.userScore;
+    return Card(
+      color: const Color(0xFFF4FBF5),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  improved
+                      ? Icons.thumb_up_alt_outlined
+                      : Icons.front_hand_outlined,
+                  color: SooktaColors.darkGreen,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    thai ? 'อ่านตรงนี้ก่อน' : 'Read this first',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              thai
+                  ? 'คะแนนตอนนี้คือ ${before.userScore} (${before.riskLevel.label})'
+                  : 'Current score is ${before.userScore} (${_riskLabel(before.riskLevel)})',
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              improved
+                  ? (thai
+                      ? 'ถ้าทำตามที่เลือก คะแนนจะลดเหลือ ${after.userScore} ให้เจ้าหน้าที่ช่วยดูต่อได้'
+                      : 'With selected actions, the score may drop to ${after.userScore}. Staff can review the export.')
+                  : (thai
+                      ? 'เลือกวิธีที่ทำได้จริงด้านล่าง ไม่ต้องกรอกข้อมูลเพิ่ม'
+                      : 'Choose practical actions below. No extra form is needed.'),
+              style: const TextStyle(color: Colors.black87),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _riskLabel(RiskLevel risk) {
+    return switch (risk) {
+      RiskLevel.low => 'low risk',
+      RiskLevel.medium => 'medium risk',
+      RiskLevel.high => 'high risk',
+      RiskLevel.veryHigh => 'very high risk',
+    };
   }
 }
 

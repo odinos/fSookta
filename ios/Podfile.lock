@@ -16,6 +16,8 @@ PODS:
     - onnxruntime-objc/Core (= 1.15.1)
   - onnxruntime-objc/Core (1.15.1):
     - onnxruntime-c (= 1.15.1)
+  - share_plus (0.0.1):
+    - Flutter
   - shared_preferences_foundation (0.0.1):
     - Flutter
     - FlutterMacOS
@@ -49,6 +51,7 @@ DEPENDENCIES:
   - image_picker_ios (from `.symlinks/plugins/image_picker_ios/ios`)
   - integration_test (from `.symlinks/plugins/integration_test/ios`)
   - onnxruntime (from `.symlinks/plugins/onnxruntime/ios`)
+  - share_plus (from `.symlinks/plugins/share_plus/ios`)
   - shared_preferences_foundation (from `.symlinks/plugins/shared_preferences_foundation/darwin`)
   - tflite_flutter (from `.symlinks/plugins/tflite_flutter/ios`)
 
@@ -72,6 +75,8 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/integration_test/ios"
   onnxruntime:
     :path: ".symlinks/plugins/onnxruntime/ios"
+  share_plus:
+    :path: ".symlinks/plugins/share_plus/ios"
   shared_preferences_foundation:
     :path: ".symlinks/plugins/shared_preferences_foundation/darwin"
   tflite_flutter:
@@ -86,6 +91,7 @@ SPEC CHECKSUMS:
   onnxruntime: 2ab1957eb029c71d47f7bb35cc4efc9f0d297828
   onnxruntime-c: ebdcfd8650bcbd10121c125262f99dea681b92a3
   onnxruntime-objc: ae7acec7a3d03eaf072d340afed7a35635c1c2a6
+  share_plus: 50da8cb520a8f0f65671c6c6a99b3617ed10a58a
   shared_preferences_foundation: 7036424c3d8ec98dfe75ff1667cb0cd531ec82bb
   TensorFlowLiteC: 20785a69299185a379ba9852b6625f00afd7984a
   TensorFlowLiteSwift: 3a4928286e9e35bdd3e17970f48e53c80d25e793

@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../app/app_state.dart';
 import '../../app/sookta_app.dart';
 import '../../core/localization/sookta_strings.dart';
 import '../../core/models/assessment_session.dart';
+import '../../core/models/evaluation_models.dart';
+import '../../core/services/assessment_export_service.dart';
+import '../../core/services/economic_impact_service.dart';
 import '../../core/theme/sookta_theme.dart';
 import '../../widgets/body_risk_map_card.dart';
 import '../../widgets/research_disclaimer_card.dart';
@@ -27,6 +31,7 @@ class FinalResultScreen extends StatefulWidget {
 
 class _FinalResultScreenState extends State<FinalResultScreen> {
   EvaluationHistoryRecord? savedRecord;
+  bool exporting = false;
 
   @override
   void initState() {
@@ -136,6 +141,13 @@ class _FinalResultScreenState extends State<FinalResultScreen> {
               ),
             ),
             const SizedBox(height: 16),
+            _FarmerFinalSummaryCard(
+              before: before,
+              after: after,
+              saved: saved,
+              thai: thai,
+            ),
+            const SizedBox(height: 16),
             Card(
               child: ListTile(
                 leading: const Icon(Icons.savings_outlined,
@@ -158,6 +170,29 @@ class _FinalResultScreenState extends State<FinalResultScreen> {
             ),
             const SizedBox(height: 12),
             ResearchDisclaimerCard(thai: thai),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: exporting
+                  ? null
+                  : () => _exportForStaff(
+                        context: context,
+                        state: state,
+                        suggestions: suggestions,
+                        thai: thai,
+                      ),
+              icon: exporting
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.download_outlined),
+              label: Text(
+                thai
+                    ? 'ส่งออกไฟล์ Excel สำหรับเจ้าหน้าที่'
+                    : 'Export Excel file for staff',
+              ),
+            ),
             const SizedBox(height: 16),
             BodyRiskMapCard(
               bodyRisks: before.bodyPartRisks,
@@ -227,6 +262,150 @@ class _FinalResultScreenState extends State<FinalResultScreen> {
     final language = AppStateScope.of(context).language ?? AppLanguage.th;
     return SooktaStrings(
         language == AppLanguage.th ? SooktaLocale.th : SooktaLocale.en);
+  }
+
+  Future<void> _exportForStaff({
+    required BuildContext context,
+    required SooktaAppState state,
+    required List<String> suggestions,
+    required bool thai,
+  }) async {
+    setState(() => exporting = true);
+    try {
+      final before = widget.bundle.before;
+      final after = widget.bundle.after;
+      final dailyIncome = state.dailyIncome.toDouble();
+      final beforeImpact = EconomicImpactService.estimate(
+        overallRisk: before.riskLevel,
+        dailyIncome: dailyIncome,
+        bodyPartRisks: before.bodyPartRisks,
+      );
+      final afterImpact = EconomicImpactService.estimate(
+        overallRisk: after.riskLevel,
+        dailyIncome: dailyIncome,
+        bodyPartRisks: after.bodyPartRisks,
+      );
+      final file = await AssessmentExportService.exportExcelCsv(
+        bundle: widget.bundle,
+        profile: state.profile,
+        selectedSuggestions: suggestions,
+        beforeImpact: beforeImpact,
+        afterImpact: afterImpact,
+        record: savedRecord,
+        thai: thai,
+      );
+      if (!context.mounted) return;
+      await SharePlus.instance.share(
+        ShareParams(
+          title: thai ? 'ไฟล์ผลประเมินสุขท่า' : 'Sookta assessment export',
+          subject: thai ? 'ไฟล์ผลประเมินสุขท่า' : 'Sookta assessment export',
+          text: thai
+              ? 'ไฟล์ CSV นี้เปิดด้วย Excel ได้ สำหรับเจ้าหน้าที่ใช้ติดตามผลประเมิน'
+              : 'This CSV opens in Excel for staff assessment review.',
+          files: [XFile(file.path, mimeType: 'text/csv')],
+          fileNameOverrides: [file.uri.pathSegments.last],
+          sharePositionOrigin: _shareOrigin(context),
+        ),
+      );
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            thai
+                ? 'สร้างไฟล์สำหรับเจ้าหน้าที่แล้ว'
+                : 'Staff export file created.',
+          ),
+        ),
+      );
+    } catch (_) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            thai
+                ? 'ยังส่งออกไฟล์ไม่ได้ กรุณาลองอีกครั้ง'
+                : 'Could not export the file. Please try again.',
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => exporting = false);
+    }
+  }
+
+  Rect? _shareOrigin(BuildContext context) {
+    final box = context.findRenderObject();
+    if (box is! RenderBox) return null;
+    return box.localToGlobal(Offset.zero) & box.size;
+  }
+}
+
+class _FarmerFinalSummaryCard extends StatelessWidget {
+  const _FarmerFinalSummaryCard({
+    required this.before,
+    required this.after,
+    required this.saved,
+    required this.thai,
+  });
+
+  final ErgoResult before;
+  final ErgoResult after;
+  final int saved;
+  final bool thai;
+
+  @override
+  Widget build(BuildContext context) {
+    final isBetter = after.userScore < before.userScore;
+    return Card(
+      color: const Color(0xFFF4FBF5),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  isBetter ? Icons.check_circle_outline : Icons.info_outline,
+                  color: SooktaColors.darkGreen,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    thai ? 'สรุปแบบเข้าใจง่าย' : 'Simple summary',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              isBetter
+                  ? (thai
+                      ? 'ท่าทางนี้ดีขึ้นจากคะแนน ${before.userScore} เหลือ ${after.userScore}'
+                      : 'This posture improves from ${before.userScore} to ${after.userScore}.')
+                  : (thai
+                      ? 'คะแนนยังไม่ลดลง ลองเลือกวิธีปรับท่าทางเพิ่มในครั้งต่อไป'
+                      : 'The score has not dropped yet. Try more posture actions next time.'),
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              saved > 0
+                  ? (thai
+                      ? 'ผลกระทบที่อาจลดลงประมาณ $saved บาท ใช้เป็นข้อมูลคุยกับเจ้าหน้าที่'
+                      : 'Potential impact may reduce by about $saved THB. Staff can review the export.')
+                  : (thai
+                      ? 'ข้อมูลนี้ถูกบันทึกแล้ว เจ้าหน้าที่สามารถดูรายละเอียดจากไฟล์ส่งออก'
+                      : 'This result is saved. Staff can review details from the export.'),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
