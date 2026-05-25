@@ -1,0 +1,122 @@
+{
+  "trainedAt": "2026-05-25",
+  "version": "reba-iso-xgboost-onnx-2026-05-25",
+  "modelSource": "research_team_reba2_iso11228_document_guided_xgboost",
+  "featureSchemaId": "movenet-thunder-v1-17x3-normalized",
+  "inputFeatureCount": 51,
+  "featureCount": 51,
+  "featureEngineering": "raw_movenet_51",
+  "trainingSource": "data/research/extracted/reba_labeled_pose_dataset.csv",
+  "labelSource": "Research-team REBA-2 labels combined with ISO 11228 workbook labels and document-guided ISO 11228-3 pseudo-label fallback",
+  "trainingSampleCount": 298,
+  "holdoutSampleCount": 90,
+  "totalSampleCount": 388,
+  "riskDistribution": {
+    "high": 346,
+    "medium": 13,
+    "veryHigh": 29
+  },
+  "labelSourceDistribution": {
+    "research_team_reba2_prefix_mean+iso11228_3_document_guided_pseudo_label": 124,
+    "research_team_reba2_summary+iso11228_3_document_guided_pseudo_label": 235,
+    "research_team_reba2_summary+research_team_iso11228_workbook": 29
+  },
+  "thresholds": {
+    "medium": 0.272727,
+    "high": 0.636364,
+    "veryHigh": 0.909091
+  },
+  "train": {
+    "sampleCount": 298,
+    "probabilityMeanAbsoluteError": 0.0311,
+    "combinedRebaEquivalentScoreMae": 0.3422,
+    "riskAccuracy": 0.9463,
+    "confusionMatrix": {
+      "high": {
+        "high": 258,
+        "medium": 3
+      },
+      "medium": {
+        "high": 1,
+        "medium": 7
+      },
+      "veryHigh": {
+        "high": 12,
+        "veryHigh": 17
+      }
+    }
+  },
+  "holdout": {
+    "sampleCount": 90,
+    "probabilityMeanAbsoluteError": 0.0549,
+    "combinedRebaEquivalentScoreMae": 0.6044,
+    "riskAccuracy": 0.9333,
+    "confusionMatrix": {
+      "high": {
+        "high": 84,
+        "veryHigh": 1
+      },
+      "medium": {
+        "high": 5
+      }
+    }
+  },
+  "featureNames": [
+    "nose_x",
+    "nose_y",
+    "nose_score",
+    "leftEye_x",
+    "leftEye_y",
+    "leftEye_score",
+    "rightEye_x",
+    "rightEye_y",
+    "rightEye_score",
+    "leftEar_x",
+    "leftEar_y",
+    "leftEar_score",
+    "rightEar_x",
+    "rightEar_y",
+    "rightEar_score",
+    "leftShoulder_x",
+    "leftShoulder_y",
+    "leftShoulder_score",
+    "rightShoulder_x",
+    "rightShoulder_y",
+    "rightShoulder_score",
+    "leftElbow_x",
+    "leftElbow_y",
+    "leftElbow_score",
+    "rightElbow_x",
+    "rightElbow_y",
+    "rightElbow_score",
+    "leftWrist_x",
+    "leftWrist_y",
+    "leftWrist_score",
+    "rightWrist_x",
+    "rightWrist_y",
+    "rightWrist_score",
+    "leftHip_x",
+    "leftHip_y",
+    "leftHip_score",
+    "rightHip_x",
+    "rightHip_y",
+    "rightHip_score",
+    "leftKnee_x",
+    "leftKnee_y",
+    "leftKnee_score",
+    "rightKnee_x",
+    "rightKnee_y",
+    "rightKnee_score",
+    "leftAnkle_x",
+    "leftAnkle_y",
+    "leftAnkle_score",
+    "rightAnkle_x",
+    "rightAnkle_y",
+    "rightAnkle_score"
+  ],
+  "notes": [
+    "The ONNX model accepts the app's canonical 51 raw MoveNet features.",
+    "The target is the app's combined REBA + ISO REBA-equivalent risk probability.",
+    "Economic impact data is intentionally excluded from training and remains a post-assessment impact layer."
+  ]
+}

@@ -49,6 +49,29 @@ Outputs:
 - `data/research/extracted/reba_logistic_metrics.json`
 - `data/research/extracted/reba_labeled_pose_dataset.csv`
 
+## XGBoost ONNX Training Command
+
+Run from the Flutter repo root after the labeled dataset exists:
+
+```sh
+PYTHONPATH=/private/tmp/fsookta_xgb_pydeps:$PWD \
+  /Users/kpc/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 \
+  tools/research_dataset/train_xgboost_onnx_model.py
+```
+
+Outputs:
+
+- `assets/models/xgboost_model.onnx`
+- `assets/models/xgboost_model_metadata.json`
+- `data/research/extracted/xgboost_onnx_metrics.json`
+
+The ONNX artifact accepts the canonical 51 raw MoveNet features because the
+current Flutter `XGBoostOnnxPredictor` sends that vector directly to
+ONNX Runtime. This makes the model usable for on-device A/B testing without an
+extra preprocessing layer. The Logistic Regression artifact remains the richer
+71-feature model because it performs the REBA angle expansion in Dart before
+inference.
+
 The generated files under `data/research/extracted/` are ignored by git because
 they are research outputs. The Flutter asset is committed because the app uses it
 offline.
@@ -74,6 +97,22 @@ offline.
   - very high: `29`
 - Training-set risk accuracy: `0.8789`
 - Combined REBA-equivalent score mean absolute error: `0.5884`
+
+## Current XGBoost ONNX Metrics
+
+- Model version: `reba-iso-xgboost-onnx-2026-05-25`
+- Training sample count: `298`
+- Holdout sample count: `90`
+- Total labeled sample count: `388`
+- Input feature count: `51`
+- Feature engineering: `raw_movenet_51`
+- Training-set risk accuracy: `0.9463`
+- Training-set combined REBA-equivalent score MAE: `0.3422`
+- Holdout risk accuracy: `0.9333`
+- Holdout combined REBA-equivalent score MAE: `0.6044`
+- Holdout note: the current holdout split contains mostly high-risk rows and
+  only a small medium-risk minority. More low-risk and very-high-risk labels are
+  needed before this is treated as a validated field model.
 
 The current model intentionally shifts upward because the training target now
 uses the app's combined-risk rule: calculate REBA for every row, add ISO 11228
@@ -150,5 +189,6 @@ practical financial impact from the cost tables.
    lifting, push/pull, and repetitive upper-limb label fields.
 4. Use the agriculture checkpoints reference to map recommendations to auditable
    control categories.
-5. Train XGBoost and export `assets/models/xgboost_model.onnx` for A/B testing.
+5. Expand the XGBoost ONNX training set with more low-risk and very-high-risk
+   expert-labeled field sessions, then recalibrate thresholds for A/B testing.
 6. Run fixed-vector on-device inference tests against expert-labeled samples.

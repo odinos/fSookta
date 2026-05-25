@@ -88,6 +88,48 @@ class SooktaStrings {
         'Ask another person to help lift heavy produce when needed',
     'act_transport_clear_path':
         'Clear the path and keep the walking surface even before transport',
+    'act_ref_weight_low':
+        'Check lifting weight: men 20-45 years up to 25 kg; men under 20 or over 45 up to 20 kg; women 20-45 up to 20 kg; women under 20 or over 45 up to 15 kg.',
+    'act_ref_weight_medium':
+        'Reduce lifting weight: men 20-45 years up to 18 kg; men under 20 or over 45 up to 15 kg; women 20-45 up to 15 kg; women under 20 or over 45 up to 11 kg.',
+    'act_ref_weight_high':
+        'Reduce lifting weight immediately: men 20-45 years up to 13 kg; men under 20 or over 45 up to 10 kg; women 20-45 up to 10 kg; women under 20 or over 45 up to 8 kg. Use handling aids if heavier.',
+    'act_transplant_ref_low':
+        'Posture is acceptable. Alternate standing and squatting every 20 minutes and check seedling-bed height near waist level.',
+    'act_transplant_ref_medium':
+        'Raise the seedling bed to reduce bending, use a squat cushion or low stool, change posture every 15 minutes, and lift seedlings with the legs.',
+    'act_transplant_ref_high':
+        'Improve immediately: raise the seedling bed to waist level, use a low stool or squatting support, and rest every 15-20 minutes.',
+    'act_fert_ref_low':
+        'Use a cart when fertilizer must be moved far, and change posture every 30 minutes.',
+    'act_fert_ref_medium':
+        'Split fertilizer into smaller containers, use a cart, avoid twisting while lifting, and wear non-slip footwear.',
+    'act_fert_ref_high':
+        'Reduce fertilizer weight per trip, use a conveyor or cart, rest 10 minutes every hour, and avoid continuous work on slopes.',
+    'act_pesticide_ref_low':
+        'Fit sprayer straps properly, use a lightweight nozzle, and rest 5 minutes every hour.',
+    'act_pesticide_ref_medium':
+        'Limit continuous spraying to 1 hour, rest 15 minutes, switch the hand/side holding the wand, and wear non-slip footwear.',
+    'act_pesticide_ref_high':
+        'If the sprayer tank exceeds the recommended weight, use a wheeled aid or long-hose nozzle and rotate with a coworker every 30 minutes.',
+    'act_pruning_ref_low':
+        'Use sharp lightweight shears, switch arms every 10-15 minutes, and avoid keeping arms above the head for long periods.',
+    'act_pruning_ref_medium':
+        'Use long-handled shears to reduce reaching, use a ladder for high branches, switch arms, and rest 5 minutes every 30 minutes.',
+    'act_pruning_ref_high':
+        'Use mechanical pruning tools when possible. If shears are used, rest 10 minutes every 20 minutes, rotate as a team, and avoid twisting while cutting.',
+    'act_harvest_ref_low':
+        'Change posture between standing and squatting every 20 minutes, use soft gloves, and place baskets on a raised stand.',
+    'act_harvest_ref_medium':
+        'Use padded gloves, reduce bending by raising the basket, rest 5 minutes every 30 minutes, and watch for hand numbness.',
+    'act_harvest_ref_high':
+        'Use a ladder for high branches, avoid climbing, rest 10 minutes every 20 minutes, and stop immediately if hand or back pain occurs.',
+    'act_transport_ref_low':
+        'Use a cart every time, lift by bending the knees with a straight back, avoid twisting, and wear non-slip footwear.',
+    'act_transport_ref_medium':
+        'Reduce sack weight, use a cart, improve the path, and turn with the feet instead of twisting the waist.',
+    'act_transport_ref_high':
+        'Reduce sack weight, use a wagon or large-wheel cart, add non-slip flooring, rest 10-15 minutes every 30 minutes, and practice team lifting technique.',
   };
 
   static const _th = <String, String>{
@@ -155,5 +197,47 @@ class SooktaStrings {
     'act_transport_two_person': 'ให้คนช่วยยกเมื่อผลผลิตหนักเกินไป',
     'act_transport_clear_path':
         'จัดทางเดินให้เรียบและไม่มีสิ่งกีดขวางก่อนขนย้าย',
+    'act_ref_weight_low':
+        'ตรวจสอบน้ำหนักที่ยก: ชาย 20-45 ปี ไม่เกิน 25 กก.; ชายอายุต่ำกว่า 20 หรือมากกว่า 45 ปี ไม่เกิน 20 กก.; หญิง 20-45 ปี ไม่เกิน 20 กก.; หญิงอายุต่ำกว่า 20 หรือมากกว่า 45 ปี ไม่เกิน 15 กก.',
+    'act_ref_weight_medium':
+        'ปรับน้ำหนักที่ยก: ชาย 20-45 ปี ไม่เกิน 18 กก.; ชายอายุต่ำกว่า 20 หรือมากกว่า 45 ปี ไม่เกิน 15 กก.; หญิง 20-45 ปี ไม่เกิน 15 กก.; หญิงอายุต่ำกว่า 20 หรือมากกว่า 45 ปี ไม่เกิน 11 กก.',
+    'act_ref_weight_high':
+        'ลดน้ำหนักที่ยกทันที: ชาย 20-45 ปี ไม่เกิน 13 กก.; ชายอายุต่ำกว่า 20 หรือมากกว่า 45 ปี ไม่เกิน 10 กก.; หญิง 20-45 ปี ไม่เกิน 10 กก.; หญิงอายุต่ำกว่า 20 หรือมากกว่า 45 ปี ไม่เกิน 8 กก. ถ้าเกินนี้ให้ใช้อุปกรณ์ช่วย',
+    'act_transplant_ref_low':
+        'ท่าทางดีอยู่แล้ว ควรสลับยืนกับนั่งยองทุก 20 นาที และตรวจสอบความสูงของแปลงเพาะชำให้พอดีกับเอว',
+    'act_transplant_ref_medium':
+        'ลดการก้มโดยยกแปลงเพาะชำให้สูงขึ้น ใช้เบาะรองนั่งยองหรือเก้าอี้เตี้ย สลับท่าทุก 15 นาที และฝึกยกต้นกล้าโดยใช้ขา',
+    'act_transplant_ref_high':
+        'ปรับปรุงทันที: ยกแปลงเพาะชำให้สูงระดับเอว ใช้อุปกรณ์นั่งยองหรือเก้าอี้เตี้ย และพักทุก 15-20 นาที',
+    'act_fert_ref_low':
+        'ใช้รถเข็นถ้าต้องเคลื่อนย้ายปุ๋ยไกล และหมั่นเปลี่ยนท่าทางทุก 30 นาที',
+    'act_fert_ref_medium':
+        'แบ่งปุ๋ยใส่ภาชนะเล็ก ใช้รถเข็น หลีกเลี่ยงการบิดตัวขณะยก และใส่รองเท้ากันลื่น',
+    'act_fert_ref_high':
+        'ลดน้ำหนักปุ๋ยต่อครั้ง ใช้สายพานหรือรถเข็น จัดพัก 10 นาทีทุกชั่วโมง และหลีกเลี่ยงการทำงานบนพื้นที่ลาดชันต่อเนื่อง',
+    'act_pesticide_ref_low':
+        'ปรับสายสะพายเครื่องพ่นให้พอดี ใช้หัวฉีดน้ำหนักเบา และพัก 5 นาทีทุกชั่วโมง',
+    'act_pesticide_ref_medium':
+        'ลดระยะเวลาพ่นต่อเนื่องไม่เกิน 1 ชั่วโมง แล้วพัก 15 นาที สลับข้างที่ถือท่อพ่น และใส่รองเท้ากันลื่น',
+    'act_pesticide_ref_high':
+        'ถ้าถังพ่นหนักเกินน้ำหนักที่แนะนำ ให้ใช้อุปกรณ์ล้อเข็นหรือหัวฉีดแบบต่อท่อยาว และหมุนเวียนงานกับเพื่อนทุก 30 นาที',
+    'act_pruning_ref_low':
+        'ใช้กรรไกรคมและน้ำหนักเบา สลับแขนทุก 10-15 นาที และอย่ายกแขนเหนือศีรษะนาน',
+    'act_pruning_ref_medium':
+        'ใช้กรรไกรแบบก้านยาวเพื่อลดการเอื้อม ใช้บันไดสำหรับกิ่งสูง สลับแขน และพัก 5 นาทีทุก 30 นาที',
+    'act_pruning_ref_high':
+        'เปลี่ยนมาใช้เครื่องตัดกิ่งแบบกลไกช่วย ถ้าใช้กรรไกรต้องพัก 10 นาทีทุก 20 นาที ทำงานเป็นทีมเพื่อหมุนเวียน และหลีกเลี่ยงการตัดในท่าบิดตัว',
+    'act_harvest_ref_low':
+        'เปลี่ยนท่า ยืน-นั่งยอง ทุก 20 นาที ใช้ถุงมือนุ่ม และตั้งตะกร้าบนแท่นสูง',
+    'act_harvest_ref_medium':
+        'ใช้ถุงมือลดแรงกด ลดการก้มโดยปรับความสูงตะกร้า พัก 5 นาทีทุก 30 นาที และสังเกตอาการชาที่มือ',
+    'act_harvest_ref_high':
+        'ถ้าเก็บผลจากกิ่งสูงต้องใช้บันได หลีกเลี่ยงการปีน หยุดพัก 10 นาทีทุก 20 นาที และถ้ามีอาการปวดมือหรือหลังให้หยุดงานทันที',
+    'act_transport_ref_low':
+        'ใช้รถเข็นทุกครั้ง ยกของโดยงอเข่า หลังตรง ไม่บิดตัว และสวมรองเท้ากันลื่น',
+    'act_transport_ref_medium':
+        'ลดน้ำหนักกระสอบ ใช้รถเข็น ปรับปรุงทางเดิน และเปลี่ยนทิศทางโดยหมุนเท้าแทนการบิดเอว',
+    'act_transport_ref_high':
+        'ลดน้ำหนักกระสอบ ใช้เกวียนหรือรถเข็นล้อใหญ่ ปูพื้นกันลื่น จัดพัก 10-15 นาทีทุก 30 นาที และฝึกเทคนิคการยกที่ถูกต้องร่วมกับเพื่อน',
   };
 }

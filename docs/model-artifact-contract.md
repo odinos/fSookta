@@ -66,7 +66,7 @@ Optional fields:
 - `mlAlgoModelJson`, exported `ml_algo` model JSON if the training pipeline
   uses native `ml_algo` serialization
 
-## Required XGBoost ONNX
+## XGBoost ONNX
 
 Path: `assets/models/xgboost_model.onnx`
 
@@ -74,6 +74,23 @@ The ONNX graph must accept a dense Float32 tensor shaped `[1, 51]`. The app
 passes the canonical MoveNet feature vector directly. If training uses
 standardization, bake it into the exported ONNX graph or provide a matching
 preprocessing layer before the model is exported.
+
+Current artifact:
+
+- Model version: `reba-iso-xgboost-onnx-2026-05-25`
+- Model source: `research_team_reba2_iso11228_document_guided_xgboost`
+- Training script: `tools/research_dataset/train_xgboost_onnx_model.py`
+- Asset: `assets/models/xgboost_model.onnx`
+- Metadata: `assets/models/xgboost_model_metadata.json`
+- Input feature count: `51` raw MoveNet features
+- Training rows: `298`
+- Holdout rows: `90`
+- Total labeled rows: `388`
+- Holdout risk accuracy: `0.9333`
+- Holdout combined REBA-equivalent score MAE: `0.6044`
+- The training target is the app's combined REBA + ISO REBA-equivalent risk
+  probability. Economic impact values are excluded from training and remain a
+  post-assessment communication layer.
 
 ## Production Gate
 
@@ -93,6 +110,7 @@ The app now includes a first real Logistic Regression artifact trained from the
 local MoveNet research dataset:
 
 - Asset: `assets/models/logistic_weights.json`
+- XGBoost ONNX asset: `assets/models/xgboost_model.onnx`
 - Model source: `research_team_reba2_iso11228_document_guided_trained`
 - Training script: `tools/research_dataset/train_reba_logistic_model.py`
 - Training rows: `388` valid MoveNet pose rows from
