@@ -52,6 +52,17 @@ class HistoryDetailScreen extends StatelessWidget {
                               fontWeight: FontWeight.bold,
                             ),
                           ),
+                          if ((record.farmerName ?? '').isNotEmpty) ...[
+                            const SizedBox(height: 6),
+                            Text(
+                              thai
+                                  ? 'ชาวสวน: ${record.farmerName}'
+                                  : 'Farmer: ${record.farmerName}',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(color: Colors.black54),
+                            ),
+                          ],
                           const SizedBox(height: 8),
                           Text(
                             thai
@@ -232,7 +243,7 @@ class HistoryDetailScreen extends StatelessWidget {
     try {
       final file = await AssessmentExportService.exportHistoryRecordCsv(
         record: record,
-        profile: state.profile,
+        profile: state.profileForRecord(record),
         thai: thai,
       );
       if (!context.mounted) return;

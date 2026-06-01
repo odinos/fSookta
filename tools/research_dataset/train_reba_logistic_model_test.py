@@ -5,7 +5,9 @@ from tools.research_dataset.train_reba_logistic_model import (
     ExpertRebaLabel,
     build_training_label,
     derive_reba_label,
+    document_guided_iso_label,
     feature_vector,
+    iso_label_from_rows,
     probability_to_risk,
     risk_level_for_reba,
 )
@@ -72,14 +74,14 @@ class TrainRebaLogisticModelTest(unittest.TestCase):
         self.assertEqual(len(features), 71)
 
     def test_training_label_prefers_exact_expert_reba_score(self):
-        row = base_pose_row(activity="harvesting", session_id="5.3")
+        row = base_pose_row(activity="custom_task", session_id="5.3")
         pseudo = derive_reba_label(row)
 
         label = build_training_label(
             row,
             pseudo,
             exact_expert_labels={
-                ("harvesting", "5.3"): ExpertRebaLabel(
+                ("custom_task", "5.3"): ExpertRebaLabel(
                     score=9,
                     risk_level="high",
                     label_source="research_team_reba2_summary",
@@ -87,11 +89,71 @@ class TrainRebaLogisticModelTest(unittest.TestCase):
                 )
             },
             expert_labels=[],
+            iso_labels=[],
         )
 
         self.assertEqual(label.score, 9)
         self.assertEqual(label.risk_level, "high")
         self.assertEqual(label.match_type, "expert_exact")
+
+    def test_training_label_combines_higher_iso_activity_risk(self):
+        row = base_pose_row(activity="on_farm_transport", session_id="6.2")
+        pseudo = derive_reba_label(row)
+
+        label = build_training_label(
+            row,
+            pseudo,
+            exact_expert_labels={},
+            expert_labels=[],
+            iso_labels=[
+                {
+                    "activity": "on_farm_transport",
+                    "session_id": "6.1",
+                    "iso11228_total_score": "18",
+                    "risk_level_th": "สูง",
+                    "label_source": "research_team_iso11228_workbook",
+                }
+            ],
+        )
+
+        self.assertGreater(label.score, label.reba_score)
+        self.assertEqual(label.risk_level, "veryHigh")
+        self.assertIn("iso11228_activity_mean", label.match_type)
+        self.assertEqual(label.iso_risk_level, "high")
+
+    def test_document_guided_iso11228_3_label_for_repetitive_upper_limb(self):
+        pseudo = derive_reba_label(base_pose_row(activity="pruning"))
+        row = base_pose_row(activity="pruning")
+        iso = document_guided_iso_label(row, pseudo)
+
+        self.assertIsNotNone(iso)
+        self.assertEqual(iso.match_type, "document_guided_iso11228_3")
+
+    def test_iso_label_from_rows_prefers_exact_session(self):
+        label = iso_label_from_rows(
+            activity="fertilizing",
+            session_id="2.2",
+            iso_rows=[
+                {
+                    "activity": "fertilizing",
+                    "session_id": "2.1",
+                    "iso11228_total_score": "14",
+                    "risk_level_th": "สูง",
+                    "label_source": "research_team_iso11228_workbook",
+                },
+                {
+                    "activity": "fertilizing",
+                    "session_id": "2.2",
+                    "iso11228_total_score": "15",
+                    "risk_level_th": "สูง",
+                    "label_source": "research_team_iso11228_workbook",
+                },
+            ],
+        )
+
+        self.assertIsNotNone(label)
+        self.assertEqual(label.match_type, "iso11228_exact")
+        self.assertEqual(label.total_score, 15)
 
 
 if __name__ == "__main__":

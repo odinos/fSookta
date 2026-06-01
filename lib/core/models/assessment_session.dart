@@ -43,6 +43,27 @@ extension SooktaActivityInfo on SooktaActivity {
     };
   }
 
+  String stageLabel({required bool thai}) {
+    if (thai) {
+      return switch (this) {
+        SooktaActivity.transplanting => 'การปลูก',
+        SooktaActivity.fertilizing ||
+        SooktaActivity.pesticide =>
+          'การดูแลรักษา',
+        SooktaActivity.pruning => 'การตัดแต่ง/ดูแลรักษา',
+        SooktaActivity.harvesting => 'การเก็บเกี่ยว',
+        SooktaActivity.transport => 'การขนส่ง/ขนย้าย',
+      };
+    }
+    return switch (this) {
+      SooktaActivity.transplanting => 'Planting',
+      SooktaActivity.fertilizing || SooktaActivity.pesticide => 'Maintenance',
+      SooktaActivity.pruning => 'Maintenance / Pruning',
+      SooktaActivity.harvesting => 'Harvesting',
+      SooktaActivity.transport => 'Transport',
+    };
+  }
+
   JobType get defaultJobType {
     return switch (this) {
       SooktaActivity.fertilizing || SooktaActivity.transport => JobType.lifting,
@@ -60,6 +81,7 @@ class AssessmentBundle {
     required this.before,
     required this.after,
     required this.selectedSuggestionKeys,
+    this.breakdown,
   });
 
   final SooktaActivity activity;
@@ -68,6 +90,7 @@ class AssessmentBundle {
   final ErgoResult before;
   final ErgoResult after;
   final List<String> selectedSuggestionKeys;
+  final AssessmentBreakdown? breakdown;
 }
 
 class InitialRiskPayload {
@@ -78,6 +101,7 @@ class InitialRiskPayload {
     required this.before,
     required this.ergoInput,
     required this.rebaInput,
+    this.breakdown,
   });
 
   final SooktaActivity activity;
@@ -86,4 +110,5 @@ class InitialRiskPayload {
   final ErgoResult before;
   final ErgoInputData ergoInput;
   final RebaInputData rebaInput;
+  final AssessmentBreakdown? breakdown;
 }

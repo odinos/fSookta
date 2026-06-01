@@ -1,6 +1,11 @@
 numpy>=1.26,<3
 opencv-python>=4.9,<5
 tensorflow>=2.15,<3
+xgboost>=3.2,<4
+scikit-learn>=1.8,<2
+onnx>=1.21,<2
+onnxmltools>=1.16,<2
+onnxruntime>=1.26,<2
 
 # Optional faster/lighter runtime when a compatible wheel exists:
 # tflite-runtime>=2.14,<3

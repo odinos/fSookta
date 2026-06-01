@@ -459,11 +459,27 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
       sustainForce: _number(sustainForceController, 8),
     );
     final rebaData = rebaInput.copyWith(dailyIncome: dailyIncome);
-    var result = switch (selectedJobType) {
-      JobType.reba => ErgoCalculator.calculateRebaRisk(rebaData),
+    final rebaResult = ErgoCalculator.calculateRebaRisk(rebaData);
+    final isoMethod = switch (selectedJobType) {
+      JobType.lifting => AssessmentMethod.iso11228Lifting,
+      JobType.pushPull => AssessmentMethod.iso11228PushPull,
+      JobType.reba => null,
+    };
+    final isoResult = switch (selectedJobType) {
       JobType.lifting => ErgoCalculator.calculateLiftingRisk(ergoInput),
       JobType.pushPull => ErgoCalculator.calculatePushPullRisk(ergoInput),
+      JobType.reba => null,
     };
+    var result = isoResult == null
+        ? rebaResult
+        : ErgoCalculator.calculateCombinedRebaIsoRisk(
+            rebaResult: rebaResult,
+            isoResult: isoResult,
+            dailyIncome: dailyIncome,
+          );
+    final primaryMethod = isoResult == null
+        ? AssessmentMethod.reba
+        : AssessmentMethod.rebaIsoCombined;
 
     try {
       final aiModel = await RiskAlertModelService.load();
@@ -486,6 +502,14 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
         ),
       );
     }
+    final breakdown = AssessmentBreakdown(
+      primaryMethod: primaryMethod,
+      rebaInput: rebaData,
+      rebaResult: rebaResult,
+      ergoInput: ergoInput,
+      isoMethod: isoMethod,
+      isoResult: isoResult,
+    );
 
     if (!mounted) return;
 
@@ -498,6 +522,7 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
         before: result,
         ergoInput: ergoInput,
         rebaInput: rebaData,
+        breakdown: breakdown,
       ),
     );
   }

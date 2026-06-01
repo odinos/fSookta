@@ -28,6 +28,13 @@ enum JobType {
   reba,
 }
 
+enum AssessmentMethod {
+  rebaIsoCombined,
+  reba,
+  iso11228Lifting,
+  iso11228PushPull,
+}
+
 class ErgoInputData {
   const ErgoInputData({
     required this.jobType,
@@ -54,6 +61,38 @@ class ErgoInputData {
   final double transportDistance;
   final double initialForce;
   final double sustainForce;
+
+  Map<String, Object?> toJson() {
+    return {
+      'jobType': jobType.name,
+      'gender': gender,
+      'dailyIncome': dailyIncome,
+      'loadWeight': loadWeight,
+      'horizontalDist': horizontalDist,
+      'verticalHeight': verticalHeight,
+      'liftFrequency': liftFrequency,
+      'durationHours': durationHours,
+      'transportDistance': transportDistance,
+      'initialForce': initialForce,
+      'sustainForce': sustainForce,
+    };
+  }
+
+  factory ErgoInputData.fromJson(Map<String, Object?> json) {
+    return ErgoInputData(
+      jobType: _jobTypeFromName(json['jobType'] as String?),
+      gender: json['gender'] as String? ?? 'male',
+      dailyIncome: _asDouble(json['dailyIncome'], 300),
+      loadWeight: _asDouble(json['loadWeight'], 0),
+      horizontalDist: _asDouble(json['horizontalDist'], 25),
+      verticalHeight: _asDouble(json['verticalHeight'], 75),
+      liftFrequency: _asDouble(json['liftFrequency'], 0.2),
+      durationHours: _asDouble(json['durationHours'], 1),
+      transportDistance: _asDouble(json['transportDistance'], 0),
+      initialForce: _asDouble(json['initialForce'], 0),
+      sustainForce: _asDouble(json['sustainForce'], 0),
+    );
+  }
 }
 
 class RebaInputData {
@@ -123,6 +162,42 @@ class RebaInputData {
       activityScore: activityScore ?? this.activityScore,
     );
   }
+
+  Map<String, Object?> toJson() {
+    return {
+      'dailyIncome': dailyIncome,
+      'trunkScore': trunkScore,
+      'neckScore': neckScore,
+      'legScore': legScore,
+      'upperArmScore': upperArmScore,
+      'lowerArmScore': lowerArmScore,
+      'wristScore': wristScore,
+      'trunkTwist': trunkTwist,
+      'trunkSideFlex': trunkSideFlex,
+      'wristTwist': wristTwist,
+      'loadScore': loadScore,
+      'couplingScore': couplingScore,
+      'activityScore': activityScore,
+    };
+  }
+
+  factory RebaInputData.fromJson(Map<String, Object?> json) {
+    return RebaInputData(
+      dailyIncome: _asDouble(json['dailyIncome'], 300),
+      trunkScore: _asInt(json['trunkScore'], 1),
+      neckScore: _asInt(json['neckScore'], 1),
+      legScore: _asInt(json['legScore'], 1),
+      upperArmScore: _asInt(json['upperArmScore'], 1),
+      lowerArmScore: _asInt(json['lowerArmScore'], 1),
+      wristScore: _asInt(json['wristScore'], 1),
+      trunkTwist: json['trunkTwist'] as bool? ?? false,
+      trunkSideFlex: json['trunkSideFlex'] as bool? ?? false,
+      wristTwist: json['wristTwist'] as bool? ?? false,
+      loadScore: _asInt(json['loadScore'], 0),
+      couplingScore: _asInt(json['couplingScore'], 0),
+      activityScore: _asInt(json['activityScore'], 0),
+    );
+  }
 }
 
 class ErgoResult {
@@ -175,6 +250,139 @@ class ErgoResult {
       aiRiskAlert: aiRiskAlert ?? this.aiRiskAlert,
     );
   }
+}
+
+class AssessmentBreakdown {
+  const AssessmentBreakdown({
+    required this.primaryMethod,
+    required this.rebaInput,
+    required this.rebaResult,
+    required this.ergoInput,
+    this.isoMethod,
+    this.isoResult,
+  });
+
+  final AssessmentMethod primaryMethod;
+  final RebaInputData rebaInput;
+  final ErgoResult rebaResult;
+  final ErgoInputData ergoInput;
+  final AssessmentMethod? isoMethod;
+  final ErgoResult? isoResult;
+
+  Map<String, Object?> toJson() {
+    return {
+      'primaryMethod': primaryMethod.name,
+      'rebaInput': rebaInput.toJson(),
+      'rebaResult': _resultToJson(rebaResult),
+      'ergoInput': ergoInput.toJson(),
+      'isoMethod': isoMethod?.name,
+      'isoResult': isoResult == null ? null : _resultToJson(isoResult!),
+    };
+  }
+
+  factory AssessmentBreakdown.fromJson(Map<String, Object?> json) {
+    return AssessmentBreakdown(
+      primaryMethod: _methodFromName(json['primaryMethod'] as String?),
+      rebaInput: _inputFromJson(
+        json['rebaInput'],
+        RebaInputData.fromJson,
+        const RebaInputData(),
+      ),
+      rebaResult: _resultFromJson(json['rebaResult']),
+      ergoInput: _inputFromJson(
+        json['ergoInput'],
+        ErgoInputData.fromJson,
+        const ErgoInputData(jobType: JobType.reba),
+      ),
+      isoMethod: _nullableMethodFromName(json['isoMethod'] as String?),
+      isoResult:
+          json['isoResult'] is Map ? _resultFromJson(json['isoResult']) : null,
+    );
+  }
+
+  static Map<String, Object?> _resultToJson(ErgoResult result) {
+    return {
+      'riskLevel': result.riskLevel.name,
+      'techScore': result.techScore,
+      'userScore': result.userScore,
+      'userScoreColor': result.userScoreColor,
+      'limitValue': result.limitValue,
+      'suggestionKey': result.suggestionKey,
+      'economicLoss': result.economicLoss,
+    };
+  }
+
+  static ErgoResult _resultFromJson(Object? raw) {
+    if (raw is! Map) {
+      return const ErgoResult(
+        riskLevel: RiskLevel.low,
+        techScore: 0,
+        userScore: 0,
+        userScoreColor: 0xFF4CAF50,
+        limitValue: 0,
+        suggestionKey: '',
+      );
+    }
+    final json = Map<String, Object?>.from(raw);
+    final riskLevel = _riskFromName(json['riskLevel'] as String?);
+    return ErgoResult(
+      riskLevel: riskLevel,
+      techScore: _asDouble(json['techScore'], 0),
+      userScore: _asInt(json['userScore'], 0),
+      userScoreColor: _asInt(json['userScoreColor'], riskLevel.colorHex),
+      limitValue: _asDouble(json['limitValue'], 0),
+      suggestionKey: json['suggestionKey'] as String? ?? '',
+      economicLoss: _asInt(json['economicLoss'], 0),
+    );
+  }
+}
+
+T _inputFromJson<T>(
+  Object? raw,
+  T Function(Map<String, Object?> json) fromJson,
+  T fallback,
+) {
+  if (raw is! Map) return fallback;
+  return fromJson(Map<String, Object?>.from(raw));
+}
+
+double _asDouble(Object? raw, double fallback) {
+  if (raw is num) return raw.toDouble();
+  return double.tryParse(raw?.toString() ?? '') ?? fallback;
+}
+
+int _asInt(Object? raw, int fallback) {
+  if (raw is num) return raw.toInt();
+  return int.tryParse(raw?.toString() ?? '') ?? fallback;
+}
+
+JobType _jobTypeFromName(String? name) {
+  return JobType.values.firstWhere(
+    (jobType) => jobType.name == name,
+    orElse: () => JobType.reba,
+  );
+}
+
+RiskLevel _riskFromName(String? name) {
+  return RiskLevel.values.firstWhere(
+    (risk) => risk.name == name,
+    orElse: () => RiskLevel.low,
+  );
+}
+
+AssessmentMethod _methodFromName(String? name) {
+  return AssessmentMethod.values.firstWhere(
+    (method) => method.name == name,
+    orElse: () => AssessmentMethod.reba,
+  );
+}
+
+AssessmentMethod? _nullableMethodFromName(String? name) {
+  if (name == null) return null;
+  return AssessmentMethod.values.cast<AssessmentMethod?>().firstWhere(
+        (method) => method?.name == name,
+        orElse: () => null,
+      );
 }
 
 enum AiAlertLevel {

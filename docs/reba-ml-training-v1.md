@@ -49,6 +49,29 @@ Outputs:
 - `data/research/extracted/reba_logistic_metrics.json`
 - `data/research/extracted/reba_labeled_pose_dataset.csv`
 
+## XGBoost ONNX Training Command
+
+Run from the Flutter repo root after the labeled dataset exists:
+
+```sh
+PYTHONPATH=/private/tmp/fsookta_xgb_pydeps:$PWD \
+  /Users/kpc/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 \
+  tools/research_dataset/train_xgboost_onnx_model.py
+```
+
+Outputs:
+
+- `assets/models/xgboost_model.onnx`
+- `assets/models/xgboost_model_metadata.json`
+- `data/research/extracted/xgboost_onnx_metrics.json`
+
+The ONNX artifact accepts the canonical 51 raw MoveNet features because the
+current Flutter `XGBoostOnnxPredictor` sends that vector directly to
+ONNX Runtime. This makes the model usable for on-device A/B testing without an
+extra preprocessing layer. The Logistic Regression artifact remains the richer
+71-feature model because it performs the REBA angle expansion in Dart before
+inference.
+
 The generated files under `data/research/extracted/` are ignored by git because
 they are research outputs. The Flutter asset is committed because the app uses it
 offline.
@@ -58,22 +81,45 @@ offline.
 - Training sample count: `388`
 - Raw input feature count: `51`
 - Model feature count after `reba_angle_features_v1`: `71`
-- Label source: research-team REBA-2 labels for the extracted sessions
+- Label source: research-team REBA-2 labels combined with ISO 11228 workbook
+  labels and document-guided ISO 11228-3 pseudo labels
 - Label match distribution:
-  - exact expert session match: `264`
-  - parent-session mean from child labels: `124`
+  - REBA exact expert + ISO 11228-3 document-guided: `235`
+  - REBA parent-session mean + ISO 11228-3 document-guided: `124`
+  - REBA exact expert + ISO 11228 workbook activity mean: `29`
+- ISO label source distribution:
+  - ISO 11228-3 document-guided pseudo label: `359`
+  - Research-team ISO 11228 workbook: `29`
 - Risk distribution:
-  - low: `29`
-  - medium: `154`
-  - high: `205`
-  - very high: `0`
-- Training-set risk accuracy: `0.5644`
-- REBA score mean absolute error: `1.5791`
+  - low: `0`
+  - medium: `13`
+  - high: `346`
+  - very high: `29`
+- Training-set risk accuracy: `0.8789`
+- Combined REBA-equivalent score mean absolute error: `0.5884`
 
-The previous pseudo-label model reported higher accuracy because almost every
-sample was labeled medium risk. The current metrics are more conservative but
-more useful for research because they are anchored to field labels from the
-research team.
+## Current XGBoost ONNX Metrics
+
+- Model version: `reba-iso-xgboost-onnx-2026-05-25`
+- Training sample count: `298`
+- Holdout sample count: `90`
+- Total labeled sample count: `388`
+- Input feature count: `51`
+- Feature engineering: `raw_movenet_51`
+- Training-set risk accuracy: `0.9463`
+- Training-set combined REBA-equivalent score MAE: `0.3422`
+- Holdout risk accuracy: `0.9333`
+- Holdout combined REBA-equivalent score MAE: `0.6044`
+- Holdout note: the current holdout split contains mostly high-risk rows and
+  only a small medium-risk minority. More low-risk and very-high-risk labels are
+  needed before this is treated as a validated field model.
+
+The current model intentionally shifts upward because the training target now
+uses the app's combined-risk rule: calculate REBA for every row, add ISO 11228
+where the research workbook or supplied ISO documents indicate an applicable
+dimension, then train against the higher REBA-equivalent risk. These
+document-guided labels are auditable and useful for field data collection, but
+they are not a substitute for future expert-reviewed outcome labels.
 
 ## Feature Engineering
 
@@ -104,13 +150,13 @@ assets/models/logistic_weights.json
 
 The exported JSON now contains:
 
-- `modelSource: research_team_reba2_plus_pseudo_trained`
+- `modelSource: research_team_reba2_iso11228_document_guided_trained`
 - `inputFeatureCount: 51`
 - `featureCount: 71`
 - `featureEngineering: reba_angle_features_v1`
 - `mean` and `standardDeviation` used for the same preprocessing at inference
 - `weights` and `intercept`
-- probability thresholds mapped to the REBA risk bands
+- probability thresholds mapped to combined REBA-equivalent risk bands
 - embedded training metrics for auditability
 
 ## Economic Impact Layer
@@ -119,7 +165,7 @@ Treatment-cost survey data is intentionally used after risk assessment, not as
 the ML training label. The current flow is:
 
 ```text
-MoveNet features -> REBA expert-seeded Logistic Regression -> risk/body areas
+MoveNet features -> REBA + ISO document-guided Logistic Regression -> risk/body areas
 -> EconomicImpactService -> estimated impact shown to the farmer
 ```
 
@@ -143,5 +189,6 @@ practical financial impact from the cost tables.
    lifting, push/pull, and repetitive upper-limb label fields.
 4. Use the agriculture checkpoints reference to map recommendations to auditable
    control categories.
-5. Train XGBoost and export `assets/models/xgboost_model.onnx` for A/B testing.
+5. Expand the XGBoost ONNX training set with more low-risk and very-high-risk
+   expert-labeled field sessions, then recalibrate thresholds for A/B testing.
 6. Run fixed-vector on-device inference tests against expert-labeled samples.

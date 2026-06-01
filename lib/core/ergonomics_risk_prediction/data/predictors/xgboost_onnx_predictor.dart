@@ -14,7 +14,11 @@ class XGBoostOnnxPredictor implements ErgonomicRiskPredictor {
     this.assetPath = 'assets/models/xgboost_model.onnx',
     this.inputName = 'input',
     this.outputNames,
-    this.thresholds = const RiskThresholds(),
+    this.thresholds = const RiskThresholds(
+      medium: 0.272727,
+      high: 0.636364,
+      veryHigh: 0.909091,
+    ),
     this.featureSchema,
   });
 

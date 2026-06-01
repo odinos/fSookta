@@ -4,6 +4,12 @@ Updated: 2026-05-23
 
 ## Screenshot Folders
 
+- Fresh simulator captures, 2026-05-30:
+  `/Users/kpc/Documents/GitHub/fSookta/build/store/screenshots_20260530`
+- Fresh iPhone 6.9-inch selected screenshots:
+  `/Users/kpc/Documents/GitHub/fSookta/build/store/screenshots_20260530/selected_iphone_6_9`
+- Fresh iPad 13-inch selected screenshots:
+  `/Users/kpc/Documents/GitHub/fSookta/build/store/screenshots_20260530/selected_ipad_13`
 - iPhone 6.9-inch selected screenshots:
   `/Users/kpc/Desktop/Sookta_AppStore_v1/selected_iphone_6_9`
 - iPad 13-inch selected screenshots:
@@ -69,5 +75,6 @@ Camera and photo library access are used so participants can capture or select p
 ## URLs To Prepare
 
 - Privacy Policy URL: required before submission.
-- Support URL: required before submission.
+- Thai Support URL:
+  `https://docs.google.com/document/d/1wMofRzvLG356_l-S5cXJonhcwoeYvgc_rnykpugMFIY`
 - Marketing URL: optional.

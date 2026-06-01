@@ -41,11 +41,13 @@ class _FinalResultScreenState extends State<FinalResultScreen> {
       final strings = _strings(context);
       setState(() {
         savedRecord = AppStateScope.of(context).saveEvaluation(
+          activity: widget.bundle.activity,
           activityName: widget.bundle.activityName,
           before: widget.bundle.before,
           after: widget.bundle.after,
           selectedSuggestions:
               widget.bundle.selectedSuggestionKeys.map(strings.get).toList(),
+          assessmentBreakdown: widget.bundle.breakdown,
         );
       });
     });
@@ -252,6 +254,8 @@ class _FinalResultScreenState extends State<FinalResultScreen> {
               icon: const Icon(Icons.home),
               label: Text(thai ? 'กลับสู่หน้าหลัก' : 'Back to Home'),
             ),
+            const SizedBox(height: 12),
+            RiskReferenceFootnote(thai: thai),
           ],
         ),
       ),

@@ -1,35 +1,48 @@
 {
-  "version": "2026-05-24",
+  "version": "2026-05-25",
   "featureSchemaId": "movenet-thunder-v1-17x3-normalized",
   "artifacts": {
     "logisticRegression": {
       "path": "assets/models/logistic_weights.json",
       "format": "json_weights",
-      "status": "research_team_reba2_plus_pseudo_trained",
+      "status": "research_team_reba2_iso11228_document_guided_trained",
       "inputFeatureCount": 51,
       "featureCount": 71,
       "featureEngineering": "reba_angle_features_v1",
       "trainingSampleCount": 388,
       "trainingSource": "data/research/extracted/pose_feature_dataset.csv",
-      "labelSource": "Research-team REBA-2 labels with REBA worksheet pseudo-label fallback",
+      "labelSource": "Research-team REBA-2 labels combined with ISO 11228 workbook labels and document-guided ISO 11228-3 pseudo-label fallback",
       "expertLabelSource": "data/research/expert_labels/reba2_expert_labels.csv",
-      "iso11228LabelSource": "data/research/expert_labels/iso11228_expert_labels.csv",
+      "iso11228LabelSource": "data/research/expert_labels/iso11228_expert_labels.csv plus ISO 11228-1/2/3 document-guided pseudo labels",
       "trainingReferenceSources": "data/research/reference_sources/training_reference_sources.json",
       "metricsPath": "data/research/extracted/reba_logistic_metrics.json"
     },
     "xgboost": {
       "path": "assets/models/xgboost_model.onnx",
       "format": "onnx",
-      "status": "required_for_research_trained_ab_test"
+      "status": "research_team_reba2_iso11228_document_guided_trained",
+      "inputFeatureCount": 51,
+      "featureCount": 51,
+      "featureEngineering": "raw_movenet_51",
+      "trainingSampleCount": 298,
+      "holdoutSampleCount": 90,
+      "totalSampleCount": 388,
+      "trainingSource": "data/research/extracted/reba_labeled_pose_dataset.csv",
+      "labelSource": "Research-team REBA-2 labels combined with ISO 11228 workbook labels and document-guided ISO 11228-3 pseudo-label fallback",
+      "metadataPath": "assets/models/xgboost_model_metadata.json",
+      "metricsPath": "data/research/extracted/xgboost_onnx_metrics.json",
+      "holdoutRiskAccuracy": 0.9333,
+      "holdoutCombinedRebaEquivalentScoreMae": 0.6044
     }
   },
   "requiredBeforeResearchTrainedAbTest": [
     "Expand expert labels to more media sessions before claiming a fully validated research-trained model.",
-    "Add xgboost_model.onnx exported from the research-trained XGBoost pipeline before enabling XGBoost A/B testing.",
-    "Run offline inference tests against fixed sample joint-feature vectors from the expert-labeled research dataset."
+    "Run on-device ONNX inference tests against fixed sample joint-feature vectors from the expert-labeled research dataset.",
+    "Calibrate the XGBoost probability thresholds again after additional low-risk and very-high-risk samples are labeled."
   ],
   "notes": [
-    "The current Logistic Regression model is a real trained offline artifact using research-team REBA-2 labels for all currently extracted pose rows; ambiguous parent sessions use a traceable mean of child expert labels.",
+    "The current Logistic Regression model is a real trained offline artifact using research-team REBA-2 labels for all currently extracted pose rows, combined with ISO 11228 workbook labels and document-guided ISO 11228-3 pseudo labels where applicable.",
+    "The XGBoost ONNX model is now a real research-trained artifact. It accepts the canonical 51 raw MoveNet features so the current Flutter ONNX predictor can run it without a separate preprocessing layer.",
     "It is suitable for research-prototype risk communication and repeated data collection, not for clinical diagnosis or a validated injury prediction claim."
   ]
 }
