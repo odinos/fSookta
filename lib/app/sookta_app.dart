@@ -59,6 +59,7 @@ class _SooktaAppState extends State<SooktaApp> {
           EvaluationMenuScreen.routeName: (_) => const EvaluationMenuScreen(),
           FarmerManagerScreen.routeName: (_) => const FarmerManagerScreen(),
           HelpScreen.routeName: (_) => const HelpScreen(),
+          ReferencesScreen.routeName: (_) => const ReferencesScreen(),
           TermsScreen.routeName: (_) => const TermsScreen(),
           ContactScreen.routeName: (_) => const ContactScreen(),
         },

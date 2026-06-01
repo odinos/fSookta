@@ -254,6 +254,8 @@ class _FinalResultScreenState extends State<FinalResultScreen> {
               icon: const Icon(Icons.home),
               label: Text(thai ? 'กลับสู่หน้าหลัก' : 'Back to Home'),
             ),
+            const SizedBox(height: 12),
+            RiskReferenceFootnote(thai: thai),
           ],
         ),
       ),

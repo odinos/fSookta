@@ -45,3 +45,42 @@ class ResearchDisclaimerCard extends StatelessWidget {
     );
   }
 }
+
+class RiskReferenceFootnote extends StatelessWidget {
+  const RiskReferenceFootnote({
+    required this.thai,
+    super.key,
+  });
+
+  final bool thai;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            Icons.menu_book_outlined,
+            color: SooktaColors.darkGreen.withValues(alpha: 0.72),
+            size: 16,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              thai
+                  ? 'การประเมินนี้อ้างอิงจาก REBA (Hignett & McAtamney, 2000) และ ISO 11228 ดูแหล่งอ้างอิงทั้งหมดได้ใน เมนู > แหล่งอ้างอิง'
+                  : 'This assessment references REBA (Hignett & McAtamney, 2000) and ISO 11228. See all references in Menu > References.',
+              style: TextStyle(
+                color: Colors.black.withValues(alpha: 0.58),
+                fontSize: 11.5,
+                height: 1.35,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}

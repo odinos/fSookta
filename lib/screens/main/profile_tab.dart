@@ -174,6 +174,12 @@ class ProfileTab extends StatelessWidget {
                   Navigator.of(context).pushNamed(HelpScreen.routeName),
             ),
             _ProfileMenuItem(
+              icon: Icons.menu_book_outlined,
+              text: text.isThai ? 'แหล่งอ้างอิง' : 'References',
+              onTap: () =>
+                  Navigator.of(context).pushNamed(ReferencesScreen.routeName),
+            ),
+            _ProfileMenuItem(
               icon: Icons.call,
               text: text.isThai ? 'ติดต่อเรา' : 'Contact',
               onTap: () =>

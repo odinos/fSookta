@@ -183,6 +183,8 @@ class _InitialRiskScreenState extends State<InitialRiskScreen> {
               icon: const Icon(Icons.summarize_outlined),
               label: Text(thai ? 'ดูผลหลังปรับปรุง' : 'View Improved Result'),
             ),
+            const SizedBox(height: 12),
+            RiskReferenceFootnote(thai: thai),
           ],
         ),
       ),

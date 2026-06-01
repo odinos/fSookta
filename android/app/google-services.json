@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "420009490598",
+    "project_id": "sookta-flutter",
+    "storage_bucket": "sookta-flutter.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:420009490598:android:afaf2df24005c0b3b19c67",
+        "android_client_info": {
+          "package_name": "com.kdev.sookta"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAh0ZopLz_-Fe3p8OVC1_c1lytPGtEWqOY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

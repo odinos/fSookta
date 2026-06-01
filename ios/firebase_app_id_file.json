@@ -1,0 +1,7 @@
+{
+  "file_generated_by": "Codex from Firebase config files",
+  "purpose": "FirebaseAppID & ProjectID for Crashlytics symbol upload",
+  "GOOGLE_APP_ID": "1:420009490598:ios:f980d1f456395f32b19c67",
+  "FIREBASE_PROJECT_ID": "sookta-flutter",
+  "GCM_SENDER_ID": "420009490598"
+}

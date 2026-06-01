@@ -34,6 +34,24 @@ class HelpScreen extends StatelessWidget {
               ttsText: ttsText,
             ),
             const SizedBox(height: 16),
+            Card(
+              child: ListTile(
+                leading: const Icon(
+                  Icons.menu_book_outlined,
+                  color: Color(0xFF2E7D32),
+                ),
+                title: Text(thai ? 'แหล่งอ้างอิง' : 'References'),
+                subtitle: Text(
+                  thai
+                      ? 'REBA, ISO 11228 และเอกสารอ้างอิงที่ใช้ในแอป'
+                      : 'REBA, ISO 11228, and source references used in the app',
+                ),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () =>
+                    Navigator.of(context).pushNamed(ReferencesScreen.routeName),
+              ),
+            ),
+            const SizedBox(height: 16),
             ...steps.map(
               (step) => Padding(
                 padding: const EdgeInsets.only(bottom: 12),
@@ -95,6 +113,125 @@ class HelpScreen extends StatelessWidget {
     );
   }
 }
+
+class ReferencesScreen extends StatelessWidget {
+  const ReferencesScreen({super.key});
+
+  static const routeName = '/references';
+
+  @override
+  Widget build(BuildContext context) {
+    final thai = (AppStateScope.of(context).language ?? AppLanguage.th) ==
+        AppLanguage.th;
+    final ttsText = [
+      thai ? 'แหล่งอ้างอิง' : 'References',
+      ..._references,
+    ].join('. ');
+
+    return Scaffold(
+      appBar: AppBar(title: Text(thai ? 'แหล่งอ้างอิง' : 'References')),
+      body: SafeArea(
+        child: ResponsiveListView(
+          maxWidth: 760,
+          children: [
+            Card(
+              color: const Color(0xFFEAF5EF),
+              child: Padding(
+                padding: const EdgeInsets.all(18),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const CircleAvatar(
+                      backgroundColor: Colors.white,
+                      foregroundColor: Color(0xFF2E7D32),
+                      child: Icon(Icons.menu_book_outlined),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            thai
+                                ? 'เอกสารที่ใช้ประกอบการประเมิน'
+                                : 'Assessment source references',
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleLarge
+                                ?.copyWith(
+                                  fontWeight: FontWeight.w800,
+                                  color: const Color(0xFF214D3A),
+                                ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            thai
+                                ? 'รายการนี้แสดงมาตรฐานและงานวิจัยที่ใช้เป็นฐานความรู้ของการคำนวณและคำแนะนำในแอป'
+                                : 'These standards and studies are used as knowledge references for the app calculations and recommendations.',
+                            style: const TextStyle(color: Colors.black54),
+                          ),
+                        ],
+                      ),
+                    ),
+                    SooktaTtsButton(text: ttsText, thai: thai, size: 42),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(18),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: _references
+                      .map(
+                        (reference) => Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Padding(
+                                padding: EdgeInsets.only(top: 8),
+                                child: Icon(
+                                  Icons.circle,
+                                  size: 7,
+                                  color: Color(0xFF66A88F),
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  reference,
+                                  style: const TextStyle(
+                                    height: 1.45,
+                                    color: Colors.black87,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      )
+                      .toList(),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+const _references = [
+  'Hignett, S., & McAtamney, L. (2000). Rapid Entire Body Assessment (REBA). Applied Ergonomics, 31(2), 201–205.',
+  'ISO 11228-1:2021 – Ergonomics – Manual handling – Part 1: Lifting, holding and carrying.',
+  'ISO 11228-2:2007 – Ergonomics – Manual handling – Part 2: Pushing and pulling.',
+  'ISO 11228-3:2007 – Ergonomics – Manual handling – Part 3: Handling of low loads at high frequency.',
+  'International Labour Organization. (2014). Ergonomic Checkpoints in Agriculture (2nd ed.). ILO.',
+  'Zadry, H.R., Kamil, M., & Saputra, N. (2025). Design and evaluation of a novel user-centred cassava extractor.',
+];
 
 class _HelpStep {
   const _HelpStep({
