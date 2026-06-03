@@ -254,11 +254,14 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
                         label: thai ? 'น้ำหนักโดยประมาณ' : 'Estimated load',
                         value: selectedLoadWeight,
                         items: {
-                          5.0: thai ? 'เบา' : 'Light',
-                          10.0: thai ? 'ปานกลาง' : 'Medium',
-                          15.0: thai ? 'ค่อนข้างหนัก' : 'Quite heavy',
-                          20.0: thai ? 'หนัก' : 'Heavy',
-                          25.0: thai ? 'หนักมาก' : 'Very heavy',
+                          5.0: thai ? 'เบา (5 กก.)' : 'Light (5 kg)',
+                          10.0: thai ? 'ปานกลาง (10 กก.)' : 'Medium (10 kg)',
+                          15.0: thai
+                              ? 'ค่อนข้างหนัก (15 กก.)'
+                              : 'Quite heavy (15 kg)',
+                          20.0: thai ? 'หนัก (20 กก.)' : 'Heavy (20 kg)',
+                          25.0:
+                              thai ? 'หนักมาก (25 กก.)' : 'Very heavy (25 kg)',
                         },
                         onChanged: (value) =>
                             setState(() => selectedLoadWeight = value),
