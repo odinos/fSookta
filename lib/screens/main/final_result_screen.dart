@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 
@@ -8,6 +10,7 @@ import '../../core/models/assessment_session.dart';
 import '../../core/models/evaluation_models.dart';
 import '../../core/services/assessment_export_service.dart';
 import '../../core/services/economic_impact_service.dart';
+import '../../core/services/firebase_telemetry_service.dart';
 import '../../core/theme/sookta_theme.dart';
 import '../../widgets/body_risk_map_card.dart';
 import '../../widgets/research_disclaimer_card.dart';
@@ -50,6 +53,17 @@ class _FinalResultScreenState extends State<FinalResultScreen> {
           assessmentBreakdown: widget.bundle.breakdown,
         );
       });
+      final record = savedRecord;
+      if (record != null) {
+        unawaited(FirebaseTelemetryService.logAssessmentSaved(
+          activity: widget.bundle.activity.name,
+          beforeRisk: widget.bundle.before.riskLevel.name,
+          afterRisk: widget.bundle.after.riskLevel.name,
+          beforeScore: widget.bundle.before.userScore,
+          afterScore: widget.bundle.after.userScore,
+          suggestionCount: widget.bundle.selectedSuggestionKeys.length,
+        ));
+      }
     });
   }
 
@@ -298,6 +312,10 @@ class _FinalResultScreenState extends State<FinalResultScreen> {
         record: savedRecord,
         thai: thai,
       );
+      unawaited(FirebaseTelemetryService.logExportCreated(
+        exportType: 'assessment_csv',
+        recordCount: 1,
+      ));
       if (!context.mounted) return;
       await SharePlus.instance.share(
         ShareParams(

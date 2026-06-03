@@ -1,5 +1,5 @@
 {
-  "version": "reba-iso-document-guided-logistic-2026-05-24",
+  "version": "reba-iso-document-guided-logistic-2026-06-03",
   "featureSchemaId": "movenet-thunder-v1-17x3-normalized",
   "modelSource": "research_team_reba2_iso11228_document_guided_trained",
   "description": "Offline Logistic Regression trained from MoveNet research media with research-team REBA labels, ISO 11228 worksheet labels, and document-guided ISO 11228-3 pseudo labels where direct ISO labels are unavailable. REBA and ISO targets are combined by taking the higher REBA-equivalent risk, matching the app's combined-risk rule. Use for research risk communication until full expert validation.",
@@ -103,7 +103,7 @@
   ],
   "trainingSampleCount": 388,
   "trainingMetrics": {
-    "trainedAt": "2026-05-24",
+    "trainedAt": "2026-06-03",
     "modelSource": "research_team_reba2_iso11228_document_guided_label",
     "featureSchemaId": "movenet-thunder-v1-17x3-normalized",
     "inputFeatureCount": 51,
@@ -128,8 +128,8 @@
     },
     "labelSourceDistribution": {
       "research_team_reba2_prefix_mean+iso11228_3_document_guided_pseudo_label": 124,
-      "research_team_reba2_summary+iso11228_3_document_guided_pseudo_label": 235,
-      "research_team_reba2_summary+research_team_iso11228_workbook": 29
+      "research_team_reba2_training_ready_workbook+iso11228_3_document_guided_pseudo_label": 235,
+      "research_team_reba2_training_ready_workbook+research_team_iso11228_training_ready_workbook": 29
     },
     "labelMatchDistribution": {
       "expert_prefix_mean+document_guided_iso11228_3": 124,
@@ -138,7 +138,7 @@
     },
     "isoLabelSourceDistribution": {
       "iso11228_3_document_guided_pseudo_label": 359,
-      "research_team_iso11228_workbook": 29
+      "research_team_iso11228_training_ready_workbook": 29
     },
     "isoLabelMatchDistribution": {
       "document_guided_iso11228_3": 359,

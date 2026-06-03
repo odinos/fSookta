@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -8,6 +9,7 @@ import '../../app/sookta_app.dart';
 import '../../core/models/assessment_session.dart';
 import '../../core/models/evaluation_models.dart';
 import '../../core/services/ergo_calculator.dart';
+import '../../core/services/firebase_telemetry_service.dart';
 import '../../core/services/pose_estimation_service.dart';
 import '../../core/services/risk_alert_model_service.dart';
 import '../../core/theme/sookta_theme.dart';
@@ -44,6 +46,7 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
   var selectedLoadWeight = 10.0;
   var showAdvancedDetails = false;
   var poseBusy = false;
+  var poseAssessmentReady = false;
   String? poseStatus;
   late JobType selectedJobType;
   var rebaInput = const RebaInputData(
@@ -67,28 +70,52 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
       case SooktaActivity.transplanting:
         selectedDurationHours = 4.0;
         selectedFrequency = 2.0;
+        rebaInput = rebaInput.copyWith(activityScore: 1);
       case SooktaActivity.fertilizing:
         selectedDurationHours = 2.0;
         selectedFrequency = 2.0;
         selectedLoadWeight = 15.0;
         transportController.text = '6';
+        rebaInput = rebaInput.copyWith(
+          activityScore: 1,
+          loadScore: 1,
+          couplingScore: 1,
+        );
       case SooktaActivity.pesticide:
         selectedDurationHours = 2.0;
         selectedFrequency = 0.2;
         initialForceController.text = '12';
         sustainForceController.text = '6';
+        rebaInput = rebaInput.copyWith(
+          activityScore: 1,
+          loadScore: 1,
+          couplingScore: 1,
+        );
       case SooktaActivity.pruning:
         selectedDurationHours = 2.0;
         selectedFrequency = 2.0;
+        rebaInput = rebaInput.copyWith(
+          activityScore: 1,
+          wristScore: 2,
+        );
       case SooktaActivity.harvesting:
         selectedDurationHours = 4.0;
         selectedFrequency = 6.5;
         selectedLoadWeight = 10.0;
+        rebaInput = rebaInput.copyWith(
+          activityScore: 1,
+          loadScore: 1,
+        );
       case SooktaActivity.transport:
         selectedDurationHours = 2.0;
         selectedFrequency = 2.0;
         selectedLoadWeight = 20.0;
         transportController.text = '8';
+        rebaInput = rebaInput.copyWith(
+          activityScore: 1,
+          loadScore: 1,
+          couplingScore: 1,
+        );
     }
   }
 
@@ -109,7 +136,8 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
     final language = state.language ?? AppLanguage.th;
     final thai = language == AppLanguage.th;
     final activityName = widget.activity.label(thai: thai);
-    final canAnalyze = selectedImagePaths.isNotEmpty && !poseBusy;
+    final canAnalyze =
+        selectedImagePaths.isNotEmpty && poseAssessmentReady && !poseBusy;
 
     return Scaffold(
       appBar: AppBar(title: Text(thai ? 'แบบฟอร์มประเมิน' : 'Evaluation Form')),
@@ -143,6 +171,7 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
               jobType: selectedJobType,
               imageCount: selectedImagePaths.length,
               poseBusy: poseBusy,
+              poseReady: poseAssessmentReady,
               poseStatus: poseStatus,
               durationHours: selectedDurationHours,
               frequency: selectedFrequency,
@@ -189,6 +218,7 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
                         setState(() {
                           selectedJobType = value.first;
                           poseStatus = null;
+                          poseAssessmentReady = false;
                         });
                         if (selectedImagePaths.isNotEmpty) {
                           _applyPoseEstimates();
@@ -279,9 +309,13 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
                       ? (thai
                           ? 'กำลังอ่านรูปภาพ รอสักครู่'
                           : 'Reading the photo. Please wait.')
-                      : (thai
-                          ? 'ถ่ายรูปหรือเลือกรูปก่อน ระบบจะช่วยคำนวณให้'
-                          : 'Take or choose a photo first. The app will calculate the rest.'),
+                      : (selectedImagePaths.isNotEmpty && !poseAssessmentReady)
+                          ? (thai
+                              ? 'ต้องใช้รูปที่เห็นบุคคลและท่าทางชัดเจนก่อน จึงจะแสดงผลประเมินได้'
+                              : 'Use a clear photo with a readable person posture before viewing results.')
+                          : (thai
+                              ? 'ถ่ายรูปหรือเลือกรูปก่อน ระบบจะช่วยคำนวณให้'
+                              : 'Take or choose a photo first. The app will calculate the rest.'),
                   textAlign: TextAlign.center,
                   style: const TextStyle(color: Colors.black54),
                 ),
@@ -297,7 +331,13 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
     final path = await Navigator.of(context).push<String>(
       MaterialPageRoute(builder: (_) => const CameraCaptureScreen()),
     );
-    if (path != null) await _addImage(path);
+    if (path != null) {
+      await _addImage(path);
+      unawaited(FirebaseTelemetryService.logImageAdded(
+        source: 'camera',
+        imageCount: selectedImagePaths.length,
+      ));
+    }
   }
 
   Future<void> _pickGalleryPhoto() async {
@@ -309,7 +349,13 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
       source: ImageSource.gallery,
       imageQuality: 92,
     );
-    if (photo != null) await _addImage(photo.path, slotIndex: slotIndex);
+    if (photo != null) {
+      await _addImage(photo.path, slotIndex: slotIndex);
+      unawaited(FirebaseTelemetryService.logImageAdded(
+        source: 'gallery',
+        imageCount: selectedImagePaths.length,
+      ));
+    }
   }
 
   Future<void> _addImage(String path, {int slotIndex = -1}) async {
@@ -327,6 +373,7 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
         selectedImagePaths.add(path);
       }
       poseStatus = null;
+      poseAssessmentReady = false;
     });
     await _applyPoseEstimates();
   }
@@ -336,6 +383,7 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
     setState(() {
       selectedImagePaths.removeAt(index);
       poseStatus = null;
+      poseAssessmentReady = false;
     });
     if (selectedImagePaths.isNotEmpty) {
       await _applyPoseEstimates();
@@ -347,6 +395,7 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
 
     setState(() {
       poseBusy = true;
+      poseAssessmentReady = false;
       final thai = (AppStateScope.of(context).language ?? AppLanguage.th) ==
           AppLanguage.th;
       poseStatus = thai ? 'กำลังวิเคราะห์ภาพ...' : 'Analyzing photo...';
@@ -364,9 +413,10 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
           AppLanguage.th;
       if (estimates.isEmpty) {
         setState(() {
+          poseAssessmentReady = false;
           poseStatus = thai
-              ? 'ไม่พบคนในภาพ ลองเลือกรูปที่เห็นทั้งลำตัวชัดเจน'
-              : 'No person detected. Try a full-body photo.';
+              ? 'ยังประเมินไม่ได้: ไม่พบคนหรืออ่านท่าทางไม่ได้ กรุณาใช้รูปที่เห็นบุคคลและท่าทางชัดเจน'
+              : 'Cannot assess yet: no readable person posture was detected. Use a clear full-body photo.';
         });
         return;
       }
@@ -398,6 +448,7 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
         }
         setState(() {
           rebaInput = inferred;
+          poseAssessmentReady = true;
           poseStatus = thai
               ? 'ระบบประเมินคะแนน REBA จากภาพแล้ว'
               : 'REBA scores updated from photos.';
@@ -407,13 +458,15 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
             poseService.estimateLiftingDimensions(estimates.last);
         setState(() {
           if (dimensions == null) {
+            poseAssessmentReady = false;
             poseStatus = thai
-                ? 'พบคนในภาพ แต่ยังอ่านระยะ H/V ไม่ได้'
-                : 'Person detected, but H/V distances could not be estimated.';
+                ? 'ยังประเมินไม่ได้: พบคนในภาพ แต่ยังอ่านระยะ H/V ไม่ได้ กรุณาใช้รูปที่เห็นท่าทางและตำแหน่งมือชัดเจน'
+                : 'Cannot assess yet: a person was detected, but H/V distances could not be estimated. Use a clearer posture photo.';
           } else {
             horizontalController.text =
                 dimensions.horizontalCm.round().toString();
             verticalController.text = dimensions.verticalCm.round().toString();
+            poseAssessmentReady = true;
             poseStatus = thai
                 ? 'ระบบอ่านระยะ H/V จากภาพแล้ว'
                 : 'H/V distances updated from the latest photo.';
@@ -421,6 +474,7 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
         });
       } else {
         setState(() {
+          poseAssessmentReady = true;
           poseStatus = thai
               ? 'บันทึกรูปสำหรับการประเมินแล้ว'
               : 'Photo added for this assessment.';
@@ -431,6 +485,7 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
       final thai = (AppStateScope.of(context).language ?? AppLanguage.th) ==
           AppLanguage.th;
       setState(() {
+        poseAssessmentReady = false;
         poseStatus =
             thai ? 'วิเคราะห์ภาพไม่สำเร็จ: $e' : 'Image analysis failed: $e';
       });
@@ -442,6 +497,18 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
   Future<void> _analyze() async {
     final state = AppStateScope.of(context);
     final thai = (state.language ?? AppLanguage.th) == AppLanguage.th;
+    if (selectedImagePaths.isEmpty || poseBusy || !poseAssessmentReady) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            thai
+                ? 'ยังประเมินไม่ได้ กรุณาใช้รูปที่เห็นบุคคลและท่าทางชัดเจนก่อน เพื่อหลีกเลี่ยงตัวเลขที่ไม่น่าเชื่อถือ'
+                : 'Cannot assess yet. Use a clear photo with a readable person posture to avoid unreliable numbers.',
+          ),
+        ),
+      );
+      return;
+    }
     final activityName = widget.activity.label(thai: thai);
     final gender = state.profile.gender.toLowerCase();
     final dailyIncome = state.dailyIncome.toDouble();
@@ -480,6 +547,16 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
     final primaryMethod = isoResult == null
         ? AssessmentMethod.reba
         : AssessmentMethod.rebaIsoCombined;
+
+    unawaited(FirebaseTelemetryService.logAssessmentCalculated(
+      activity: widget.activity.name,
+      jobType: selectedJobType.name,
+      primaryMethod: primaryMethod.name,
+      riskLevel: result.riskLevel.name,
+      score: result.userScore,
+      imageCount: selectedImagePaths.length,
+      usesIso11228: isoResult != null,
+    ));
 
     try {
       final aiModel = await RiskAlertModelService.load();
@@ -689,6 +766,7 @@ class _SimpleAssessmentCard extends StatelessWidget {
     required this.jobType,
     required this.imageCount,
     required this.poseBusy,
+    required this.poseReady,
     required this.poseStatus,
     required this.durationHours,
     required this.frequency,
@@ -701,6 +779,7 @@ class _SimpleAssessmentCard extends StatelessWidget {
   final JobType jobType;
   final int imageCount;
   final bool poseBusy;
+  final bool poseReady;
   final String? poseStatus;
   final double durationHours;
   final double frequency;
@@ -709,10 +788,20 @@ class _SimpleAssessmentCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ready = imageCount > 0 && !poseBusy;
-    final color = ready ? SooktaColors.leafGreen : Colors.amber.shade700;
+    final hasImage = imageCount > 0;
+    final ready = hasImage && poseReady && !poseBusy;
+    final blocked = hasImage && !poseReady && !poseBusy;
+    final color = ready
+        ? SooktaColors.leafGreen
+        : blocked
+            ? Colors.red.shade700
+            : Colors.amber.shade700;
     return Card(
-      color: ready ? const Color(0xFFEFF8EF) : const Color(0xFFFFFBEE),
+      color: ready
+          ? const Color(0xFFEFF8EF)
+          : blocked
+              ? const Color(0xFFFFF1F1)
+              : const Color(0xFFFFFBEE),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -722,7 +811,11 @@ class _SimpleAssessmentCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Icon(
-                  ready ? Icons.check_circle_outline : Icons.touch_app_outlined,
+                  ready
+                      ? Icons.check_circle_outline
+                      : blocked
+                          ? Icons.warning_amber_rounded
+                          : Icons.touch_app_outlined,
                   color: color,
                 ),
                 const SizedBox(width: 10),
@@ -734,10 +827,14 @@ class _SimpleAssessmentCard extends StatelessWidget {
                         thai
                             ? (ready
                                 ? 'ระบบตั้งค่าประเมินให้แล้ว'
-                                : 'ถ่ายรูปก่อน แล้วระบบจะช่วยคำนวณ')
+                                : blocked
+                                    ? 'ยังประเมินไม่ได้'
+                                    : 'ถ่ายรูปก่อน แล้วระบบจะช่วยคำนวณ')
                             : (ready
                                 ? 'The app prepared the assessment'
-                                : 'Take a photo and the app will calculate'),
+                                : blocked
+                                    ? 'Cannot assess yet'
+                                    : 'Take a photo and the app will calculate'),
                         style: const TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 16,
@@ -751,8 +848,8 @@ class _SimpleAssessmentCard extends StatelessWidget {
                                 : 'Reading posture from the photo...')
                             : (poseStatus ??
                                 (thai
-                                    ? 'ไม่ต้องกรอกตัวเลขเอง หากไม่แน่ใจให้กดดูผลได้เลย'
-                                    : 'No need to enter technical numbers. Continue when ready.')),
+                                    ? 'ต้องมีรูปบุคคลที่เห็นท่าทางชัดเจนก่อน ระบบจึงจะแสดงตัวเลขประเมิน'
+                                    : 'A clear person-posture photo is required before the app shows assessment numbers.')),
                         style: const TextStyle(color: Colors.black54),
                       ),
                     ],

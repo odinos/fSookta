@@ -1,6 +1,6 @@
 {
-  "trainedAt": "2026-05-25",
-  "version": "reba-iso-xgboost-onnx-2026-05-25",
+  "trainedAt": "2026-06-03",
+  "version": "reba-iso-xgboost-onnx-2026-06-03",
   "modelSource": "research_team_reba2_iso11228_document_guided_xgboost",
   "featureSchemaId": "movenet-thunder-v1-17x3-normalized",
   "inputFeatureCount": 51,
@@ -18,8 +18,8 @@
   },
   "labelSourceDistribution": {
     "research_team_reba2_prefix_mean+iso11228_3_document_guided_pseudo_label": 124,
-    "research_team_reba2_summary+iso11228_3_document_guided_pseudo_label": 235,
-    "research_team_reba2_summary+research_team_iso11228_workbook": 29
+    "research_team_reba2_training_ready_workbook+iso11228_3_document_guided_pseudo_label": 235,
+    "research_team_reba2_training_ready_workbook+research_team_iso11228_training_ready_workbook": 29
   },
   "thresholds": {
     "medium": 0.272727,

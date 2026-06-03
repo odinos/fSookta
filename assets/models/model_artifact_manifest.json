@@ -1,5 +1,5 @@
 {
-  "version": "2026-05-25",
+  "version": "2026-06-03",
   "featureSchemaId": "movenet-thunder-v1-17x3-normalized",
   "artifacts": {
     "logisticRegression": {
@@ -11,9 +11,9 @@
       "featureEngineering": "reba_angle_features_v1",
       "trainingSampleCount": 388,
       "trainingSource": "data/research/extracted/pose_feature_dataset.csv",
-      "labelSource": "Research-team REBA-2 labels combined with ISO 11228 workbook labels and document-guided ISO 11228-3 pseudo-label fallback",
-      "expertLabelSource": "data/research/expert_labels/reba2_expert_labels.csv",
-      "iso11228LabelSource": "data/research/expert_labels/iso11228_expert_labels.csv plus ISO 11228-1/2/3 document-guided pseudo labels",
+      "labelSource": "Training-ready workbook labels from docs/Sookta_Research_Training_Dataset_REBA_ISO11228.xlsx combined with document-guided ISO 11228-3 pseudo-label fallback",
+      "expertLabelSource": "docs/Sookta_Research_Training_Dataset_REBA_ISO11228.xlsx sheet REBA_Source_Labels, exported to data/research/expert_labels/reba2_training_ready_20260603.csv",
+      "iso11228LabelSource": "docs/Sookta_Research_Training_Dataset_REBA_ISO11228.xlsx sheet ISO11228_Source_Labels rows with data_quality_flag=OK, exported to data/research/expert_labels/iso11228_training_ready_20260603.csv, plus ISO 11228-1/2/3 document-guided pseudo labels",
       "trainingReferenceSources": "data/research/reference_sources/training_reference_sources.json",
       "metricsPath": "data/research/extracted/reba_logistic_metrics.json"
     },
@@ -28,7 +28,7 @@
       "holdoutSampleCount": 90,
       "totalSampleCount": 388,
       "trainingSource": "data/research/extracted/reba_labeled_pose_dataset.csv",
-      "labelSource": "Research-team REBA-2 labels combined with ISO 11228 workbook labels and document-guided ISO 11228-3 pseudo-label fallback",
+      "labelSource": "Training-ready workbook labels from docs/Sookta_Research_Training_Dataset_REBA_ISO11228.xlsx combined with document-guided ISO 11228-3 pseudo-label fallback",
       "metadataPath": "assets/models/xgboost_model_metadata.json",
       "metricsPath": "data/research/extracted/xgboost_onnx_metrics.json",
       "holdoutRiskAccuracy": 0.9333,
@@ -41,8 +41,8 @@
     "Calibrate the XGBoost probability thresholds again after additional low-risk and very-high-risk samples are labeled."
   ],
   "notes": [
-    "The current Logistic Regression model is a real trained offline artifact using research-team REBA-2 labels for all currently extracted pose rows, combined with ISO 11228 workbook labels and document-guided ISO 11228-3 pseudo labels where applicable.",
-    "The XGBoost ONNX model is now a real research-trained artifact. It accepts the canonical 51 raw MoveNet features so the current Flutter ONNX predictor can run it without a separate preprocessing layer.",
+    "The current Logistic Regression model is a real trained offline artifact using the 2026-06-03 training-ready workbook labels for all currently extracted pose rows, combined with ISO 11228 workbook labels and document-guided ISO 11228-3 pseudo labels where applicable.",
+    "The XGBoost ONNX model was retrained on 2026-06-03 from the refreshed labeled pose dataset. It accepts the canonical 51 raw MoveNet features so the current Flutter ONNX predictor can run it without a separate preprocessing layer.",
     "It is suitable for research-prototype risk communication and repeated data collection, not for clinical diagnosis or a validated injury prediction claim."
   ]
 }

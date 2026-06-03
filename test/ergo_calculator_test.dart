@@ -72,6 +72,29 @@ void main() {
       }
     });
 
+    test('deep forward bending field posture cannot be reported as low risk',
+        () {
+      const input = RebaInputData(
+        dailyIncome: 350,
+        trunkScore: 4,
+        neckScore: 2,
+        legScore: 2,
+        upperArmScore: 2,
+        lowerArmScore: 2,
+        wristScore: 2,
+        activityScore: 1,
+      );
+
+      final result = ErgoCalculator.calculateRebaRisk(input);
+
+      expect(result.techScore, 9);
+      expect(result.userScore, 8);
+      expect(result.riskLevel, RiskLevel.high);
+      expect(result.bodyPartRisks[BodyPart.trunk], RiskLevel.high);
+      expect(result.suggestionKeys, contains('act_avoid_bend'));
+      expect(result.suggestionKeys, contains('act_iso_plan_recovery'));
+    });
+
     test('Notion ERGO twist and side flex adjustments raise trunk risk', () {
       const neutral = RebaInputData(
         trunkScore: 2,
