@@ -16,6 +16,7 @@ import '../screens/main/initial_risk_screen.dart';
 import '../screens/main/main_tabs_screen.dart';
 import '../screens/main/route_error_screen.dart';
 import '../core/models/assessment_session.dart';
+import '../core/services/firebase_telemetry_service.dart';
 import '../widgets/responsive_content.dart';
 import 'app_state.dart';
 
@@ -52,6 +53,7 @@ class _SooktaAppState extends State<SooktaApp> {
         builder: (context, child) {
           return ClampedTextScale(child: child ?? const SizedBox.shrink());
         },
+        navigatorObservers: FirebaseTelemetryService.navigatorObservers,
         routes: {
           SplashScreen.routeName: (_) => const SplashScreen(),
           AvatarSelectionScreen.routeName: (_) => const AvatarSelectionScreen(),

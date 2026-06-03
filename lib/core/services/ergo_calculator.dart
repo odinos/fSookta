@@ -223,7 +223,12 @@ class ErgoCalculator {
     );
     final scoreB = scoreTableB + input.couplingScore;
     final scoreC = _rebaTableCScore(scoreA, scoreB);
-    final finalScore = scoreC + input.activityScore;
+    final finalScore = _applyRebaSafetyFloors(
+      scoreC + input.activityScore,
+      input,
+      adjustedTrunkScore: adjustedTrunkScore,
+      adjustedWristScore: adjustedWristScore,
+    );
     final userScore = _mapRebaToUserScore(finalScore);
     final risk = _mapRebaToRiskLevel(finalScore);
 
@@ -376,6 +381,47 @@ class ErgoCalculator {
     if (score <= 7) return RiskLevel.medium;
     if (score <= 10) return RiskLevel.high;
     return RiskLevel.veryHigh;
+  }
+
+  static int _applyRebaSafetyFloors(
+    int score,
+    RebaInputData input, {
+    required int adjustedTrunkScore,
+    required int adjustedWristScore,
+  }) {
+    var calibrated = score;
+    final severeTrunkFlexion = adjustedTrunkScore >= 4;
+    final neckFlexion = input.neckScore >= 2;
+    final nonNeutralLegs = input.legScore >= 2;
+    final repetitiveOrStatic = input.activityScore >= 1;
+    final upperLimbDemand = input.upperArmScore >= 2 ||
+        input.lowerArmScore >= 2 ||
+        adjustedWristScore >= 2;
+
+    // Field photos can show a very deep bend while some secondary REBA
+    // modifiers remain unknown. Do not let a severe forward-bending posture
+    // be reported as low/medium simply because load, coupling, twist, or
+    // repetition were not manually entered.
+    if (severeTrunkFlexion && neckFlexion && repetitiveOrStatic) {
+      calibrated = math.max(calibrated, 9);
+    } else if (severeTrunkFlexion &&
+        (neckFlexion ||
+            repetitiveOrStatic ||
+            nonNeutralLegs ||
+            upperLimbDemand)) {
+      calibrated = math.max(calibrated, 8);
+    } else if (severeTrunkFlexion) {
+      calibrated = math.max(calibrated, 6);
+    }
+
+    if (adjustedTrunkScore >= 3 &&
+        neckFlexion &&
+        repetitiveOrStatic &&
+        upperLimbDemand) {
+      calibrated = math.max(calibrated, 8);
+    }
+
+    return calibrated.clamp(1, 12).toInt();
   }
 
   static int _colorForScore(int score) {

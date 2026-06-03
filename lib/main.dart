@@ -6,6 +6,7 @@ import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/material.dart';
 
 import 'app/sookta_app.dart';
+import 'core/services/firebase_telemetry_service.dart';
 import 'firebase_options.dart';
 
 Future<void> main() async {
@@ -30,7 +31,7 @@ Future<bool> _initializeCrashlytics() async {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
-    await FirebaseCrashlytics.instance.setCrashlyticsCollectionEnabled(true);
+    await FirebaseTelemetryService.initialize();
     return true;
   } catch (error, stack) {
     FlutterError.reportError(
