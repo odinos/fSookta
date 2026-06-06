@@ -9,6 +9,7 @@ import '../../core/localization/sookta_strings.dart';
 import '../../core/models/assessment_session.dart';
 import '../../core/models/evaluation_models.dart';
 import '../../core/services/assessment_export_service.dart';
+import '../../core/services/daily_injury_prediction_service.dart';
 import '../../core/services/economic_impact_service.dart';
 import '../../core/services/firebase_telemetry_service.dart';
 import '../../core/theme/sookta_theme.dart';
@@ -16,6 +17,7 @@ import '../../widgets/body_risk_map_card.dart';
 import '../../widgets/research_disclaimer_card.dart';
 import '../../widgets/responsive_content.dart';
 import '../../widgets/tts_button.dart';
+import 'daily_prediction_screen.dart';
 import 'main_tabs_screen.dart';
 
 class FinalResultScreen extends StatefulWidget {
@@ -63,8 +65,43 @@ class _FinalResultScreenState extends State<FinalResultScreen> {
           afterScore: widget.bundle.after.userScore,
           suggestionCount: widget.bundle.selectedSuggestionKeys.length,
         ));
+        unawaited(_showDailyPredictionAlertIfNeeded(record));
       }
     });
+  }
+
+  Future<void> _showDailyPredictionAlertIfNeeded(
+    EvaluationHistoryRecord record,
+  ) async {
+    try {
+      final state = AppStateScope.of(context);
+      final profileId = record.farmerProfileId ?? state.profile.profileId;
+      final records =
+          profileId.isEmpty ? state.history : state.historyForFarmer(profileId);
+      if (records.length < 7 || records.length % 7 != 0) return;
+      final service = await DailyInjuryPredictionService.load();
+      final prediction = service.predictForRecords(records);
+      if (!mounted || !prediction.requiresCareAlert) return;
+      final thai = (state.language ?? AppLanguage.th) == AppLanguage.th;
+      final percent = (prediction.probability * 100).round();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            thai
+                ? 'ครบ ${records.length} วันแล้ว: ระบบพบแนวโน้มควรติดตามอาการ ($percent%)'
+                : '${records.length} records reached: follow-up trend detected ($percent%).',
+          ),
+          action: SnackBarAction(
+            label: thai ? 'ดูผล' : 'View',
+            onPressed: () => Navigator.of(context).pushNamed(
+              DailyPredictionScreen.routeName,
+            ),
+          ),
+        ),
+      );
+    } catch (_) {
+      return;
+    }
   }
 
   @override

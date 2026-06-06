@@ -1,0 +1,3 @@
+Name     Hostname                  Identifier                             State                Model                 
+------   -----------------------   ------------------------------------   ------------------   ----------------------
+iPhone   iPhone.coredevice.local   ABD658CA-9FDE-5F6E-8228-CFE6D830F4AE   available (paired)   iPhone SE (iPhone12,8)

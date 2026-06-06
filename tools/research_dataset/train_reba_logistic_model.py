@@ -102,6 +102,61 @@ ENGINEERED_FEATURE_NAMES = [
     "lower_body_visibility",
     "upper_body_visibility",
 ]
+REBA_TABLE_A = [
+    [
+        [1, 2, 3, 4],
+        [2, 3, 4, 5],
+        [2, 4, 5, 6],
+        [3, 5, 6, 7],
+        [4, 6, 7, 8],
+    ],
+    [
+        [1, 2, 3, 4],
+        [3, 4, 5, 6],
+        [4, 5, 6, 7],
+        [5, 6, 7, 8],
+        [6, 7, 8, 9],
+    ],
+    [
+        [3, 3, 5, 6],
+        [4, 5, 6, 7],
+        [5, 6, 7, 8],
+        [6, 7, 8, 9],
+        [7, 8, 9, 9],
+    ],
+]
+REBA_TABLE_B = [
+    [
+        [1, 2, 2],
+        [1, 2, 3],
+        [3, 4, 5],
+        [4, 5, 5],
+        [6, 7, 8],
+        [7, 8, 8],
+    ],
+    [
+        [1, 2, 3],
+        [2, 3, 4],
+        [4, 5, 5],
+        [5, 6, 7],
+        [7, 8, 8],
+        [8, 9, 9],
+    ],
+]
+REBA_TABLE_C = [
+    [1, 1, 1, 2, 3, 3, 4, 5, 6, 7, 7, 7],
+    [1, 2, 2, 3, 4, 4, 5, 6, 6, 7, 7, 8],
+    [2, 3, 3, 3, 4, 5, 6, 7, 7, 8, 8, 8],
+    [3, 4, 4, 4, 5, 6, 7, 8, 8, 9, 9, 9],
+    [4, 4, 4, 5, 6, 7, 8, 8, 9, 9, 9, 9],
+    [6, 6, 6, 7, 8, 8, 9, 9, 10, 10, 10, 10],
+    [7, 7, 7, 8, 9, 9, 9, 10, 10, 11, 11, 11],
+    [8, 8, 8, 9, 10, 10, 10, 10, 10, 11, 11, 11],
+    [9, 9, 9, 10, 10, 10, 11, 11, 11, 12, 12, 12],
+    [10, 10, 10, 11, 11, 11, 11, 12, 12, 12, 12, 12],
+    [11, 11, 11, 11, 12, 12, 12, 12, 12, 12, 12, 12],
+    [12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12],
+]
 
 
 @dataclass(frozen=True)
@@ -346,38 +401,41 @@ def lower_arm_deviation(angle: float) -> float:
     return angle - 100
 
 
-def side_triplet(row: dict[str, str], names: tuple[str, str, str]) -> tuple[Point, Point, Point] | None:
-    right = tuple(point(row, f"right{name}") for name in names)
-    if all(right):
-        return right  # type: ignore[return-value]
-    left = tuple(point(row, f"left{name}") for name in names)
-    if all(left):
-        return left  # type: ignore[return-value]
-    return None
+def side_triplets(row: dict[str, str], names: tuple[str, str, str]) -> list[tuple[Point, Point, Point]]:
+    triplets: list[tuple[Point, Point, Point]] = []
+    for side in ("left", "right"):
+        candidate = tuple(point(row, f"{side}{name}") for name in names)
+        if all(candidate):
+            triplets.append(candidate)  # type: ignore[arg-type]
+    return triplets
+
+
+def clamp_int(value: int, minimum: int, maximum: int) -> int:
+    return max(minimum, min(value, maximum))
 
 
 def posture_score_a(trunk: int, neck: int, legs: int) -> int:
-    # The worksheet uses Table A after neck, trunk, and leg scoring. This
-    # compact implementation keeps the same directionality and score range for
-    # deterministic pseudo-label generation from images.
-    score = trunk + (1 if neck >= 2 else 0) + (1 if legs >= 2 else 0)
-    return min(max(score, 1), 9)
+    # REBA Table A combines the already adjusted trunk, neck, and leg posture
+    # scores before the force/load modifier is added.
+    neck_index = clamp_int(neck, 1, 3) - 1
+    trunk_index = clamp_int(trunk, 1, 5) - 1
+    leg_index = clamp_int(legs, 1, 4) - 1
+    return REBA_TABLE_A[neck_index][trunk_index][leg_index]
 
 
 def posture_score_b(upper: int, lower: int, wrist: int) -> int:
-    # Table B combines upper arm, lower arm, and wrist posture before coupling.
-    score = upper + (1 if lower >= 2 else 0) + (1 if wrist >= 2 else 0)
-    return min(max(score, 1), 9)
+    # REBA Table B combines upper arm, lower arm, and adjusted wrist posture
+    # scores before the coupling modifier is added.
+    lower_index = clamp_int(lower, 1, 2) - 1
+    upper_index = clamp_int(upper, 1, 6) - 1
+    wrist_index = clamp_int(wrist, 1, 3) - 1
+    return REBA_TABLE_B[lower_index][upper_index][wrist_index]
 
 
 def table_c_score(score_a: int, score_b: int) -> int:
-    # REBA Table C increases the final posture score as either side of the body
-    # becomes more severe. This monotonic approximation is stable for training
-    # and mirrors the app's current REBA calculator.
-    score = max(score_a, score_b)
-    if min(score_a, score_b) >= 6:
-        score += 1
-    return min(max(score, 1), 12)
+    score_a_index = clamp_int(score_a, 1, 12) - 1
+    score_b_index = clamp_int(score_b, 1, 12) - 1
+    return REBA_TABLE_C[score_a_index][score_b_index]
 
 
 def risk_level_for_reba(score: int) -> str:
@@ -452,30 +510,33 @@ def derive_reba_label(row: dict[str, str]) -> RebaPseudoLabel:
         neck_score = 1 if vertical_angle(shoulders, head) <= 20 else 2
 
     leg_score = 1
-    leg = side_triplet(row, ("Hip", "Knee", "Ankle"))
-    if leg:
-        hip, knee, ankle = leg
-        leg_score = 2 if three_point_angle(hip, knee, ankle) < 150 else 1
+    leg_scores = [
+        2 if three_point_angle(hip, knee, ankle) < 150 else 1
+        for hip, knee, ankle in side_triplets(row, ("Hip", "Knee", "Ankle"))
+    ]
+    if leg_scores:
+        leg_score = max(leg_scores)
 
     upper_arm_score = 2
-    arm = side_triplet(row, ("Shoulder", "Elbow", "Wrist"))
-    if arm:
-        shoulder, elbow, wrist = arm
+    lower_arm_score = 2
+    wrist_score = 1
+    arm_scores: list[tuple[int, int]] = []
+    for shoulder, elbow, wrist in side_triplets(row, ("Shoulder", "Elbow", "Wrist")):
         upper_angle = vertical_angle(shoulder, elbow)
         if upper_angle <= 20:
-            upper_arm_score = 1
+            arm_upper = 1
         elif upper_angle <= 45:
-            upper_arm_score = 2
+            arm_upper = 2
         elif upper_angle <= 90:
-            upper_arm_score = 3
+            arm_upper = 3
         else:
-            upper_arm_score = 4
+            arm_upper = 4
         lower_angle = three_point_angle(shoulder, elbow, wrist)
-        lower_arm_score = 1 if 60 <= lower_angle <= 100 else 2
-        wrist_score = 1
-    else:
-        lower_arm_score = 2
-        wrist_score = 1
+        arm_lower = 1 if 60 <= lower_angle <= 100 else 2
+        arm_scores.append((arm_upper, arm_lower))
+    if arm_scores:
+        upper_arm_score = max(score[0] for score in arm_scores)
+        lower_arm_score = max(score[1] for score in arm_scores)
 
     load_score, coupling_score, activity_score = activity_defaults(row.get("activity", ""))
     score_a = posture_score_a(trunk_score, neck_score, leg_score) + load_score

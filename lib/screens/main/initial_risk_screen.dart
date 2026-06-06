@@ -13,6 +13,7 @@ import '../../core/services/risk_recommendation_service.dart';
 import '../../core/theme/sookta_theme.dart';
 import '../../widgets/research_disclaimer_card.dart';
 import '../../widgets/responsive_content.dart';
+import '../../widgets/tts_button.dart';
 import 'final_result_screen.dart';
 
 class InitialRiskScreen extends StatefulWidget {
@@ -121,6 +122,16 @@ class _InitialRiskScreenState extends State<InitialRiskScreen> {
                           : 'Tap only the actions you can really do. The app recalculates the after score immediately.',
                       style: const TextStyle(color: Colors.black54),
                     ),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: SooktaTtsButton(
+                        thai: thai,
+                        text: thai
+                            ? 'เลือกวิธีลดความเสี่ยง แตะเลือกเฉพาะข้อที่ทำได้จริง ระบบจะคำนวณคะแนนหลังปรับให้ทันที'
+                            : 'Choose risk-reduction actions. Tap only the actions you can really do. The app recalculates the after score immediately.',
+                        size: 38,
+                      ),
+                    ),
                     const SizedBox(height: 8),
                     ...suggestions.map((key) {
                       final action = _actionFor(key);
@@ -140,6 +151,13 @@ class _InitialRiskScreenState extends State<InitialRiskScreen> {
                           thai
                               ? 'คาดว่าลดคะแนน ${action.scoreReduction} จุด • ลดความเสี่ยง ${action.partLabels(thai: true)}'
                               : 'Estimated score reduction ${action.scoreReduction} • Targets ${action.partLabels(thai: false)}',
+                        ),
+                        secondary: SooktaTtsButton(
+                          thai: thai,
+                          text: thai
+                              ? '${strings.get(key)} คาดว่าลดคะแนน ${action.scoreReduction} จุด ลดความเสี่ยง ${action.partLabels(thai: true)}'
+                              : '${strings.get(key)}. Estimated score reduction ${action.scoreReduction}. Targets ${action.partLabels(thai: false)}.',
+                          size: 34,
                         ),
                         controlAffinity: ListTileControlAffinity.leading,
                         contentPadding: EdgeInsets.zero,
@@ -525,6 +543,13 @@ class _FarmerGuideCard extends StatelessWidget {
                     ),
                   ),
                 ),
+                SooktaTtsButton(
+                  thai: thai,
+                  text: thai
+                      ? 'อ่านตรงนี้ก่อน คะแนนตอนนี้คือ ${before.userScore} ${before.riskLevel.label}. ${improved ? 'ถ้าทำตามที่เลือก คะแนนจะลดเหลือ ${after.userScore} ให้เจ้าหน้าที่ช่วยดูต่อได้' : 'เลือกวิธีที่ทำได้จริงด้านล่าง ไม่ต้องกรอกข้อมูลเพิ่ม'}'
+                      : 'Read this first. Current score is ${before.userScore}, ${_riskLabel(before.riskLevel)}. ${improved ? 'With selected actions, the score may drop to ${after.userScore}. Staff can review the export.' : 'Choose practical actions below. No extra form is needed.'}',
+                  size: 38,
+                ),
               ],
             ),
             const SizedBox(height: 8),
@@ -616,37 +641,39 @@ class _AiRiskAlertCard extends StatelessWidget {
             const SizedBox(height: 6),
             Text(
               thai
-                  ? 'เป็นการประมาณแนวโน้มในต้นแบบวิจัยจากข้อมูลท่าทางและคะแนนงาน ไม่ใช่การทำนายการบาดเจ็บรายบุคคล'
-                  : 'This research-prototype estimate uses posture and task scores. It is not an individual injury prediction.',
+                  ? 'เป็นการตรวจเทียบความเสี่ยงท่าทางด้วย XGBoost จากข้อมูล MoveNet ไม่ใช่การทำนายการบาดเจ็บรายบุคคล'
+                  : 'This XGBoost check uses MoveNet posture data. It is not an individual injury prediction.',
               style: const TextStyle(fontSize: 12, color: Colors.black54),
             ),
-            const SizedBox(height: 12),
-            Text(
-              thai
-                  ? 'ปัจจัยที่ใช้สื่อสารความเสี่ยง'
-                  : 'Factors used for risk communication',
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            ...alert.featureImportance.map(
-              (feature) => Padding(
-                padding: const EdgeInsets.only(bottom: 6),
-                child: Row(
-                  children: [
-                    Expanded(child: Text(feature.label(thai: thai))),
-                    const SizedBox(width: 8),
-                    SizedBox(
-                      width: 92,
-                      child: LinearProgressIndicator(
-                        value: feature.score.clamp(0.0, 1.0).toDouble(),
-                        color: color,
-                        backgroundColor: color.withValues(alpha: 0.12),
+            if (alert.featureImportance.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Text(
+                thai
+                    ? 'ปัจจัยที่ใช้สื่อสารความเสี่ยง'
+                    : 'Factors used for risk communication',
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              ...alert.featureImportance.map(
+                (feature) => Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: Row(
+                    children: [
+                      Expanded(child: Text(feature.label(thai: thai))),
+                      const SizedBox(width: 8),
+                      SizedBox(
+                        width: 92,
+                        child: LinearProgressIndicator(
+                          value: feature.score.clamp(0.0, 1.0).toDouble(),
+                          color: color,
+                          backgroundColor: color.withValues(alpha: 0.12),
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
-            ),
+            ],
           ],
         ),
       ),

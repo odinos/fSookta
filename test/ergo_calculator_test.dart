@@ -6,6 +6,42 @@ import 'package:fsookta/core/services/ergo_calculator.dart';
 
 void main() {
   group('REBA calculation parity', () {
+    test('uses official REBA table A/B/C for combined posture score', () {
+      const input = RebaInputData(
+        trunkScore: 2,
+        neckScore: 1,
+        legScore: 1,
+        upperArmScore: 3,
+        lowerArmScore: 1,
+        wristScore: 1,
+      );
+
+      final result = ErgoCalculator.calculateRebaRisk(input);
+
+      expect(result.techScore, 2);
+      expect(result.userScore, 2);
+      expect(result.riskLevel, RiskLevel.low);
+    });
+
+    test('official Table B prevents upper-limb posture overestimation', () {
+      const input = RebaInputData(
+        trunkScore: 1,
+        neckScore: 1,
+        legScore: 1,
+        upperArmScore: 5,
+        lowerArmScore: 2,
+        wristScore: 3,
+      );
+
+      final result = ErgoCalculator.calculateRebaRisk(input);
+
+      expect(result.techScore, 5);
+      expect(result.userScore, 5);
+      expect(result.riskLevel, RiskLevel.medium);
+      expect(result.bodyPartRisks[BodyPart.arms], RiskLevel.high);
+      expect(result.bodyPartRisks[BodyPart.wrists], RiskLevel.high);
+    });
+
     test('light work remains low risk', () {
       const input = RebaInputData(
         dailyIncome: 300,
@@ -316,5 +352,78 @@ void main() {
 
     expect(result.trunkScore, 1);
     expect(result.neckScore, 1);
+  });
+
+  test('deep bending pose is scored as trunk risk instead of arm-only risk',
+      () {
+    const person = Person(
+      score: 0.9,
+      keyPoints: [
+        KeyPoint(
+          bodyPart: PoseLandmark.leftHip,
+          coordinate: Point2D(0.35, 0.62),
+          score: 0.9,
+        ),
+        KeyPoint(
+          bodyPart: PoseLandmark.rightHip,
+          coordinate: Point2D(0.38, 0.64),
+          score: 0.9,
+        ),
+        KeyPoint(
+          bodyPart: PoseLandmark.leftShoulder,
+          coordinate: Point2D(0.82, 0.63),
+          score: 0.9,
+        ),
+        KeyPoint(
+          bodyPart: PoseLandmark.rightShoulder,
+          coordinate: Point2D(0.84, 0.65),
+          score: 0.9,
+        ),
+        KeyPoint(
+          bodyPart: PoseLandmark.leftEar,
+          coordinate: Point2D(0.92, 0.72),
+          score: 0.9,
+        ),
+        KeyPoint(
+          bodyPart: PoseLandmark.leftElbow,
+          coordinate: Point2D(0.72, 0.78),
+          score: 0.9,
+        ),
+        KeyPoint(
+          bodyPart: PoseLandmark.leftWrist,
+          coordinate: Point2D(0.66, 0.9),
+          score: 0.9,
+        ),
+        KeyPoint(
+          bodyPart: PoseLandmark.leftKnee,
+          coordinate: Point2D(0.36, 0.82),
+          score: 0.9,
+        ),
+        KeyPoint(
+          bodyPart: PoseLandmark.leftAnkle,
+          coordinate: Point2D(0.34, 0.98),
+          score: 0.9,
+        ),
+      ],
+    );
+
+    final input = ErgoCalculator.calculateRebaInputFromPose(
+      person,
+      const RebaInputData(
+        trunkScore: 1,
+        neckScore: 1,
+        legScore: 1,
+        upperArmScore: 1,
+        lowerArmScore: 1,
+        wristScore: 1,
+        activityScore: 1,
+      ),
+    );
+    final result = ErgoCalculator.calculateRebaRisk(input);
+
+    expect(input.trunkScore, 4);
+    expect(input.neckScore, 2);
+    expect(result.bodyPartRisks[BodyPart.trunk], RiskLevel.high);
+    expect(result.suggestionKeys, contains('act_avoid_bend'));
   });
 }

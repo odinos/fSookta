@@ -226,6 +226,7 @@ class ReferencesScreen extends StatelessWidget {
 
 const _references = [
   'Hignett, S., & McAtamney, L. (2000). Rapid Entire Body Assessment (REBA). Applied Ergonomics, 31(2), 201–205.',
+  'ErgoPlus. REBA: A Step-by-Step Guide – Rapid Entire Body Assessment. https://ergo-plus.com/wp-content/uploads/REBA-A-Step-by-Step-Guide.pdf',
   'ISO 11228-1:2021 – Ergonomics – Manual handling – Part 1: Lifting, holding and carrying.',
   'ISO 11228-2:2007 – Ergonomics – Manual handling – Part 2: Pushing and pulling.',
   'ISO 11228-3:2007 – Ergonomics – Manual handling – Part 3: Handling of low loads at high frequency.',

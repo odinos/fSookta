@@ -5,6 +5,7 @@ import '../../app/app_text.dart';
 import '../../app/research_profile_defaults.dart';
 import '../../app/sookta_app.dart';
 import '../../widgets/responsive_content.dart';
+import '../../widgets/tts_button.dart';
 import 'avatar_selection_screen.dart';
 
 class SetupScreen extends StatefulWidget {
@@ -101,11 +102,20 @@ class _SetupScreenState extends State<SetupScreen> {
                 color: Color(0xFF5C9A81),
               ),
             ),
+            const SizedBox(height: 12),
+            _SetupVoiceGuideCard(
+              thai: text.isThai,
+              editMode: widget.editMode,
+            ),
             const SizedBox(height: 20),
             _SooktaTextField(
               controller: farmerIdController,
               label: text.farmerId,
               helperText: text.participantCodeHint,
+              thai: text.isThai,
+              ttsText: text.isThai
+                  ? '${text.farmerId}. ${text.participantCodeHint}'
+                  : '${text.farmerId}. ${text.participantCodeHint}',
               suffixIcon: IconButton(
                 tooltip: text.isThai ? 'สุ่มรหัสใหม่' : 'Generate new code',
                 onPressed: () {
@@ -118,9 +128,32 @@ class _SetupScreenState extends State<SetupScreen> {
               ),
             ),
             const SizedBox(height: 12),
-            _SooktaTextField(controller: nameController, label: text.fullName),
+            _SooktaTextField(
+              controller: nameController,
+              label: text.fullName,
+              thai: text.isThai,
+              ttsText: text.isThai
+                  ? '${text.fullName}. กรอกชื่อผู้เข้าร่วมวิจัยหรือชื่อที่ใช้ระบุตัวตนในพื้นที่'
+                  : '${text.fullName}. Enter the participant name or field identifier.',
+            ),
             const SizedBox(height: 12),
-            Text(text.role, style: const TextStyle(color: Color(0xFF5C9A81))),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    text.role,
+                    style: const TextStyle(color: Color(0xFF5C9A81)),
+                  ),
+                ),
+                SooktaTtsButton(
+                  thai: text.isThai,
+                  text: text.isThai
+                      ? '${text.role}. เลือกบทบาทเป็น ${text.roleFarmer} หรือ ${text.roleStaff}'
+                      : '${text.role}. Choose ${text.roleFarmer} or ${text.roleStaff}.',
+                  size: 34,
+                ),
+              ],
+            ),
             const SizedBox(height: 8),
             SegmentedButton<String>(
               segments: [
@@ -143,15 +176,39 @@ class _SetupScreenState extends State<SetupScreen> {
               controller: locationController,
               label: text.location,
               helperText: text.optionalLocationNote,
+              thai: text.isThai,
+              ttsText: text.isThai
+                  ? '${text.location}. ${text.optionalLocationNote}'
+                  : '${text.location}. ${text.optionalLocationNote}',
             ),
             const SizedBox(height: 12),
             _SooktaTextField(
               controller: ageController,
               label: text.age,
               keyboardType: TextInputType.number,
+              thai: text.isThai,
+              ttsText: text.isThai
+                  ? '${text.age}. กรอกอายุเป็นตัวเลข ใช้สำหรับข้อมูลรายงาน'
+                  : '${text.age}. Enter age as a number for report data.',
             ),
             const SizedBox(height: 12),
-            Text(text.gender, style: const TextStyle(color: Color(0xFF5C9A81))),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    text.gender,
+                    style: const TextStyle(color: Color(0xFF5C9A81)),
+                  ),
+                ),
+                SooktaTtsButton(
+                  thai: text.isThai,
+                  text: text.isThai
+                      ? '${text.gender}. เลือกเพศชายหรือเพศหญิง ระบบใช้เพศในสูตรบางส่วนของงานยกและงานดันดึง'
+                      : '${text.gender}. Choose male or female. The app uses gender in selected lifting and push-pull calculations.',
+                  size: 34,
+                ),
+              ],
+            ),
             const SizedBox(height: 8),
             LayoutBuilder(
               builder: (context, constraints) {
@@ -183,18 +240,30 @@ class _SetupScreenState extends State<SetupScreen> {
               controller: weightController,
               label: text.weight,
               keyboardType: TextInputType.number,
+              thai: text.isThai,
+              ttsText: text.isThai
+                  ? '${text.weight}. กรอกน้ำหนักตัวเป็นตัวเลข ใช้สำหรับข้อมูลรายงาน'
+                  : '${text.weight}. Enter body weight as a number for report data.',
             ),
             const SizedBox(height: 12),
             _SooktaTextField(
               controller: heightController,
               label: text.height,
               keyboardType: TextInputType.number,
+              thai: text.isThai,
+              ttsText: text.isThai
+                  ? '${text.height}. กรอกส่วนสูงเป็นตัวเลข ใช้สำหรับข้อมูลรายงาน'
+                  : '${text.height}. Enter height as a number for report data.',
             ),
             const SizedBox(height: 12),
             _SooktaTextField(
               controller: incomeController,
               label: text.income,
               keyboardType: TextInputType.number,
+              thai: text.isThai,
+              ttsText: text.isThai
+                  ? '${text.income}. ${text.incomeNote}'
+                  : '${text.income}. ${text.incomeNote}',
             ),
             const SizedBox(height: 4),
             Text(text.incomeNote,
@@ -241,6 +310,54 @@ class _SetupScreenState extends State<SetupScreen> {
   }
 }
 
+class _SetupVoiceGuideCard extends StatelessWidget {
+  const _SetupVoiceGuideCard({
+    required this.thai,
+    required this.editMode,
+  });
+
+  final bool thai;
+  final bool editMode;
+
+  @override
+  Widget build(BuildContext context) {
+    final title = thai
+        ? (editMode ? 'คำแนะนำการแก้ไขข้อมูล' : 'คำแนะนำการกรอกข้อมูล')
+        : (editMode ? 'Profile editing guide' : 'Profile setup guide');
+    final body = thai
+        ? 'กรอกรหัสผู้เข้าร่วม ชื่อ บทบาท อายุ เพศ น้ำหนัก ส่วนสูง และรายได้ต่อปี ข้อมูลอายุ น้ำหนัก และส่วนสูงใช้เก็บในรายงาน ส่วนเพศและรายได้ใช้ประกอบการคำนวณบางส่วน หากไม่ทราบพื้นที่ สามารถเว้นว่างได้'
+        : 'Enter participant code, name, role, age, gender, weight, height, and annual income. Age, weight, and height are stored for reports. Gender and income are used in selected calculations. Location can be left blank if unknown.';
+    return Card(
+      color: const Color(0xFFEAF5EF),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Icon(Icons.record_voice_over_outlined,
+                color: Color(0xFF5C9A81)),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(body, style: const TextStyle(color: Colors.black54)),
+                ],
+              ),
+            ),
+            SooktaTtsButton(text: '$title. $body', thai: thai, size: 42),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _SooktaTextField extends StatelessWidget {
   const _SooktaTextField({
     required this.controller,
@@ -248,6 +365,8 @@ class _SooktaTextField extends StatelessWidget {
     this.keyboardType,
     this.helperText,
     this.suffixIcon,
+    this.ttsText,
+    this.thai,
   });
 
   final TextEditingController controller;
@@ -255,16 +374,22 @@ class _SooktaTextField extends StatelessWidget {
   final TextInputType? keyboardType;
   final String? helperText;
   final Widget? suffixIcon;
+  final String? ttsText;
+  final bool? thai;
 
   @override
   Widget build(BuildContext context) {
-    return TextField(
+    final readText = ttsText?.trim();
+    final field = TextField(
       controller: controller,
       keyboardType: keyboardType,
       decoration: InputDecoration(
         labelText: label,
         helperText: helperText,
         suffixIcon: suffixIcon,
+        suffixIconConstraints: suffixIcon == null
+            ? null
+            : const BoxConstraints(minWidth: 48, minHeight: 48),
         filled: true,
         fillColor: Colors.white,
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
@@ -273,6 +398,24 @@ class _SooktaTextField extends StatelessWidget {
           borderSide: const BorderSide(color: Color(0xFF5C9A81)),
         ),
       ),
+    );
+    if (readText == null || readText.isEmpty) return field;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        field,
+        Align(
+          alignment: Alignment.centerRight,
+          child: Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: SooktaTtsButton(
+              text: readText,
+              thai: thai ?? true,
+              size: 30,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

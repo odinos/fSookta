@@ -1,0 +1,54 @@
+{
+  "version": "daily-injury-logistic-template-2026-06-06",
+  "source": "template_coefficients_pending_research_treatment_labels",
+  "description": "Separate Logistic Regression model for seven-transaction daily prediction only. It predicts whether a farmer's recent assessment pattern should be flagged for medical/research follow-up. It is intentionally not used for REBA or ISO11228 posture scoring.",
+  "minTransactions": 7,
+  "thresholds": {
+    "watch": 0.45,
+    "high": 0.65,
+    "critical": 0.82
+  },
+  "features": [
+    "avg_score_before_norm",
+    "max_score_before_norm",
+    "avg_score_after_norm",
+    "high_or_above_days_norm",
+    "very_high_days_norm",
+    "no_improvement_days_norm",
+    "trunk_high_days_norm",
+    "neck_or_upper_limb_high_days_norm",
+    "iso_days_norm",
+    "avg_economic_loss_norm",
+    "repeated_same_activity_norm",
+    "recent_score_slope_norm"
+  ],
+  "targetLabel": {
+    "name": "requires_medical_treatment_within_7_days",
+    "values": {
+      "0": "No treatment-required MSD follow-up recorded in the assessment window",
+      "1": "Treatment-required MSD follow-up or medical care recorded in the assessment window"
+    }
+  },
+  "logisticRegression": {
+    "intercept": -2.6,
+    "coefficients": {
+      "avg_score_before_norm": 1.05,
+      "max_score_before_norm": 1.2,
+      "avg_score_after_norm": 0.45,
+      "high_or_above_days_norm": 1.15,
+      "very_high_days_norm": 1.4,
+      "no_improvement_days_norm": 0.65,
+      "trunk_high_days_norm": 1.25,
+      "neck_or_upper_limb_high_days_norm": 0.85,
+      "iso_days_norm": 0.35,
+      "avg_economic_loss_norm": 0.55,
+      "repeated_same_activity_norm": 0.45,
+      "recent_score_slope_norm": 0.35
+    }
+  },
+  "trainingStatus": {
+    "readyForAppUse": true,
+    "researchTrained": false,
+    "reason": "The current historical REBA/ISO dataset does not contain confirmed daily treatment outcome labels. Retrain this artifact with the daily injury template once the research team supplies outcome labels."
+  }
+}

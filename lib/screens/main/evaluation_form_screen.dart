@@ -6,14 +6,16 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../app/app_state.dart';
 import '../../app/sookta_app.dart';
+import '../../core/ergonomics_risk_prediction/ergonomics_risk_prediction.dart'
+    as risk_ml;
 import '../../core/models/assessment_session.dart';
 import '../../core/models/evaluation_models.dart';
 import '../../core/services/ergo_calculator.dart';
 import '../../core/services/firebase_telemetry_service.dart';
 import '../../core/services/pose_estimation_service.dart';
-import '../../core/services/risk_alert_model_service.dart';
 import '../../core/theme/sookta_theme.dart';
 import '../../widgets/responsive_content.dart';
+import '../../widgets/tts_button.dart';
 import 'camera_capture_screen.dart';
 import 'initial_risk_screen.dart';
 
@@ -39,8 +41,12 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
   final sustainForceController = TextEditingController(text: '8');
   final imagePicker = ImagePicker();
   final poseService = PoseEstimationService();
+  risk_ml.JointFeatureSchema? jointFeatureSchema;
+  risk_ml.MoveNetJointFeatureExtractor? jointFeatureExtractor;
+  risk_ml.XGBoostOnnxPredictor? xGBoostPredictor;
 
   final selectedImagePaths = <String>[];
+  final latestPoseEstimates = <PoseEstimate>[];
   var selectedDurationHours = 1.0;
   var selectedFrequency = 0.2;
   var selectedLoadWeight = 10.0;
@@ -48,6 +54,7 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
   var poseBusy = false;
   var poseAssessmentReady = false;
   String? poseStatus;
+  AiRiskAlert? latestXGBoostAlert;
   late JobType selectedJobType;
   var rebaInput = const RebaInputData(
     trunkScore: 3,
@@ -127,6 +134,7 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
     initialForceController.dispose();
     sustainForceController.dispose();
     poseService.dispose();
+    xGBoostPredictor?.dispose();
     super.dispose();
   }
 
@@ -153,6 +161,15 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
               ),
+            ),
+            const SizedBox(height: 8),
+            _EvaluationVoiceGuide(
+              thai: thai,
+              activityName: activityName,
+              jobType: selectedJobType,
+              durationHours: selectedDurationHours,
+              frequency: selectedFrequency,
+              loadWeight: selectedLoadWeight,
             ),
             const SizedBox(height: 16),
             _ImageSlots(
@@ -377,6 +394,8 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
       }
       poseStatus = null;
       poseAssessmentReady = false;
+      latestXGBoostAlert = null;
+      latestPoseEstimates.clear();
     });
     await _applyPoseEstimates();
   }
@@ -387,6 +406,8 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
       selectedImagePaths.removeAt(index);
       poseStatus = null;
       poseAssessmentReady = false;
+      latestXGBoostAlert = null;
+      latestPoseEstimates.clear();
     });
     if (selectedImagePaths.isNotEmpty) {
       await _applyPoseEstimates();
@@ -417,6 +438,8 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
       if (estimates.isEmpty) {
         setState(() {
           poseAssessmentReady = false;
+          latestPoseEstimates.clear();
+          latestXGBoostAlert = null;
           poseStatus = thai
               ? 'ยังประเมินไม่ได้: ไม่พบคนหรืออ่านท่าทางไม่ได้ กรุณาใช้รูปที่เห็นบุคคลและท่าทางชัดเจน'
               : 'Cannot assess yet: no readable person posture was detected. Use a clear full-body photo.';
@@ -424,42 +447,30 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
         return;
       }
 
+      final inferred = _inferWorstRebaInput(estimates);
+      final xgbAlert = await _predictXGBoostAlert(estimates);
+
       if (selectedJobType == JobType.reba) {
-        var inferred = rebaInput;
-        for (final estimate in estimates) {
-          final input = ErgoCalculator.calculateRebaInputFromPose(
-            estimate.person,
-            rebaInput,
-          );
-          inferred = inferred.copyWith(
-            trunkScore: input.trunkScore > inferred.trunkScore
-                ? input.trunkScore
-                : inferred.trunkScore,
-            neckScore: input.neckScore > inferred.neckScore
-                ? input.neckScore
-                : inferred.neckScore,
-            legScore: input.legScore > inferred.legScore
-                ? input.legScore
-                : inferred.legScore,
-            upperArmScore: input.upperArmScore > inferred.upperArmScore
-                ? input.upperArmScore
-                : inferred.upperArmScore,
-            lowerArmScore: input.lowerArmScore > inferred.lowerArmScore
-                ? input.lowerArmScore
-                : inferred.lowerArmScore,
-          );
-        }
         setState(() {
+          latestPoseEstimates
+            ..clear()
+            ..addAll(estimates);
+          latestXGBoostAlert = xgbAlert;
           rebaInput = inferred;
           poseAssessmentReady = true;
           poseStatus = thai
-              ? 'ระบบประเมินคะแนน REBA จากภาพแล้ว'
-              : 'REBA scores updated from photos.';
+              ? 'ระบบประเมินคะแนน REBA จากภาพและตรวจเทียบด้วย XGBoost แล้ว'
+              : 'REBA scores updated from photos and checked with XGBoost.';
         });
       } else if (selectedJobType == JobType.lifting) {
         final dimensions =
             poseService.estimateLiftingDimensions(estimates.last);
         setState(() {
+          latestPoseEstimates
+            ..clear()
+            ..addAll(estimates);
+          latestXGBoostAlert = xgbAlert;
+          rebaInput = inferred;
           if (dimensions == null) {
             poseAssessmentReady = false;
             poseStatus = thai
@@ -471,16 +482,21 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
             verticalController.text = dimensions.verticalCm.round().toString();
             poseAssessmentReady = true;
             poseStatus = thai
-                ? 'ระบบอ่านระยะ H/V จากภาพแล้ว'
-                : 'H/V distances updated from the latest photo.';
+                ? 'ระบบอ่านระยะ H/V และคะแนน REBA จากภาพแล้ว'
+                : 'H/V distances and REBA posture scores updated from the latest photo.';
           }
         });
       } else {
         setState(() {
+          latestPoseEstimates
+            ..clear()
+            ..addAll(estimates);
+          latestXGBoostAlert = xgbAlert;
+          rebaInput = inferred;
           poseAssessmentReady = true;
           poseStatus = thai
-              ? 'บันทึกรูปสำหรับการประเมินแล้ว'
-              : 'Photo added for this assessment.';
+              ? 'ระบบประเมินท่าทางจากภาพแล้ว'
+              : 'Posture scores updated from photos.';
         });
       }
     } catch (e) {
@@ -489,6 +505,8 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
           AppLanguage.th;
       setState(() {
         poseAssessmentReady = false;
+        latestXGBoostAlert = null;
+        latestPoseEstimates.clear();
         poseStatus =
             thai ? 'วิเคราะห์ภาพไม่สำเร็จ: $e' : 'Image analysis failed: $e';
       });
@@ -561,26 +579,9 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
       usesIso11228: isoResult != null,
     ));
 
-    try {
-      final aiModel = await RiskAlertModelService.load();
-      final aiAlert = aiModel.predict(
-        jobType: selectedJobType,
-        result: result,
-        ergoInput: ergoInput,
-        rebaInput: rebaData,
-      );
-      result = result.copyWith(aiRiskAlert: aiAlert);
-    } catch (error) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            thai
-                ? 'ใช้การคำนวณ REBA/ISO เพื่อประเมินผลแทน'
-                : 'Using REBA/ISO calculation for this assessment.',
-          ),
-        ),
-      );
+    final xgbAlert = latestXGBoostAlert;
+    if (xgbAlert != null) {
+      result = _applyXGBoostGuardrail(result, xgbAlert);
     }
     final breakdown = AssessmentBreakdown(
       primaryMethod: primaryMethod,
@@ -610,6 +611,175 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
   double _number(TextEditingController controller, double fallback) {
     return double.tryParse(controller.text.trim()) ?? fallback;
   }
+
+  RebaInputData _inferWorstRebaInput(List<PoseEstimate> estimates) {
+    var inferred = rebaInput;
+    for (final estimate in estimates) {
+      final input = ErgoCalculator.calculateRebaInputFromPose(
+        estimate.person,
+        rebaInput,
+      );
+      inferred = inferred.copyWith(
+        trunkScore: mathMax(input.trunkScore, inferred.trunkScore),
+        neckScore: mathMax(input.neckScore, inferred.neckScore),
+        legScore: mathMax(input.legScore, inferred.legScore),
+        upperArmScore: mathMax(input.upperArmScore, inferred.upperArmScore),
+        lowerArmScore: mathMax(input.lowerArmScore, inferred.lowerArmScore),
+      );
+    }
+    return inferred;
+  }
+
+  Future<AiRiskAlert?> _predictXGBoostAlert(
+    List<PoseEstimate> estimates,
+  ) async {
+    if (estimates.isEmpty) return null;
+    try {
+      final schema = jointFeatureSchema ??
+          await const risk_ml.JointFeatureSchemaLoader().load();
+      jointFeatureSchema = schema;
+      final extractor =
+          jointFeatureExtractor ?? risk_ml.MoveNetJointFeatureExtractor(schema);
+      jointFeatureExtractor = extractor;
+      final predictor = xGBoostPredictor ??
+          risk_ml.XGBoostOnnxPredictor(featureSchema: schema);
+      xGBoostPredictor = predictor;
+      await predictor.initModel();
+
+      risk_ml.RiskAssessmentResult? strongest;
+      for (final estimate in estimates) {
+        final result = await predictor
+            .predictRiskLevel(extractor.extract(estimate.person));
+        if (strongest == null ||
+            result.level.index > strongest.level.index ||
+            (result.level.index == strongest.level.index &&
+                result.confidenceScore > strongest.confidenceScore)) {
+          strongest = result;
+        }
+      }
+      if (strongest == null) return null;
+      final probability = strongest.confidenceScore.clamp(0.0, 1.0).toDouble();
+      return AiRiskAlert(
+        probability: probability,
+        logisticProbability: 0,
+        xgBoostProbability: probability,
+        level: _alertLevelFromRisk(strongest.level),
+        modelVersion: 'reba-iso-xgboost-onnx-2026-06-06',
+        modelSource: 'research_team_reba2_iso11228_document_guided_xgboost',
+        featureImportance: const [],
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  ErgoResult _applyXGBoostGuardrail(ErgoResult result, AiRiskAlert alert) {
+    final xgbRisk = _riskLevelFromAlert(alert.level);
+    if (xgbRisk.index <= result.riskLevel.index) {
+      return result.copyWith(aiRiskAlert: alert);
+    }
+    final calibratedScore = switch (xgbRisk) {
+      RiskLevel.low => result.userScore,
+      RiskLevel.medium => mathMax(result.userScore, 4),
+      RiskLevel.high => mathMax(result.userScore, 7),
+      RiskLevel.veryHigh => mathMax(result.userScore, 9),
+    };
+    return result.copyWith(
+      riskLevel: xgbRisk,
+      userScore: calibratedScore,
+      userScoreColor: xgbRisk.colorHex,
+      suggestionKey: xgbRisk == RiskLevel.low ? 'sugg_safe' : 'sugg_improve',
+      aiRiskAlert: alert,
+    );
+  }
+
+  AiAlertLevel _alertLevelFromRisk(risk_ml.RiskLevel risk) {
+    return switch (risk.name) {
+      'veryHigh' => AiAlertLevel.critical,
+      'high' => AiAlertLevel.high,
+      'medium' => AiAlertLevel.watch,
+      _ => AiAlertLevel.low,
+    };
+  }
+
+  RiskLevel _riskLevelFromAlert(AiAlertLevel level) {
+    return switch (level) {
+      AiAlertLevel.critical => RiskLevel.veryHigh,
+      AiAlertLevel.high => RiskLevel.high,
+      AiAlertLevel.watch => RiskLevel.medium,
+      AiAlertLevel.low => RiskLevel.low,
+    };
+  }
+
+  int mathMax(int a, int b) => a > b ? a : b;
+}
+
+class _EvaluationVoiceGuide extends StatelessWidget {
+  const _EvaluationVoiceGuide({
+    required this.thai,
+    required this.activityName,
+    required this.jobType,
+    required this.durationHours,
+    required this.frequency,
+    required this.loadWeight,
+  });
+
+  final bool thai;
+  final String activityName;
+  final JobType jobType;
+  final double durationHours;
+  final double frequency;
+  final double loadWeight;
+
+  @override
+  Widget build(BuildContext context) {
+    final guide = thai
+        ? 'กิจกรรม $activityName ขั้นตอนนี้ให้ถ่ายรูปหรือเลือกรูปที่เห็นคนทำงานชัดเจน ระบบจะอ่านท่าทางจากรูปและตั้งค่าประเมินให้อัตโนมัติ วิธีประเมินคือ ${_jobLabel(jobType, true)} ค่าเริ่มต้นคือ ${_defaultSummary(true)}'
+        : 'Activity $activityName. Take or choose a clear photo of the worker. The app reads posture from the photo and prepares the assessment automatically. Assessment method is ${_jobLabel(jobType, false)}. Defaults are ${_defaultSummary(false)}.';
+    return Card(
+      color: const Color(0xFFEAF5EF),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Icon(Icons.record_voice_over_outlined,
+                color: SooktaColors.darkGreen),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                thai
+                    ? 'กดลำโพงเพื่อฟังขั้นตอนประเมินกิจกรรมนี้'
+                    : 'Tap the speaker to hear this assessment step.',
+                style: const TextStyle(color: Colors.black54),
+              ),
+            ),
+            SooktaTtsButton(text: guide, thai: thai, size: 42),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _defaultSummary(bool thai) {
+    final duration = switch (durationHours) {
+      1.0 => thai ? 'งานสั้น' : 'short work',
+      2.0 => thai ? 'ประมาณ 2 ชั่วโมง' : 'about 2 hours',
+      4.0 => thai ? 'ครึ่งวัน' : 'half day',
+      _ => thai ? 'ทั้งวัน' : 'full day',
+    };
+    final repetition = switch (frequency) {
+      <= 0.2 => thai ? 'ทำไม่ถี่' : 'occasional',
+      < 6.0 => thai ? 'ทำซ้ำเป็นระยะ' : 'repeated',
+      _ => thai ? 'ทำซ้ำบ่อย' : 'very frequent',
+    };
+    if (jobType == JobType.lifting) {
+      return thai
+          ? '$duration, $repetition, น้ำหนักประมาณ ${loadWeight.round()} กิโลกรัม'
+          : '$duration, $repetition, about ${loadWeight.round()} kilograms';
+    }
+    return '$duration, $repetition';
+  }
 }
 
 class _ImageSlots extends StatelessWidget {
@@ -636,6 +806,25 @@ class _ImageSlots extends StatelessWidget {
           ? '1. ถ่ายรูปท่าทางทำงาน (${imagePaths.length}/4)'
           : '1. Take a Work-Posture Photo (${imagePaths.length}/4)',
       children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Text(
+                thai ? 'คำแนะนำรูปภาพ' : 'Photo guidance',
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
+            SooktaTtsButton(
+              thai: thai,
+              text: thai
+                  ? 'ถ่ายรูปให้เห็นคนทำงานชัดเจน เห็นศีรษะ หลัง แขน มือ ขา และเท้าได้มากที่สุด เพิ่มได้ไม่เกินสี่รูป ถ้าระบบอ่านท่าทางไม่ได้ ให้ถ่ายใหม่หรือเลือกรูปใหม่'
+                  : 'Take a clear photo of the worker. Show the head, back, arms, hands, legs, and feet as much as possible. Add up to four photos. If the app cannot read the posture, retake or choose another photo.',
+              size: 36,
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
         Text(
           thai
               ? 'ให้เห็นคนทำงานชัดที่สุด ระบบจะอ่านท่าทางและตั้งค่าประเมินให้อัตโนมัติ'
@@ -799,6 +988,9 @@ class _SimpleAssessmentCard extends StatelessWidget {
         : blocked
             ? Colors.red.shade700
             : Colors.amber.shade700;
+    final statusSpeech = thai
+        ? '${ready ? 'ระบบตั้งค่าประเมินให้แล้ว' : blocked ? 'ยังประเมินไม่ได้' : 'ถ่ายรูปก่อน แล้วระบบจะช่วยคำนวณ'} ${poseStatus ?? 'ต้องมีรูปบุคคลที่เห็นท่าทางชัดเจนก่อน ระบบจึงจะแสดงตัวเลขประเมิน'} กิจกรรม $activityName วิธีประเมิน ${_jobLabel(jobType, true)} ค่าพื้นฐาน ${_defaultSummary(true)}'
+        : '${ready ? 'The app prepared the assessment.' : blocked ? 'Cannot assess yet.' : 'Take a photo and the app will calculate.'} ${poseStatus ?? 'A clear person-posture photo is required before the app shows assessment numbers.'} Activity $activityName. Assessment method ${_jobLabel(jobType, false)}. Defaults ${_defaultSummary(false)}.';
     return Card(
       color: ready
           ? const Color(0xFFEFF8EF)
@@ -858,6 +1050,7 @@ class _SimpleAssessmentCard extends StatelessWidget {
                     ],
                   ),
                 ),
+                SooktaTtsButton(text: statusSpeech, thai: thai, size: 38),
               ],
             ),
             if (poseBusy) ...[

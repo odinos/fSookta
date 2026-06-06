@@ -21,6 +21,9 @@ class SooktaTtsButton extends StatefulWidget {
 }
 
 class _SooktaTtsButtonState extends State<SooktaTtsButton> {
+  static const _thaiRate = 0.36;
+  static const _englishRate = 0.42;
+
   late final FlutterTts _tts;
   late Future<void> _configured;
   bool _speaking = false;
@@ -48,8 +51,8 @@ class _SooktaTtsButtonState extends State<SooktaTtsButton> {
     final volumeResult = await _tts.setVolume(1.0);
     final languageResult = await _configureVoice();
     _debug('volume=$volumeResult voiceOrLanguage=$languageResult');
-    await _tts.setSpeechRate(widget.thai ? 0.45 : 0.48);
-    await _tts.setPitch(1.0);
+    await _tts.setSpeechRate(widget.thai ? _thaiRate : _englishRate);
+    await _tts.setPitch(widget.thai ? 0.96 : 0.98);
     await _tts.awaitSpeakCompletion(true);
     _tts.setStartHandler(() {
       _debug('start speaking');
@@ -94,14 +97,21 @@ class _SooktaTtsButtonState extends State<SooktaTtsButton> {
           voiceLocale?.startsWith(normalizedLocale.split('-').first) == true;
     }).toList();
     if (matching.isEmpty) return null;
-    matching.sort((a, b) {
-      final aq = a['quality']?.toString() ?? '';
-      final bq = b['quality']?.toString() ?? '';
-      return _qualityRank(bq).compareTo(_qualityRank(aq));
-    });
+    matching.sort((a, b) => _voiceRank(b).compareTo(_voiceRank(a)));
     return matching.first.map(
       (key, value) => MapEntry(key.toString(), value.toString()),
     );
+  }
+
+  int _voiceRank(Map<dynamic, dynamic> voice) {
+    final quality = voice['quality']?.toString() ?? '';
+    final name = voice['name']?.toString().toLowerCase() ?? '';
+    var rank = _qualityRank(quality) * 10;
+    if (name.contains('premium')) rank += 5;
+    if (name.contains('enhanced')) rank += 4;
+    if (name.contains('siri')) rank += 3;
+    if (name.contains('compact')) rank -= 3;
+    return rank;
   }
 
   int _qualityRank(String quality) {
@@ -136,7 +146,7 @@ class _SooktaTtsButtonState extends State<SooktaTtsButton> {
       await _configured;
       if (!mounted) return;
       setState(() => _speaking = true);
-      final text = widget.text.trim();
+      final text = _speechText(widget.text, widget.thai);
       _debug('speak requested chars=${text.length} thai=${widget.thai}');
       final result = await _tts.speak(text);
       _debug('speak result=$result');
@@ -146,6 +156,41 @@ class _SooktaTtsButtonState extends State<SooktaTtsButton> {
     } catch (_) {
       _showTtsError();
     }
+  }
+
+  String _speechText(String raw, bool thai) {
+    var text = raw
+        .replaceAll(RegExp(r'https?:\/\/\S+'), '')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .replaceAll('•', '. ')
+        .replaceAll('→', thai ? ' ไปเป็น ' : ' to ')
+        .replaceAll('->', thai ? ' ไปเป็น ' : ' to ')
+        .replaceAll('/', thai ? ' และ ' : ' and ')
+        .trim();
+    if (thai) {
+      text = text
+          .replaceAll('REBA', 'รีบา')
+          .replaceAll('ISO11228', 'ไอ เอส โอ หนึ่ง หนึ่ง สอง สอง แปด')
+          .replaceAll('ISO 11228', 'ไอ เอส โอ หนึ่ง หนึ่ง สอง สอง แปด')
+          .replaceAll('XGBoost', 'เอ็กซ์ จี บูสต์')
+          .replaceAll('MoveNet', 'มูฟเน็ต')
+          .replaceAll('TFLite', 'ที เอฟ ไลต์')
+          .replaceAll('H/V', 'เอช และ วี')
+          .replaceAll(RegExp(r'\bkg\b', caseSensitive: false), 'กิโลกรัม')
+          .replaceAll('กก.', 'กิโลกรัม')
+          .replaceAll('ชม.', 'ชั่วโมง')
+          .replaceAll(RegExp(r'\bN\b'), 'นิวตัน')
+          .replaceAll('THB', 'บาท');
+    } else {
+      text = text
+          .replaceAll('REBA', 'R E B A')
+          .replaceAll('ISO11228', 'ISO eleven two twenty eight')
+          .replaceAll('ISO 11228', 'ISO eleven two twenty eight')
+          .replaceAll('XGBoost', 'X G Boost')
+          .replaceAll('MoveNet', 'Move Net')
+          .replaceAll('H/V', 'H and V');
+    }
+    return text;
   }
 
   void _showTtsError() {
@@ -173,19 +218,23 @@ class _SooktaTtsButtonState extends State<SooktaTtsButton> {
   @override
   Widget build(BuildContext context) {
     final label = widget.thai ? 'อ่านข้อความ' : 'Read aloud';
-    return Tooltip(
-      message: label,
-      child: IconButton(
-        iconSize: widget.size * 0.56,
-        constraints: BoxConstraints.tightFor(
-          width: widget.size,
-          height: widget.size,
+    return Semantics(
+      label: label,
+      button: true,
+      enabled: true,
+      onTap: _toggle,
+      child: ExcludeSemantics(
+        child: IconButton(
+          iconSize: widget.size * 0.56,
+          constraints: BoxConstraints.tightFor(
+            width: widget.size,
+            height: widget.size,
+          ),
+          padding: EdgeInsets.zero,
+          onPressed: _toggle,
+          icon: Icon(_speaking ? Icons.stop_circle : Icons.volume_up),
+          color: const Color(0xFF5C9A81),
         ),
-        padding: EdgeInsets.zero,
-        onPressed: _toggle,
-        icon: Icon(_speaking ? Icons.stop_circle : Icons.volume_up),
-        color: const Color(0xFF5C9A81),
-        tooltip: label,
       ),
     );
   }

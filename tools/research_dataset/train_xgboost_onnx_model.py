@@ -3,8 +3,9 @@
 
 The Flutter app's ONNX predictor receives the canonical 51-value MoveNet vector,
 so this model intentionally trains on raw MoveNet joint features. The richer
-Logistic Regression path still uses the 71-feature REBA geometry expansion.
-Both models share the same research labels and combined REBA + ISO target.
+71-feature Logistic Regression artifact is retained only as a legacy research
+artifact. Current app scoring separates it from REBA/ISO and uses Logistic
+Regression for 7-transaction daily injury follow-up prediction instead.
 """
 
 from __future__ import annotations

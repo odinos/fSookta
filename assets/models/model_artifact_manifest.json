@@ -1,11 +1,11 @@
 {
-  "version": "2026-06-03",
+  "version": "2026-06-06",
   "featureSchemaId": "movenet-thunder-v1-17x3-normalized",
   "artifacts": {
     "logisticRegression": {
       "path": "assets/models/logistic_weights.json",
       "format": "json_weights",
-      "status": "research_team_reba2_iso11228_document_guided_trained",
+      "status": "legacy_research_traceability_not_used_for_reba_iso_assessment",
       "inputFeatureCount": 51,
       "featureCount": 71,
       "featureEngineering": "reba_angle_features_v1",
@@ -32,7 +32,7 @@
       "metadataPath": "assets/models/xgboost_model_metadata.json",
       "metricsPath": "data/research/extracted/xgboost_onnx_metrics.json",
       "holdoutRiskAccuracy": 0.9333,
-      "holdoutCombinedRebaEquivalentScoreMae": 0.6044
+      "holdoutCombinedRebaEquivalentScoreMae": 0.6679
     }
   },
   "requiredBeforeResearchTrainedAbTest": [
@@ -41,8 +41,9 @@
     "Calibrate the XGBoost probability thresholds again after additional low-risk and very-high-risk samples are labeled."
   ],
   "notes": [
-    "The current Logistic Regression model is a real trained offline artifact using the 2026-06-03 training-ready workbook labels for all currently extracted pose rows, combined with ISO 11228 workbook labels and document-guided ISO 11228-3 pseudo labels where applicable.",
-    "The XGBoost ONNX model was retrained on 2026-06-03 from the refreshed labeled pose dataset. It accepts the canonical 51 raw MoveNet features so the current Flutter ONNX predictor can run it without a separate preprocessing layer.",
+    "The Logistic Regression artifact in assets/models/logistic_weights.json is retained only for research traceability and unit tests. It is not used for today's REBA/ISO assessment result.",
+    "The XGBoost ONNX model was retrained on 2026-06-06 after aligning the REBA label generator with the standard Table A, Table B, Table C, and activity-score workflow. It accepts the canonical 51 raw MoveNet features so the current Flutter ONNX predictor can run it without a separate preprocessing layer.",
+    "Daily seven-transaction injury/treatment follow-up prediction uses assets/ml/daily_injury_logistic_model.json and remains separate from REBA/ISO posture scoring.",
     "It is suitable for research-prototype risk communication and repeated data collection, not for clinical diagnosis or a validated injury prediction claim."
   ]
 }
