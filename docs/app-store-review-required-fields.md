@@ -1,6 +1,6 @@
 # App Store Review Required Fields
 
-Updated: 2026-05-30
+Updated: 2026-06-06
 
 Use this document to clear the App Store Connect blockers shown on the iOS
 version submission page.
@@ -23,7 +23,7 @@ Suggested privacy policy content:
 ```text
 Privacy Policy for Sookta สุขท่า
 
-Last updated: May 30, 2026
+Last updated: June 6, 2026
 
 Sookta สุขท่า is an ergonomic risk awareness and research-support application
 for coffee-farming workflows. The app helps users record posture assessments,
@@ -41,6 +41,8 @@ How data is used:
   images for on-device ergonomic assessment.
 - Assessment history and profile data are stored locally on the user's device.
 - Export files are created only when the user chooses to export or share them.
+- Firebase Analytics and Crashlytics are used to monitor app stability, crash
+  reports, and basic product interaction events.
 
 Data collection:
 - The app does not require sign-in.
@@ -49,6 +51,9 @@ Data collection:
 - The app does not sell personal information.
 - In the current release, the app does not send profile, photo, or assessment
   history data to developer servers.
+- The app may send crash data and app interaction events to Firebase for app
+  quality monitoring. These events are not used for advertising or cross-app
+  tracking.
 
 Health and research notice:
 - Sookta is not a medical diagnosis tool, not a regulated medical device, and
@@ -91,7 +96,7 @@ any disease, injury, or medical condition.
 
 Location in App Store Connect:
 
-- iOS App Version 1.0
+- iOS App Version 1.1.2
 - Thai localization
 - Support URL
 
@@ -140,7 +145,7 @@ Support contact:
 
 Location in App Store Connect:
 
-- iOS App Version 1.0
+- iOS App Version 1.1.2
 - Copyright
 
 Recommended value if the Apple Developer account holder owns the submission:
@@ -162,19 +167,34 @@ Location in App Store Connect:
 Recommended answer for the current release:
 
 ```text
-The developer does not collect data from this app.
+The developer collects limited app-quality data only.
 ```
+
+Recommended App Privacy disclosure:
+
+- Data types collected:
+  - Crash Data
+  - Product Interaction / App Interactions
+- Purpose:
+  - App Functionality
+  - Analytics
+- Linked to user:
+  - No
+- Used for tracking:
+  - No
 
 Reason:
 
 - No login is required.
-- No advertising or tracking is included.
+- No advertising or cross-app tracking is included.
 - Profile, participant, photo, assessment history, and export data are stored on
   the device unless the user manually exports or shares a file.
 - Camera and photo library access are used for on-device assessment only.
+- Firebase Crashlytics and Firebase Analytics are enabled to monitor crashes,
+  app stability, and basic product interaction events.
 
-If Firebase Analytics, Crashlytics, server upload, or account sync is added in a
-future release, update App Privacy before submitting that release.
+If server upload, account sync, or research cloud sync is added in a future
+release, update App Privacy again before submitting that release.
 
 ## 6. Review Notes
 
@@ -204,6 +224,10 @@ Camera and photo library access are used only so users can capture or select
 posture images for on-device ergonomic assessment. Profile, participant,
 assessment history, and export data are stored locally on the device unless the
 user manually exports or shares the file.
+
+Firebase Analytics and Crashlytics are enabled only for app-quality monitoring,
+crash diagnostics, and basic product interaction analytics. They are not used
+for advertising or cross-app tracking.
 
 The app is not a medical diagnosis tool, not a regulated medical device, not a
 clinical injury prediction tool, and not an exact personal medical-cost

@@ -1,13 +1,13 @@
-# Google Play Store Metadata - Version 1.0
+# Google Play Store Metadata - Version 1.1.2
 
-Updated: 2026-05-31
+Updated: 2026-06-06
 
 ## App Information
 
 - App name: `Sookta สุขท่า`
 - Default language: Thai
 - Package name: `com.kdev.sookta`
-- Version name/code: `1.0.0` / `2`
+- Version name/code: `1.1.2` / `10`
 - Category: `Health & Fitness`
 - Tags to consider: `Health`, `Education`, `Agriculture`, `Ergonomics`
 
@@ -26,7 +26,7 @@ Updated: 2026-05-31
 
 ## Short Description
 
-ประเมินความเสี่ยงท่าทางชาวสวนกาแฟ พร้อมคำแนะนำและผลกระทบทางเศรษฐกิจเบื้องต้น
+ประเมินความเสี่ยงท่าทางชาวสวนกาแฟ
 
 ## Full Description
 
@@ -48,7 +48,7 @@ Sookta สุขท่า เป็นแอปพลิเคชันสำห
 
 ## What's New
 
-เปิดตัว Sookta สุขท่า สำหรับงานวิจัยด้านสรีรศาสตร์ชาวสวนกาแฟ พร้อมการประเมินความเสี่ยงจากท่าทาง แผนภาพร่างกาย คำแนะนำ ผลกระทบทางเศรษฐกิจ และประวัติผลประเมิน
+ปรับปรุงการประเมิน REBA/ISO ให้สอดคล้องกับเอกสารอ้างอิงมากขึ้น แยกโมเดลความเสี่ยงท่าทางและการทำนายแนวโน้ม 7 รายการล่าสุด ปรับข้อความแจ้งเตือนเมื่อรูปไม่พบท่าทางบุคคล และปรับปรุงคำแนะนำ เสียงอ่าน ประวัติ และการส่งออกข้อมูลสำหรับงานวิจัย
 
 ## en-US Store Listing
 
@@ -97,21 +97,25 @@ injury, or health concerns, please consult qualified medical personnel.
 
 ### What's New
 
-Initial release of Sookta for ergonomic risk awareness in coffee-farming
-workflows, with posture assessment, body risk map, recommendations, estimated
-economic impact, local history, and CSV export.
+Improved REBA/ISO assessment alignment, separated posture-risk and 7-record
+trend-prediction model flows, improved invalid posture-photo messaging, and
+refined recommendations, text-to-speech, history, and research export support.
 
 ## Play Console Notes
 
 - Use the same privacy policy and support URL prepared for App Store Connect.
 - In Data safety, disclose camera access, photo/media picker usage, and local
-  profile/history storage. The current app does not send profile/history data to
-  a backend unless Firebase or export flow is added later.
+  profile/history storage.
+- Firebase Analytics and Crashlytics are enabled for app quality monitoring.
+  Disclose crash data and product interaction/app interaction data as collected
+  for analytics/app functionality. Do not mark these as advertising or
+  cross-app tracking.
 - Do not describe the current ML assets as clinically validated diagnostic AI.
   Use research-prototype wording.
-- The current unsigned build verification artifact is:
-  `/private/tmp/fSookta-store-build/build/app/outputs/bundle/release/app-release.aab`.
-  Rebuild after configuring the local upload keystore before uploading.
+- The current signed local build artifact is:
+  `/Users/kpc/Documents/GitHub/fSookta/build/app/outputs/bundle/release/app-release.aab`.
+- Latest local verification passed on 2026-06-06: `flutter analyze`,
+  `flutter test`, and `flutter build appbundle --release`.
 
 ## Screenshot Plan
 
