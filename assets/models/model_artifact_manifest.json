@@ -1,26 +1,11 @@
 {
-  "version": "2026-06-06",
+  "version": "2026-06-07",
   "featureSchemaId": "movenet-thunder-v1-17x3-normalized",
   "artifacts": {
-    "logisticRegression": {
-      "path": "assets/models/logistic_weights.json",
-      "format": "json_weights",
-      "status": "legacy_research_traceability_not_used_for_reba_iso_assessment",
-      "inputFeatureCount": 51,
-      "featureCount": 71,
-      "featureEngineering": "reba_angle_features_v1",
-      "trainingSampleCount": 388,
-      "trainingSource": "data/research/extracted/pose_feature_dataset.csv",
-      "labelSource": "Training-ready workbook labels from docs/Sookta_Research_Training_Dataset_REBA_ISO11228.xlsx combined with document-guided ISO 11228-3 pseudo-label fallback",
-      "expertLabelSource": "docs/Sookta_Research_Training_Dataset_REBA_ISO11228.xlsx sheet REBA_Source_Labels, exported to data/research/expert_labels/reba2_training_ready_20260603.csv",
-      "iso11228LabelSource": "docs/Sookta_Research_Training_Dataset_REBA_ISO11228.xlsx sheet ISO11228_Source_Labels rows with data_quality_flag=OK, exported to data/research/expert_labels/iso11228_training_ready_20260603.csv, plus ISO 11228-1/2/3 document-guided pseudo labels",
-      "trainingReferenceSources": "data/research/reference_sources/training_reference_sources.json",
-      "metricsPath": "data/research/extracted/reba_logistic_metrics.json"
-    },
     "xgboost": {
       "path": "assets/models/xgboost_model.onnx",
       "format": "onnx",
-      "status": "research_team_reba2_iso11228_document_guided_trained",
+      "status": "research_team_reba2_iso11228_calibration_document_guided_trained",
       "inputFeatureCount": 51,
       "featureCount": 51,
       "featureEngineering": "raw_movenet_51",
@@ -28,11 +13,23 @@
       "holdoutSampleCount": 90,
       "totalSampleCount": 388,
       "trainingSource": "data/research/extracted/reba_labeled_pose_dataset.csv",
-      "labelSource": "Training-ready workbook labels from docs/Sookta_Research_Training_Dataset_REBA_ISO11228.xlsx combined with document-guided ISO 11228-3 pseudo-label fallback",
+      "labelSource": "Full ISO11228 Pirawan.xlsx workbook labels combined with research-team REBA labels and optional calibration labels from /Users/kpc/Documents/TestSookta/Calibtation/Calibtation.pdf",
+      "iso11228LabelSource": "data/research/expert_labels/iso11228_expert_labels.csv, extracted from /Users/kpc/Documents/Doc/ISO11228 Pirawan.xlsx",
+      "calibrationLabelSource": "data/research/expert_labels/calibration_reba_iso_labels_20260607.csv",
+      "calibrationMatchedSampleCount": 0,
       "metadataPath": "assets/models/xgboost_model_metadata.json",
       "metricsPath": "data/research/extracted/xgboost_onnx_metrics.json",
-      "holdoutRiskAccuracy": 0.9333,
-      "holdoutCombinedRebaEquivalentScoreMae": 0.6679
+      "labelPrepMetricsPath": "data/research/extracted/reba_iso_label_prep_metrics.json",
+      "holdoutRiskAccuracy": 0.6667,
+      "holdoutCombinedRebaEquivalentScoreMae": 0.8256
+    }
+  },
+  "legacyArtifactsNotPackagedInApp": {
+    "logisticRegression": {
+      "path": "assets/models/logistic_weights.json",
+      "format": "json_weights",
+      "status": "legacy_research_traceability_only_not_packaged_not_used_for_reba_iso_assessment",
+      "reason": "The calibration PDF provides REBA/ISO/SookTa scores only and no Logistic Regression coefficients or daily treatment outcome labels. Current posture assessment uses XGBoost/ONNX; daily 7-transaction prediction uses assets/ml/daily_injury_logistic_model.json."
     }
   },
   "requiredBeforeResearchTrainedAbTest": [
@@ -41,8 +38,10 @@
     "Calibrate the XGBoost probability thresholds again after additional low-risk and very-high-risk samples are labeled."
   ],
   "notes": [
-    "The Logistic Regression artifact in assets/models/logistic_weights.json is retained only for research traceability and unit tests. It is not used for today's REBA/ISO assessment result.",
-    "The XGBoost ONNX model was retrained on 2026-06-06 after aligning the REBA label generator with the standard Table A, Table B, Table C, and activity-score workflow. It accepts the canonical 51 raw MoveNet features so the current Flutter ONNX predictor can run it without a separate preprocessing layer.",
+    "The Logistic Regression artifact in assets/models/logistic_weights.json is retained only for legacy research traceability and is no longer packaged as a Flutter asset. It is not used for today's REBA/ISO assessment result.",
+    "The XGBoost ONNX model was retrained on 2026-06-07 after extracting the full ISO11228 Pirawan.xlsx workbook into 34 ISO labels and adding the calibration PDF as an optional label source. The current downloaded raw pose dataset has no transplanting/fertilizing pose rows, so calibrationMatchedSampleCount is 0 until those media rows are downloaded/extracted.",
+    "The full ISO workbook raises the current matched pose dataset to high/veryHigh labels only; collect more low/medium posture media before treating holdout accuracy as final validation.",
+    "The ONNX model accepts the canonical 51 raw MoveNet features so the current Flutter ONNX predictor can run it without a separate preprocessing layer.",
     "Daily seven-transaction injury/treatment follow-up prediction uses assets/ml/daily_injury_logistic_model.json and remains separate from REBA/ISO posture scoring.",
     "It is suitable for research-prototype risk communication and repeated data collection, not for clinical diagnosis or a validated injury prediction claim."
   ]

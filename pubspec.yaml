@@ -1,7 +1,7 @@
 name: fsookta
 description: Flutter migration of the Sookta ergonomic risk assessment app.
 publish_to: "none"
-version: 1.1.2+10
+version: 1.2.0+11
 
 environment:
   sdk: ">=3.4.0 <4.0.0"
@@ -20,7 +20,7 @@ dependencies:
   path: ^1.9.0
   path_provider: ^2.1.5
   shared_preferences: ^2.3.3
-  tflite_flutter: ^0.11.0
+  tflite_flutter: ^0.12.1
   share_plus: ^13.1.0
   firebase_core: ^4.9.0
   firebase_crashlytics: ^5.2.2
@@ -33,11 +33,18 @@ dev_dependencies:
     sdk: flutter
   flutter_lints: ^5.0.0
 
+dependency_overrides:
+  onnxruntime:
+    path: third_party/onnxruntime_16kb
+
 flutter:
   uses-material-design: true
   assets:
     - assets/images/
     - assets/ml/movenet_thunder.tflite
-    - assets/ml/risk_alert_models.json
     - assets/ml/daily_injury_logistic_model.json
-    - assets/models/
+    - assets/models/ergo_process_detail.json
+    - assets/models/joint_feature_schema.json
+    - assets/models/model_artifact_manifest.json
+    - assets/models/xgboost_model.onnx
+    - assets/models/xgboost_model_metadata.json

@@ -6,6 +6,7 @@ import '../../app/sookta_app.dart';
 import '../../core/models/evaluation_models.dart';
 import '../../core/services/assessment_export_service.dart';
 import '../../core/theme/sookta_theme.dart';
+import '../../widgets/assessment_breakdown_card.dart';
 import '../../widgets/body_risk_map_card.dart';
 import '../../widgets/research_disclaimer_card.dart';
 import '../../widgets/responsive_content.dart';
@@ -180,6 +181,15 @@ class HistoryDetailScreen extends StatelessWidget {
                     bodyRisks: record.bodyPartRisks,
                     thai: thai,
                     title: thai ? 'จุดเสี่ยงที่พบ' : 'Risky Points',
+                    bodyRiskReasons: assessmentBodyRiskReasons(
+                      record.assessmentBreakdown,
+                      thai,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  AssessmentBreakdownCard(
+                    breakdown: record.assessmentBreakdown,
+                    thai: thai,
                   ),
                   const SizedBox(height: 16),
                   Card(

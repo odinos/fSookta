@@ -1,7 +1,10 @@
 {
   "version": "daily-injury-logistic-template-2026-06-06",
   "source": "template_coefficients_pending_research_treatment_labels",
+  "modelType": "binary_logistic_regression",
   "description": "Separate Logistic Regression model for seven-transaction daily prediction only. It predicts whether a farmer's recent assessment pattern should be flagged for medical/research follow-up. It is intentionally not used for REBA or ISO11228 posture scoring.",
+  "predictionEquation": "p(y=1|x)=1/(1+exp(-(intercept+sum(beta_i*x_i))))",
+  "parameterEstimationRequired": "Coefficients must be fitted with maximum likelihood estimation by minimizing binary negative log-likelihood / cross-entropy on labeled daily treatment outcome data.",
   "minTransactions": 7,
   "thresholds": {
     "watch": 0.45,
@@ -49,6 +52,6 @@
   "trainingStatus": {
     "readyForAppUse": true,
     "researchTrained": false,
-    "reason": "The current historical REBA/ISO dataset does not contain confirmed daily treatment outcome labels. Retrain this artifact with the daily injury template once the research team supplies outcome labels."
+    "reason": "The current historical REBA/ISO dataset does not contain confirmed daily treatment outcome labels. The prediction equation follows Logistic Regression theory, but these coefficients are template coefficients and must be replaced by maximum-likelihood-fitted coefficients once the research team supplies outcome labels."
   }
 }

@@ -93,13 +93,8 @@ class DailyInjuryPredictionService {
     }
 
     final window = sorted.sublist(sorted.length - requiredTransactions);
-    final features = _features(window);
-    final logit = _model.intercept +
-        _model.coefficients.entries.fold<double>(
-          0,
-          (sum, entry) => sum + entry.value * (features[entry.key] ?? 0),
-        );
-    final probability = 1 / (1 + math.exp(-logit));
+    final features = featureValuesForWindow(window);
+    final probability = _predictProbability(features);
     return DailyInjuryPrediction(
       hasEnoughData: true,
       requiredTransactions: requiredTransactions,
@@ -115,7 +110,26 @@ class DailyInjuryPredictionService {
     );
   }
 
-  Map<String, double> _features(List<EvaluationHistoryRecord> window) {
+  double _predictProbability(Map<String, double> features) {
+    // Binary Logistic Regression:
+    // logit = beta0 + beta1*x1 + ... + betak*xk
+    // P(y = 1 | x) = 1 / (1 + exp(-logit)).
+    //
+    // The features have already been normalized into comparable 0..1 ranges
+    // before entering this function. Coefficients must come from a binary
+    // Logistic Regression fit using maximum likelihood / negative
+    // log-likelihood on research outcome labels.
+    final logit = _model.intercept +
+        _model.coefficients.entries.fold<double>(
+          0,
+          (sum, entry) => sum + entry.value * (features[entry.key] ?? 0),
+        );
+    return _sigmoid(logit);
+  }
+
+  static Map<String, double> featureValuesForWindow(
+    List<EvaluationHistoryRecord> window,
+  ) {
     final count = window.length;
     final beforeScores =
         window.map((record) => record.scoreBefore.toDouble()).toList();
@@ -179,15 +193,24 @@ class DailyInjuryPredictionService {
     };
   }
 
-  double _avg(List<double> values) =>
+  static double _avg(List<double> values) =>
       values.fold<double>(0, (sum, value) => sum + value) / values.length;
 
-  double _norm(double value, double min, double max) {
+  static double _norm(double value, double min, double max) {
     if (max <= min) return 0;
     return _bounded((value - min) / (max - min));
   }
 
-  double _bounded(double value) => value.clamp(0.0, 1.0).toDouble();
+  static double _bounded(double value) => value.clamp(0.0, 1.0).toDouble();
+
+  double _sigmoid(double logit) {
+    if (logit >= 0) {
+      final expNeg = math.exp(-logit);
+      return 1 / (1 + expNeg);
+    }
+    final expValue = math.exp(logit);
+    return expValue / (1 + expValue);
+  }
 }
 
 class _DailyInjuryLogisticModel {

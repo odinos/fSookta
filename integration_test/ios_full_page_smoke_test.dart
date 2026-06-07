@@ -25,6 +25,9 @@ import 'package:fsookta/screens/onboarding/avatar_selection_screen.dart';
 import 'package:fsookta/screens/onboarding/language_selection_screen.dart';
 import 'package:fsookta/screens/onboarding/setup_screen.dart';
 
+const _capturePause =
+    bool.fromEnvironment('SOOKTA_SMOKE_CAPTURE_PAUSE');
+
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
@@ -305,6 +308,21 @@ Future<void> _visit(
   await _expectHealthy(tester, flutterErrors, label);
   // ignore: avoid_print
   print('IOS_FULL_UAT_SCREEN_PASS: $label');
+  if (_capturePause) {
+    // Give host-side adb screencap tooling a stable moment to capture the
+    // just-validated screen without changing normal smoke-test behavior.
+    // ignore: avoid_print
+    print('ANDROID_SMOKE_CAPTURE_READY: ${_screenshotName(label)}');
+    await Future<void>.delayed(const Duration(milliseconds: 1800));
+  }
+}
+
+String _screenshotName(String label) {
+  final normalized = label
+      .toLowerCase()
+      .replaceAll(RegExp(r'[^a-z0-9]+'), '_')
+      .replaceAll(RegExp(r'^_+|_+$'), '');
+  return normalized.isEmpty ? 'screen' : normalized;
 }
 
 Future<void> _exerciseFarmerDialogs(WidgetTester tester, bool thai) async {

@@ -10,6 +10,7 @@ import '../onboarding/language_selection_screen.dart';
 import '../onboarding/setup_screen.dart';
 import 'contact_screen.dart';
 import 'help_screen.dart';
+import 'training_data_export_screen.dart';
 
 class ProfileTab extends StatelessWidget {
   const ProfileTab({
@@ -184,6 +185,15 @@ class ProfileTab extends StatelessWidget {
               text: text.isThai ? 'ติดต่อเรา' : 'Contact',
               onTap: () =>
                   Navigator.of(context).pushNamed(ContactScreen.routeName),
+            ),
+            _ProfileMenuItem(
+              icon: Icons.science_outlined,
+              text: text.isThai
+                  ? 'ส่งออกข้อมูลสำหรับเทรนโมเดล'
+                  : 'Export Model Training Data',
+              onTap: () => Navigator.of(context).pushNamed(
+                TrainingDataExportScreen.routeName,
+              ),
             ),
             const SizedBox(height: 40),
           ],

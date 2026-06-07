@@ -12,7 +12,6 @@ import 'package:fsookta/core/models/pose_models.dart';
 import 'package:fsookta/core/services/daily_injury_prediction_service.dart';
 import 'package:fsookta/core/services/ergo_calculator.dart';
 import 'package:fsookta/core/services/pose_estimation_service.dart';
-import 'package:fsookta/core/services/risk_alert_model_service.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -131,24 +130,8 @@ void main() {
     });
   });
 
-  group('ML-COMP Logistic Regression predictors', () {
-    test('ML-006 canonical Logistic Regression asset predicts valid input',
-        () async {
-      final schema = await const ml.JointFeatureSchemaLoader().load();
-      final predictor = ml.LogisticRegressionPredictor(featureSchema: schema);
-
-      await predictor.initModel();
-      final neutral =
-          await predictor.predictRiskLevel(_neutralMoveNetFeatures());
-      final bent = await predictor.predictRiskLevel(_deepBendMoveNetFeatures());
-
-      expect(neutral.confidenceScore, inInclusiveRange(0, 1));
-      expect(bent.confidenceScore, inInclusiveRange(0, 1));
-      expect(neutral.actionRecommendation, isNotEmpty);
-      expect(bent.actionRecommendation, isNotEmpty);
-    });
-
-    test('ML-007 controlled Logistic Regression covers all risk thresholds',
+  group('ML-COMP legacy Logistic Regression unit helpers', () {
+    test('ML-006 controlled Logistic Regression covers all risk thresholds',
         () async {
       Future<ml.RiskLevel> levelForProbability(double probability) async {
         final predictor = ml.LogisticRegressionPredictor.fromWeights(
@@ -172,7 +155,7 @@ void main() {
       expect(await levelForProbability(0.82), ml.RiskLevel.veryHigh);
     });
 
-    test('ML-008 Logistic Regression rejects malformed input', () async {
+    test('ML-007 Logistic Regression rejects malformed input', () async {
       final predictor = ml.LogisticRegressionPredictor.fromWeights(
         const LogisticRegressionWeights(
           version: 'validation-test',
@@ -195,7 +178,7 @@ void main() {
     });
 
     test(
-        'ML-009 feature-engineered Logistic Regression expands 51 to 71 inputs',
+        'ML-008 feature-engineered Logistic Regression expands 51 to 71 inputs',
         () async {
       final predictor = ml.LogisticRegressionPredictor.fromWeights(
         LogisticRegressionWeights(
@@ -272,7 +255,42 @@ void main() {
       expect(prediction.windowEnd, DateTime(2026, 6, 8));
     });
 
-    test('ML-013 actual daily asset flags repeated high trunk-risk history',
+    test('ML-013 daily Logistic Regression follows logit and sigmoid equation',
+        () {
+      const intercept = -1.2;
+      const coefficients = {
+        'avg_score_before_norm': 0.8,
+        'trunk_high_days_norm': 1.4,
+        'recent_score_slope_norm': -0.25,
+      };
+      final service = _dailyServiceFromEquation(
+        intercept: intercept,
+        coefficients: coefficients,
+      );
+      final records = [
+        for (var day = 1; day <= 7; day++)
+          _record(
+            day,
+            score: day <= 3 ? 6 : 8,
+            risk: eval.RiskLevel.high,
+            bodyPartRisks: const {eval.BodyPart.trunk: eval.RiskLevel.high},
+          ),
+      ];
+
+      final prediction = service.predictForRecords(records);
+      final expectedLogit = intercept +
+          coefficients.entries.fold<double>(
+            0,
+            (sum, entry) =>
+                sum + entry.value * (prediction.featureValues[entry.key] ?? 0),
+          );
+      final expectedProbability = 1 / (1 + math.exp(-expectedLogit));
+
+      expect(prediction.hasEnoughData, isTrue);
+      expect(prediction.probability, closeTo(expectedProbability, 1e-12));
+    });
+
+    test('ML-014 actual daily asset flags repeated high trunk-risk history',
         () async {
       final service = await DailyInjuryPredictionService.load();
       final prediction = service.predictForRecords([
@@ -295,62 +313,6 @@ void main() {
   });
 
   group('ML-COMP REBA/ISO guardrail and pose-derived inputs', () {
-    test(
-        'ML-014 risk alert model returns bounded probabilities for all job types',
-        () async {
-      final model = await RiskAlertModelService.load();
-      final cases =
-          <eval.JobType, ({eval.ErgoInputData ergo, eval.RebaInputData reba})>{
-        eval.JobType.reba: (
-          ergo: const eval.ErgoInputData(jobType: eval.JobType.reba),
-          reba: _highRebaInput(),
-        ),
-        eval.JobType.lifting: (
-          ergo: const eval.ErgoInputData(
-            jobType: eval.JobType.lifting,
-            loadWeight: 20,
-            horizontalDist: 55,
-            verticalHeight: 25,
-            liftFrequency: 6.5,
-            durationHours: 4,
-            transportDistance: 8,
-          ),
-          reba: _highRebaInput(),
-        ),
-        eval.JobType.pushPull: (
-          ergo: const eval.ErgoInputData(
-            jobType: eval.JobType.pushPull,
-            initialForce: 40,
-            sustainForce: 24,
-            durationHours: 8,
-          ),
-          reba: _highRebaInput(),
-        ),
-      };
-
-      for (final entry in cases.entries) {
-        final result = switch (entry.key) {
-          eval.JobType.reba =>
-            ErgoCalculator.calculateRebaRisk(entry.value.reba),
-          eval.JobType.lifting =>
-            ErgoCalculator.calculateLiftingRisk(entry.value.ergo),
-          eval.JobType.pushPull =>
-            ErgoCalculator.calculatePushPullRisk(entry.value.ergo),
-        };
-        final alert = model.predict(
-          jobType: entry.key,
-          result: result,
-          ergoInput: entry.value.ergo,
-          rebaInput: entry.value.reba,
-        );
-
-        expect(alert.probability, inInclusiveRange(0, 1));
-        expect(alert.logisticProbability, inInclusiveRange(0, 1));
-        expect(alert.xgBoostProbability, inInclusiveRange(0, 1));
-        expect(alert.featureImportance, isNotEmpty);
-      }
-    });
-
     test(
         'ML-015 deep bending pose maps to trunk risk and relevant recommendation',
         () {
@@ -567,6 +529,16 @@ Person _liftingPerson() {
 }
 
 DailyInjuryPredictionService _dailyServiceAtProbability(double probability) {
+  return _dailyServiceFromEquation(
+    intercept: _logit(probability),
+    coefficients: const {},
+  );
+}
+
+DailyInjuryPredictionService _dailyServiceFromEquation({
+  required double intercept,
+  required Map<String, double> coefficients,
+}) {
   return DailyInjuryPredictionService.fromJson({
     'version': 'unit-threshold-test',
     'source': 'unit-test',
@@ -577,8 +549,8 @@ DailyInjuryPredictionService _dailyServiceAtProbability(double probability) {
       'critical': 0.82,
     },
     'logisticRegression': {
-      'intercept': _logit(probability),
-      'coefficients': <String, double>{},
+      'intercept': intercept,
+      'coefficients': coefficients,
     },
   });
 }

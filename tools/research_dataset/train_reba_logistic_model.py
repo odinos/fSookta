@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-"""Train the first offline ergonomic risk model from REBA-derived labels.
+"""Prepare REBA+ISO labels and optionally train the legacy Logistic model.
 
 The input dataset contains MoveNet Thunder joint features extracted from the
-research media. This script derives a repeatable REBA pseudo-label from the
-worksheet rules, then trains a small Logistic Regression model that the Flutter
-app can run offline from JSON weights.
+research media. This script derives repeatable REBA+ISO labels from worksheet
+rules, research-team labels, and optional calibration labels. The current app
+assessment model is XGBoost/ONNX; the Logistic Regression output path is kept
+only for legacy research traceability and unit tests when explicitly requested.
 
 This is not a clinical validation pipeline. It is a research bootstrap model
 whose labels are deterministic and traceable to the REBA worksheet.
@@ -222,6 +223,28 @@ class Iso11228Label:
 
 
 @dataclass(frozen=True)
+class CalibrationLabel:
+    reba_score: float
+    reba_risk_level: str
+    iso_total_score: float | None
+    iso_risk_level: str | None
+    label_source: str
+    matched_session_id: str
+    match_type: str
+
+    @property
+    def combined_score(self) -> float:
+        if self.iso_total_score is None:
+            return self.reba_score
+        iso_equivalent = max(1.0, min(12.0, 1 + (self.iso_total_score / 18) * 11))
+        return max(self.reba_score, iso_equivalent)
+
+    @property
+    def target_probability(self) -> float:
+        return max(0.0, min(1.0, (self.combined_score - 1) / 11))
+
+
+@dataclass(frozen=True)
 class TrainingLabel:
     score: float
     risk_level: str
@@ -282,6 +305,23 @@ def parse_args() -> argparse.Namespace:
         ),
     )
     parser.add_argument(
+        "--calibration-labels",
+        default="data/research/expert_labels/calibration_reba_iso_labels_20260607.csv",
+        help=(
+            "Optional research calibration labels. These override older "
+            "REBA/ISO labels by exact session_id, or by activity when "
+            "session_id is blank/activity_level/*."
+        ),
+    )
+    parser.add_argument(
+        "--labels-only",
+        action="store_true",
+        help=(
+            "Write the REBA+ISO labeled dataset and metrics without training "
+            "or writing the legacy Logistic Regression asset."
+        ),
+    )
+    parser.add_argument(
         "--min-pose-score",
         type=float,
         default=0.2,
@@ -320,6 +360,12 @@ def load_expert_reba_labels(path: Path) -> list[dict[str, str]]:
 
 
 def load_iso11228_labels(path: Path) -> list[dict[str, str]]:
+    if not path.exists():
+        return []
+    return read_rows(path)
+
+
+def load_calibration_labels(path: Path) -> list[dict[str, str]]:
     if not path.exists():
         return []
     return read_rows(path)
@@ -465,6 +511,15 @@ def risk_level_from_thai(value: str) -> str:
     if normalized in {"สูงมาก", "veryhigh", "very_high", "critical"}:
         return "veryHigh"
     return "medium"
+
+
+def risk_level_from_any(value: str, score: float) -> str:
+    normalized = value.strip()
+    if normalized:
+        mapped = risk_level_from_thai(normalized)
+        if mapped != "medium" or normalized.lower() in {"ปานกลาง", "medium"}:
+            return mapped
+    return risk_level_for_reba_float(score)
 
 
 def risk_level_for_iso_total(score: float) -> str:
@@ -651,6 +706,63 @@ def document_guided_iso_label(
     )
 
 
+def calibration_label_from_rows(
+    *,
+    activity: str,
+    session_id: str,
+    calibration_rows: list[dict[str, str]],
+) -> CalibrationLabel | None:
+    if not calibration_rows:
+        return None
+
+    def candidate(row: dict[str, str]) -> CalibrationLabel | None:
+        reba_score = numeric(row, "reba_score")
+        if reba_score <= 0:
+            return None
+        iso_score = numeric(row, "iso11228_total_score", -1)
+        row_session = str(row.get("session_id", "")).strip()
+        return CalibrationLabel(
+            reba_score=reba_score,
+            reba_risk_level=risk_level_from_any(
+                row.get("reba_risk_level", ""),
+                reba_score,
+            ),
+            iso_total_score=iso_score if iso_score > 0 else None,
+            iso_risk_level=(
+                risk_level_from_thai(row.get("iso_risk_level_th", ""))
+                if iso_score > 0
+                else None
+            ),
+            label_source=row.get("label_source")
+            or "research_team_calibration_pdf",
+            matched_session_id=row_session,
+            match_type=(
+                "calibration_exact"
+                if row_session == session_id
+                else "calibration_activity_level"
+            ),
+        )
+
+    exact = [
+        row
+        for row in calibration_rows
+        if row.get("activity") == activity
+        and str(row.get("session_id", "")).strip() == session_id
+    ]
+    if exact:
+        return candidate(exact[0])
+
+    activity_level = [
+        row
+        for row in calibration_rows
+        if row.get("activity") == activity
+        and str(row.get("session_id", "")).strip() in {"", "*", "activity_level"}
+    ]
+    if activity_level:
+        return candidate(activity_level[0])
+    return None
+
+
 def build_training_label(
     row: dict[str, str],
     pseudo: RebaPseudoLabel,
@@ -658,9 +770,40 @@ def build_training_label(
     exact_expert_labels: dict[tuple[str, str], ExpertRebaLabel],
     expert_labels: list[dict[str, str]],
     iso_labels: list[dict[str, str]],
+    calibration_labels: list[dict[str, str]],
 ) -> TrainingLabel:
     activity = row.get("activity", "")
     session_id = str(row.get("session_id", "")).strip()
+    calibration = calibration_label_from_rows(
+        activity=activity,
+        session_id=session_id,
+        calibration_rows=calibration_labels,
+    )
+    if calibration is not None:
+        combined_score = calibration.combined_score
+        return TrainingLabel(
+            score=combined_score,
+            risk_level=risk_level_for_reba_float(combined_score),
+            target_probability=calibration.target_probability,
+            label_source=calibration.label_source,
+            match_type=calibration.match_type,
+            matched_session_id=calibration.matched_session_id,
+            pseudo=pseudo,
+            reba_score=calibration.reba_score,
+            reba_risk_level=calibration.reba_risk_level,
+            iso_total_score=calibration.iso_total_score,
+            iso_risk_level=calibration.iso_risk_level,
+            iso_label_source=calibration.label_source
+            if calibration.iso_total_score is not None
+            else "",
+            iso_match_type=calibration.match_type
+            if calibration.iso_total_score is not None
+            else "",
+            iso_matched_session_id=calibration.matched_session_id
+            if calibration.iso_total_score is not None
+            else "",
+        )
+
     iso = iso_label_from_rows(
         activity=activity,
         session_id=session_id,
@@ -962,6 +1105,48 @@ def build_metrics(
     }
 
 
+def build_label_dataset_metrics(
+    labels: list[TrainingLabel],
+    *,
+    calibration_rows: list[dict[str, str]],
+) -> dict[str, Any]:
+    risks = [label.risk_level for label in labels]
+    return {
+        "preparedAt": date.today().isoformat(),
+        "labelSource": "research_team_reba_iso_labels_with_optional_calibration",
+        "featureSchemaId": FEATURE_SCHEMA_ID,
+        "inputFeatureCount": len(FEATURE_COLUMNS),
+        "sampleCount": len(labels),
+        "riskDistribution": dict(Counter(risks)),
+        "rebaScoreDistribution": dict(Counter(round(label.score, 2) for label in labels)),
+        "labelSourceDistribution": dict(Counter(label.label_source for label in labels)),
+        "labelMatchDistribution": dict(Counter(label.match_type for label in labels)),
+        "isoLabelSourceDistribution": dict(
+            Counter(label.iso_label_source for label in labels if label.iso_label_source)
+        ),
+        "isoLabelMatchDistribution": dict(
+            Counter(label.iso_match_type for label in labels if label.iso_match_type)
+        ),
+        "isoMatchedSampleCount": sum(1 for label in labels if label.iso_match_type),
+        "combinedLabelSampleCount": sum(
+            1 for label in labels if label.iso_match_type and label.score > label.reba_score
+        ),
+        "expertMatchedSampleCount": sum(
+            1 for label in labels if label.match_type.startswith("expert_")
+        ),
+        "calibrationLabelRowCount": len(calibration_rows),
+        "calibrationMatchedSampleCount": sum(
+            1 for label in labels if label.match_type.startswith("calibration_")
+        ),
+        "calibrationNote": (
+            "Calibration labels are used only when matching pose rows exist "
+            "for the same activity/session. The current downloaded raw pose "
+            "dataset may have zero samples for some calibrated activities."
+        ),
+        "logisticRegressionOutput": "skipped",
+    }
+
+
 def write_labeled_dataset(
     rows: list[dict[str, str]],
     labels: list[TrainingLabel],
@@ -1041,6 +1226,7 @@ def main() -> None:
     rows = read_rows(Path(args.dataset))
     expert_rows = load_expert_reba_labels(Path(args.expert_labels))
     iso_rows = load_iso11228_labels(Path(args.iso_labels))
+    calibration_rows = load_calibration_labels(Path(args.calibration_labels))
     exact_expert_labels: dict[tuple[str, str], ExpertRebaLabel] = {}
     for row in expert_rows:
         activity = row.get("activity", "")
@@ -1071,11 +1257,27 @@ def main() -> None:
                 exact_expert_labels=exact_expert_labels,
                 expert_labels=expert_rows,
                 iso_labels=iso_rows,
+                calibration_labels=calibration_rows,
             )
         )
 
     if len(selected) < 10:
         raise SystemExit("Not enough valid pose rows to train a model.")
+
+    if args.labels_only:
+        metrics = build_label_dataset_metrics(
+            labels,
+            calibration_rows=calibration_rows,
+        )
+        metrics_output = Path(args.metrics_output)
+        metrics_output.parent.mkdir(parents=True, exist_ok=True)
+        metrics_output.write_text(
+            json.dumps(metrics, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        write_labeled_dataset(selected, labels, Path(args.labeled_output))
+        print(json.dumps(metrics, ensure_ascii=False, indent=2))
+        return
 
     x = np.array([feature_vector(row) for row in selected], dtype=np.float64)
     y = np.array([label.target_probability for label in labels], dtype=np.float64)

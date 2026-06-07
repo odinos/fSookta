@@ -7,8 +7,7 @@ import 'package:fsookta/core/ergonomics_risk_prediction/ergonomics_risk_predicti
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
-  testWidgets('ML-DEVICE-001 runs ONNX and Logistic inference on device',
-      (tester) async {
+  testWidgets('ML-DEVICE-001 runs ONNX inference on device', (tester) async {
     final schema = await const ml.JointFeatureSchemaLoader().load();
     final neutral = _neutralMoveNetFeatures();
     final bent = _deepBendMoveNetFeatures();
@@ -28,21 +27,11 @@ void main() {
       throwsA(isA<ml.InvalidJointFeaturesException>()),
     );
 
-    final logistic = ml.LogisticRegressionPredictor(featureSchema: schema);
-    await logistic.initModel();
-    final lrNeutral = await logistic.predictRiskLevel(neutral);
-    final lrBent = await logistic.predictRiskLevel(bent);
-
-    expect(lrNeutral.confidenceScore, inInclusiveRange(0, 1));
-    expect(lrBent.confidenceScore, inInclusiveRange(0, 1));
-
     // ignore: avoid_print
     print(
       'ML_DEVICE_RESULT: '
       'xgNeutral=${xgNeutral.confidenceScore.toStringAsFixed(4)} '
-      'xgBent=${xgBent.confidenceScore.toStringAsFixed(4)} '
-      'lrNeutral=${lrNeutral.confidenceScore.toStringAsFixed(4)} '
-      'lrBent=${lrBent.confidenceScore.toStringAsFixed(4)}',
+      'xgBent=${xgBent.confidenceScore.toStringAsFixed(4)}',
     );
   });
 }

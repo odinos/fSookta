@@ -195,7 +195,8 @@ def main() -> None:
         "trainingSource": str(args.dataset),
         "labelSource": (
             "Research-team REBA-2 labels combined with ISO 11228 workbook "
-            "labels and document-guided ISO 11228-3 pseudo-label fallback"
+            "labels, optional calibration labels, and document-guided "
+            "ISO 11228-3 pseudo-label fallback"
         ),
         "trainingSampleCount": int(len(train_index)),
         "holdoutSampleCount": int(len(test_index)),
@@ -203,6 +204,14 @@ def main() -> None:
         "riskDistribution": dict(Counter(risks)),
         "labelSourceDistribution": dict(
             Counter(row.get("training_label_source", "") for row in rows)
+        ),
+        "labelMatchDistribution": dict(
+            Counter(row.get("training_label_match_type", "") for row in rows)
+        ),
+        "calibrationMatchedSampleCount": sum(
+            1
+            for row in rows
+            if row.get("training_label_match_type", "").startswith("calibration_")
         ),
         "thresholds": THRESHOLDS,
         "train": evaluate(
@@ -221,6 +230,8 @@ def main() -> None:
         "notes": [
             "The ONNX model accepts the app's canonical 51 raw MoveNet features.",
             "The target is the app's combined REBA + ISO REBA-equivalent risk probability.",
+            "The assessment model does not use the legacy MoveNet Logistic Regression artifact.",
+            "Calibration labels affect training only when raw pose rows for the calibrated activity/session are present.",
             "Economic impact data is intentionally excluded from training and remains a post-assessment impact layer.",
         ],
     }

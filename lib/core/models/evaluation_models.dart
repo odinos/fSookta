@@ -45,6 +45,7 @@ class ErgoInputData {
     this.verticalHeight = 75,
     this.liftFrequency = 0.2,
     this.durationHours = 1,
+    this.workDaysPerWeek = 3,
     this.transportDistance = 0,
     this.initialForce = 0,
     this.sustainForce = 0,
@@ -58,6 +59,7 @@ class ErgoInputData {
   final double verticalHeight;
   final double liftFrequency;
   final double durationHours;
+  final double workDaysPerWeek;
   final double transportDistance;
   final double initialForce;
   final double sustainForce;
@@ -72,6 +74,7 @@ class ErgoInputData {
       'verticalHeight': verticalHeight,
       'liftFrequency': liftFrequency,
       'durationHours': durationHours,
+      'workDaysPerWeek': workDaysPerWeek,
       'transportDistance': transportDistance,
       'initialForce': initialForce,
       'sustainForce': sustainForce,
@@ -88,6 +91,7 @@ class ErgoInputData {
       verticalHeight: _asDouble(json['verticalHeight'], 75),
       liftFrequency: _asDouble(json['liftFrequency'], 0.2),
       durationHours: _asDouble(json['durationHours'], 1),
+      workDaysPerWeek: _asDouble(json['workDaysPerWeek'], 3),
       transportDistance: _asDouble(json['transportDistance'], 0),
       initialForce: _asDouble(json['initialForce'], 0),
       sustainForce: _asDouble(json['sustainForce'], 0),
@@ -200,6 +204,119 @@ class RebaInputData {
   }
 }
 
+class PoseRebaFrameAnalysis {
+  const PoseRebaFrameAnalysis({
+    required this.imageIndex,
+    required this.rebaInput,
+    required this.rebaScore,
+    required this.riskLevel,
+    this.neckFlexionDeg,
+    this.trunkFlexionDeg,
+    this.upperArmFlexionDeg,
+    this.lowerArmAngleDeg,
+    this.kneeAngleDeg,
+    this.neckSideBending = false,
+    this.neckTwisting = false,
+    this.trunkSideBending = false,
+    this.trunkTwisting = false,
+    this.upperArmAbduction = false,
+    this.shoulderElevation = false,
+    this.jointFeatures = const [],
+  });
+
+  final int imageIndex;
+  final RebaInputData rebaInput;
+  final int rebaScore;
+  final RiskLevel riskLevel;
+  final double? neckFlexionDeg;
+  final double? trunkFlexionDeg;
+  final double? upperArmFlexionDeg;
+  final double? lowerArmAngleDeg;
+  final double? kneeAngleDeg;
+  final bool neckSideBending;
+  final bool neckTwisting;
+  final bool trunkSideBending;
+  final bool trunkTwisting;
+  final bool upperArmAbduction;
+  final bool shoulderElevation;
+  final List<double> jointFeatures;
+
+  Map<String, Object?> toJson() {
+    return {
+      'imageIndex': imageIndex,
+      'rebaInput': rebaInput.toJson(),
+      'rebaScore': rebaScore,
+      'riskLevel': riskLevel.name,
+      'neckFlexionDeg': neckFlexionDeg,
+      'trunkFlexionDeg': trunkFlexionDeg,
+      'upperArmFlexionDeg': upperArmFlexionDeg,
+      'lowerArmAngleDeg': lowerArmAngleDeg,
+      'kneeAngleDeg': kneeAngleDeg,
+      'neckSideBending': neckSideBending,
+      'neckTwisting': neckTwisting,
+      'trunkSideBending': trunkSideBending,
+      'trunkTwisting': trunkTwisting,
+      'upperArmAbduction': upperArmAbduction,
+      'shoulderElevation': shoulderElevation,
+      'jointFeatures': jointFeatures,
+    };
+  }
+
+  factory PoseRebaFrameAnalysis.fromJson(Map<String, Object?> json) {
+    return PoseRebaFrameAnalysis(
+      imageIndex: _asInt(json['imageIndex'], 1),
+      rebaInput: _inputFromJson(
+        json['rebaInput'],
+        RebaInputData.fromJson,
+        const RebaInputData(),
+      ),
+      rebaScore: _asInt(json['rebaScore'], 1),
+      riskLevel: _riskFromName(json['riskLevel'] as String?),
+      neckFlexionDeg: _nullableDouble(json['neckFlexionDeg']),
+      trunkFlexionDeg: _nullableDouble(json['trunkFlexionDeg']),
+      upperArmFlexionDeg: _nullableDouble(json['upperArmFlexionDeg']),
+      lowerArmAngleDeg: _nullableDouble(json['lowerArmAngleDeg']),
+      kneeAngleDeg: _nullableDouble(json['kneeAngleDeg']),
+      neckSideBending: _asBool(json['neckSideBending']),
+      neckTwisting: _asBool(json['neckTwisting']),
+      trunkSideBending: _asBool(json['trunkSideBending']),
+      trunkTwisting: _asBool(json['trunkTwisting']),
+      upperArmAbduction: _asBool(json['upperArmAbduction']),
+      shoulderElevation: _asBool(json['shoulderElevation']),
+      jointFeatures: (json['jointFeatures'] as List?)
+              ?.map((value) => _asDouble(value, 0))
+              .toList(growable: false) ??
+          const [],
+    );
+  }
+}
+
+class RebaScoreBreakdown {
+  const RebaScoreBreakdown({
+    required this.adjustedTrunkScore,
+    required this.adjustedWristScore,
+    required this.tableAScore,
+    required this.scoreA,
+    required this.tableBScore,
+    required this.scoreB,
+    required this.scoreC,
+    required this.activityScore,
+    required this.finalScore,
+    required this.riskLevel,
+  });
+
+  final int adjustedTrunkScore;
+  final int adjustedWristScore;
+  final int tableAScore;
+  final int scoreA;
+  final int tableBScore;
+  final int scoreB;
+  final int scoreC;
+  final int activityScore;
+  final int finalScore;
+  final RiskLevel riskLevel;
+}
+
 class ErgoResult {
   const ErgoResult({
     required this.riskLevel,
@@ -260,6 +377,8 @@ class AssessmentBreakdown {
     required this.ergoInput,
     this.isoMethod,
     this.isoResult,
+    this.poseFrames = const [],
+    this.worstPoseImageIndex,
   });
 
   final AssessmentMethod primaryMethod;
@@ -268,6 +387,8 @@ class AssessmentBreakdown {
   final ErgoInputData ergoInput;
   final AssessmentMethod? isoMethod;
   final ErgoResult? isoResult;
+  final List<PoseRebaFrameAnalysis> poseFrames;
+  final int? worstPoseImageIndex;
 
   Map<String, Object?> toJson() {
     return {
@@ -277,6 +398,8 @@ class AssessmentBreakdown {
       'ergoInput': ergoInput.toJson(),
       'isoMethod': isoMethod?.name,
       'isoResult': isoResult == null ? null : _resultToJson(isoResult!),
+      'poseFrames': poseFrames.map((frame) => frame.toJson()).toList(),
+      'worstPoseImageIndex': worstPoseImageIndex,
     };
   }
 
@@ -297,6 +420,16 @@ class AssessmentBreakdown {
       isoMethod: _nullableMethodFromName(json['isoMethod'] as String?),
       isoResult:
           json['isoResult'] is Map ? _resultFromJson(json['isoResult']) : null,
+      poseFrames: (json['poseFrames'] as List?)
+              ?.whereType<Map>()
+              .map((item) => PoseRebaFrameAnalysis.fromJson(
+                    Map<String, Object?>.from(item),
+                  ))
+              .toList() ??
+          const [],
+      worstPoseImageIndex: json['worstPoseImageIndex'] is num
+          ? (json['worstPoseImageIndex'] as num).toInt()
+          : null,
     );
   }
 
@@ -351,9 +484,20 @@ double _asDouble(Object? raw, double fallback) {
   return double.tryParse(raw?.toString() ?? '') ?? fallback;
 }
 
+double? _nullableDouble(Object? raw) {
+  if (raw is num) return raw.toDouble();
+  return double.tryParse(raw?.toString() ?? '');
+}
+
 int _asInt(Object? raw, int fallback) {
   if (raw is num) return raw.toInt();
   return int.tryParse(raw?.toString() ?? '') ?? fallback;
+}
+
+bool _asBool(Object? raw) {
+  if (raw is bool) return raw;
+  if (raw is String) return raw.toLowerCase() == 'true';
+  return false;
 }
 
 JobType _jobTypeFromName(String? name) {

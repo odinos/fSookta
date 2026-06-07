@@ -11,6 +11,7 @@ import '../../core/models/evaluation_models.dart';
 import '../../core/services/economic_impact_service.dart';
 import '../../core/services/risk_recommendation_service.dart';
 import '../../core/theme/sookta_theme.dart';
+import '../../widgets/assessment_breakdown_card.dart';
 import '../../widgets/research_disclaimer_card.dart';
 import '../../widgets/responsive_content.dart';
 import '../../widgets/tts_button.dart';
@@ -99,6 +100,12 @@ class _InitialRiskScreenState extends State<InitialRiskScreen> {
             const SizedBox(height: 16),
             _BodyMapCard(
               bodyRisks: before.bodyPartRisks,
+              breakdown: widget.payload.breakdown,
+              thai: thai,
+            ),
+            const SizedBox(height: 16),
+            AssessmentBreakdownCard(
+              breakdown: widget.payload.breakdown,
               thai: thai,
             ),
             const SizedBox(height: 16),
@@ -215,6 +222,11 @@ class _InitialRiskScreenState extends State<InitialRiskScreen> {
         activity: activity,
         riskLevel: result.riskLevel,
       ),
+      ...RiskRecommendationService.bodyMapKeys(
+        bodyPartRisks: result.bodyPartRisks,
+        activity: activity,
+        overallRisk: result.riskLevel,
+      ),
       ...result.suggestionKeys,
     };
     if (keys.isEmpty) keys.add('act_rest_stretch');
@@ -256,6 +268,27 @@ class _InitialRiskScreenState extends State<InitialRiskScreen> {
   }
 
   _ImprovementAction _actionFor(String key) {
+    if (key.startsWith('act_body_neck_')) {
+      return _bodyMapAction(key, {BodyPart.neck});
+    }
+    if (key.startsWith('act_body_trunk_')) {
+      return _bodyMapAction(key, {BodyPart.trunk});
+    }
+    if (key.startsWith('act_body_arms_')) {
+      return _bodyMapAction(key, {BodyPart.arms});
+    }
+    if (key.startsWith('act_body_wrists_')) {
+      return _bodyMapAction(key, {BodyPart.wrists});
+    }
+    if (key.startsWith('act_body_legs_')) {
+      return _bodyMapAction(key, {BodyPart.legs});
+    }
+    if (key.startsWith('act_body_manual_')) {
+      return _bodyMapAction(
+        key,
+        {BodyPart.trunk, BodyPart.arms, BodyPart.wrists, BodyPart.legs},
+      );
+    }
     if (key.startsWith('act_ref_weight_')) {
       return const _ImprovementAction(
         scoreReduction: 2,
@@ -468,6 +501,15 @@ class _InitialRiskScreenState extends State<InitialRiskScreen> {
           },
         ),
     };
+  }
+
+  _ImprovementAction _bodyMapAction(String key, Set<BodyPart> bodyParts) {
+    final reduction =
+        key.endsWith('_very_high') || key.endsWith('_high') ? 2 : 1;
+    return _ImprovementAction(
+      scoreReduction: reduction,
+      bodyParts: bodyParts,
+    );
   }
 
   RiskLevel _riskFromUserScore(int score) {
@@ -976,10 +1018,12 @@ class _ImpactRow extends StatelessWidget {
 class _BodyMapCard extends StatelessWidget {
   const _BodyMapCard({
     required this.bodyRisks,
+    required this.breakdown,
     required this.thai,
   });
 
   final Map<BodyPart, RiskLevel> bodyRisks;
+  final AssessmentBreakdown? breakdown;
   final bool thai;
 
   @override
@@ -1012,17 +1056,44 @@ class _BodyMapCard extends StatelessWidget {
               },
             ),
             const SizedBox(height: 12),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: parts.map((part) {
-                final risk = bodyRisks[part] ?? RiskLevel.low;
-                return Chip(
-                  avatar: CircleAvatar(backgroundColor: Color(risk.colorHex)),
-                  label: Text('${_partLabel(part, thai)}: ${_shortRisk(risk)}'),
-                );
-              }).toList(),
-            ),
+            ...parts.map((part) {
+              final risk = bodyRisks[part] ?? RiskLevel.low;
+              final reasons =
+                  assessmentBodyRiskReasons(breakdown, thai)[part] ?? const [];
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.only(top: 5),
+                      child: CircleAvatar(
+                        radius: 7,
+                        backgroundColor: Color(risk.colorHex),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                              '${_partLabel(part, thai)}: ${_shortRisk(risk)}'),
+                          if (risk != RiskLevel.low && reasons.isNotEmpty)
+                            Text(
+                              '${thai ? 'สาเหตุ' : 'Reason'}: ${reasons.take(2).join(', ')}',
+                              style: const TextStyle(
+                                color: Colors.black54,
+                                fontSize: 12,
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
           ],
         ),
       ),

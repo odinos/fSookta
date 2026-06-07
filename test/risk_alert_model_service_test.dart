@@ -1,3 +1,8 @@
+// ignore_for_file: deprecated_member_use_from_same_package
+
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fsookta/core/models/evaluation_models.dart';
 import 'package:fsookta/core/services/ergo_calculator.dart';
@@ -6,9 +11,10 @@ import 'package:fsookta/core/services/risk_alert_model_service.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  test('loads baseline Logistic Regression and XGBoost risk alert model',
+  test(
+      'loads legacy in-memory Logistic Regression and XGBoost risk alert model',
       () async {
-    final model = await RiskAlertModelService.load();
+    final model = _loadLegacyModel();
     const rebaInput = RebaInputData(
       dailyIncome: 500,
       trunkScore: 4,
@@ -42,7 +48,7 @@ void main() {
   });
 
   test('push/pull force contributes to feature importance', () async {
-    final model = await RiskAlertModelService.load();
+    final model = _loadLegacyModel();
     const ergoInput = ErgoInputData(
       jobType: JobType.pushPull,
       initialForce: 40,
@@ -65,7 +71,7 @@ void main() {
   });
 
   test('REBA twist process fields contribute to risk alert features', () async {
-    final model = await RiskAlertModelService.load();
+    final model = _loadLegacyModel();
     const rebaInput = RebaInputData(
       trunkScore: 2,
       trunkTwist: true,
@@ -96,4 +102,11 @@ void main() {
       ),
     );
   });
+}
+
+RiskAlertModelService _loadLegacyModel() {
+  final json = jsonDecode(
+    File('assets/ml/risk_alert_models.json').readAsStringSync(),
+  ) as Map<String, Object?>;
+  return RiskAlertModelService.fromJson(json);
 }

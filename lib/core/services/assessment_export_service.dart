@@ -7,6 +7,7 @@ import '../models/assessment_session.dart';
 import '../models/economic_impact_models.dart';
 import '../models/evaluation_models.dart';
 import 'economic_impact_service.dart';
+import 'ergo_calculator.dart';
 
 class AssessmentExportService {
   const AssessmentExportService._();
@@ -317,6 +318,7 @@ class AssessmentExportService {
         'Manual Handling Distance (m)',
         'Frequency per hour',
         'Duration (minutes)',
+        'Work days per week',
         'MSD Symptom Location',
         'MSD Symptom Severity',
         'Medical Cost (THB)',
@@ -405,6 +407,10 @@ class AssessmentExportService {
         'Duration (minutes)',
         ergoInput == null ? '-' : _num(ergoInput.durationHours * 60),
       ],
+      [
+        thai ? 'Work days per week' : 'Work days per week',
+        ergoInput == null ? '-' : _num(ergoInput.workDaysPerWeek),
+      ],
       ['MSD Symptom Location', riskLocation],
       ['MSD Symptom Severity', symptomSeverity],
       ['Medical Cost (THB)', medicalCost],
@@ -454,6 +460,7 @@ class AssessmentExportService {
       ergoInput?.transportDistance ?? '-',
       ergoInput == null ? '-' : _num(ergoInput.liftFrequency * 60),
       ergoInput == null ? '-' : _num(ergoInput.durationHours * 60),
+      ergoInput == null ? '-' : _num(ergoInput.workDaysPerWeek),
       _bodyPartList(record.bodyPartRisks, thai),
       _risk(highestRisk, thai),
       medicalCost,
@@ -518,6 +525,8 @@ class AssessmentExportService {
       ],
     ];
 
+    final rebaScoreBreakdown =
+        ErgoCalculator.calculateRebaScoreBreakdown(breakdown.rebaInput);
     final isoMethod = breakdown.isoMethod;
     final isoResult = breakdown.isoResult;
     if (isoMethod != null && isoResult != null) {
@@ -578,6 +587,75 @@ class AssessmentExportService {
         breakdown.rebaInput.activityScore
       ],
       [],
+      [thai ? 'ตารางคะแนน REBA' : 'REBA score tables'],
+      [thai ? 'รายการ' : 'Field', thai ? 'ค่า' : 'Value'],
+      ['Table A', rebaScoreBreakdown.tableAScore],
+      ['Score A', rebaScoreBreakdown.scoreA],
+      ['Table B', rebaScoreBreakdown.tableBScore],
+      ['Score B', rebaScoreBreakdown.scoreB],
+      ['Score C', rebaScoreBreakdown.scoreC],
+      [
+        thai ? 'Activity Score' : 'Activity Score',
+        rebaScoreBreakdown.activityScore,
+      ],
+      ['Final REBA', rebaScoreBreakdown.finalScore],
+      [
+        thai ? 'ระดับ REBA' : 'REBA risk level',
+        _risk(rebaScoreBreakdown.riskLevel, thai),
+      ],
+      [],
+      [thai ? 'เกณฑ์ REBA ที่ใช้' : 'REBA criteria used'],
+      [
+        thai ? 'ลำตัว' : 'Trunk',
+        thai
+            ? '0-5°=1, 5-20°=2, 20-60°=3, >60°=4'
+            : '0-5°=1, 5-20°=2, 20-60°=3, >60°=4',
+      ],
+      [
+        thai ? 'คอ' : 'Neck',
+        thai
+            ? '<=20°=1, >20°=2, เพิ่มเมื่อบิด/เอียง'
+            : '<=20°=1, >20°=2, plus twist/side-bend modifier',
+      ],
+      [
+        thai ? 'ต้นแขน' : 'Upper arm',
+        thai
+            ? '<=20°=1, 20-45°=2, 45-90°=3, >90°=4'
+            : '<=20°=1, 20-45°=2, 45-90°=3, >90°=4',
+      ],
+      [
+        thai ? 'ปลายแขน/ขา' : 'Lower arm/legs',
+        thai
+            ? 'ปลายแขน 60-100°=1 นอกช่วง=2; ขาไม่สมดุล/งอมาก=2'
+            : 'Lower arm 60-100°=1 outside=2; non-neutral legs=2',
+      ],
+      if (breakdown.poseFrames.isNotEmpty) ...[
+        [],
+        [thai ? 'ผลวิเคราะห์รายภาพ' : 'Per-photo posture analysis'],
+        [
+          thai ? 'ภาพ' : 'Photo',
+          'Neck flexion',
+          'Trunk flexion',
+          'Upper arm',
+          'Lower arm',
+          'Knee',
+          'REBA',
+          'Worst posture',
+        ],
+        ...breakdown.poseFrames.map(
+          (frame) => [
+            frame.imageIndex,
+            _angle(frame.neckFlexionDeg),
+            _angle(frame.trunkFlexionDeg),
+            _angle(frame.upperArmFlexionDeg),
+            _angle(frame.lowerArmAngleDeg),
+            _angle(frame.kneeAngleDeg),
+            frame.rebaScore,
+            _yesNo(frame.imageIndex == breakdown.worstPoseImageIndex, thai),
+          ],
+        ),
+      ],
+      [],
       [thai ? 'ข้อมูลย่อย ISO11228' : 'ISO11228 component inputs'],
       [thai ? 'รายการ' : 'Field', thai ? 'ค่า' : 'Value'],
       [thai ? 'ประเภทงาน' : 'Job type', breakdown.ergoInput.jobType.name],
@@ -600,6 +678,10 @@ class AssessmentExportService {
       [
         thai ? 'ระยะเวลาทำงาน (ชม.)' : 'Duration (hours)',
         breakdown.ergoInput.durationHours
+      ],
+      [
+        thai ? 'วันทำงานต่อสัปดาห์' : 'Work days per week',
+        breakdown.ergoInput.workDaysPerWeek,
       ],
       [
         thai ? 'ระยะทางขนย้าย (ม.)' : 'Transport distance (m)',
@@ -644,6 +726,11 @@ class AssessmentExportService {
   static Object _num(double value) {
     if (value == value.roundToDouble()) return value.round();
     return value.toStringAsFixed(2);
+  }
+
+  static Object _angle(double? value) {
+    if (value == null || value.isNaN) return '-';
+    return '${value.round()}°';
   }
 
   static String _dateOnly(DateTime dateTime) {

@@ -13,6 +13,7 @@ import '../../core/services/daily_injury_prediction_service.dart';
 import '../../core/services/economic_impact_service.dart';
 import '../../core/services/firebase_telemetry_service.dart';
 import '../../core/theme/sookta_theme.dart';
+import '../../widgets/assessment_breakdown_card.dart';
 import '../../widgets/body_risk_map_card.dart';
 import '../../widgets/research_disclaimer_card.dart';
 import '../../widgets/responsive_content.dart';
@@ -251,6 +252,15 @@ class _FinalResultScreenState extends State<FinalResultScreen> {
               bodyRisks: before.bodyPartRisks,
               thai: thai,
               title: thai ? 'จุดเสี่ยงที่พบ' : 'Risky Points',
+              bodyRiskReasons: assessmentBodyRiskReasons(
+                widget.bundle.breakdown,
+                thai,
+              ),
+            ),
+            const SizedBox(height: 16),
+            AssessmentBreakdownCard(
+              breakdown: widget.bundle.breakdown,
+              thai: thai,
             ),
             const SizedBox(height: 16),
             Card(

@@ -6,6 +6,10 @@ import 'package:flutter/services.dart';
 
 import '../models/evaluation_models.dart';
 
+@Deprecated(
+  'Legacy prototype ensemble. Posture assessment now uses XGBoostOnnxPredictor, '
+  'and Logistic Regression is reserved for DailyInjuryPredictionService.',
+)
 class RiskAlertModelService {
   RiskAlertModelService._(this._model);
 
