@@ -29,9 +29,11 @@
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<key>NSCameraUsageDescription</key>
-	<string>Sookta uses the camera to capture posture photos for ergonomic risk assessment.</string>
+	<string>Sookta uses the camera to capture short posture photos and videos for ergonomic risk assessment.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Sookta may use the microphone only when the system camera records a short posture video. Audio is not used for ergonomic assessment.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Sookta uses your photo library so you can choose posture photos for ergonomic risk assessment.</string>
+	<string>Sookta uses your photo library so you can choose posture photos or short videos for ergonomic risk assessment.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>Sookta may save captured photos you choose to keep in your library.</string>
 	<key>UIApplicationSceneManifest</key>

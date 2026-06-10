@@ -38,6 +38,7 @@ void main() {
       dateTime: DateTime(2026, 6, 7),
       poseFrame: PoseRebaFrameAnalysis(
         imageIndex: 1,
+        timestampMs: 1200,
         rebaInput: const RebaInputData(trunkScore: 4, neckScore: 2),
         rebaScore: 9,
         riskLevel: RiskLevel.veryHigh,
@@ -59,6 +60,13 @@ void main() {
     expect(csv, contains('training_reba_score'));
     expect(csv, contains('app_history_record:10/image:1'));
     expect(csv, contains('app_pseudo_label_pending_research_review'));
+    expect(csv, contains('video_motion_pattern'));
+    expect(csv, contains('video_any_segment_risk_frame_ratio'));
+    expect(csv, contains('video_trunk_risk_frame_ratio'));
+    expect(csv, contains('upper_arm'));
+    expect(csv, contains('video_camera'));
+    expect(csv, contains('staticHighRiskHold'));
+    expect(csv, contains('1200'));
   });
 }
 
@@ -107,6 +115,41 @@ EvaluationHistoryRecord _record({
       ergoInput: const ErgoInputData(jobType: JobType.reba),
       poseFrames: poseFrame == null ? const [] : [poseFrame],
       worstPoseImageIndex: poseFrame?.imageIndex,
+      motionSummary: poseFrame == null
+          ? null
+          : const MotionAnalysisSummary(
+              sourceKind: 'video_camera',
+              durationMs: 9600,
+              sampledFrameCount: 8,
+              readableFrameCount: 8,
+              sampleRateFps: 0.83,
+              highRiskFrameCount: 6,
+              highRiskFrameRatio: 0.75,
+              deepTrunkFlexionFrameCount: 5,
+              deepTrunkFlexionRatio: 0.625,
+              estimatedHighRiskSeconds: 7.2,
+              estimatedDeepTrunkSeconds: 6,
+              movementChangeCount: 3,
+              pattern: MotionPattern.staticHighRiskHold,
+              anySegmentRiskFrameCount: 7,
+              anySegmentRiskFrameRatio: 0.875,
+              estimatedSegmentRiskSeconds: 8.4,
+              neckRiskFrameCount: 3,
+              neckRiskFrameRatio: 0.375,
+              trunkRiskFrameCount: 6,
+              trunkRiskFrameRatio: 0.75,
+              upperArmRiskFrameCount: 7,
+              upperArmRiskFrameRatio: 0.875,
+              lowerArmRiskFrameCount: 1,
+              lowerArmRiskFrameRatio: 0.125,
+              wristRiskFrameCount: 2,
+              wristRiskFrameRatio: 0.25,
+              legRiskFrameCount: 2,
+              legRiskFrameRatio: 0.25,
+              dominantRiskBodyPart: 'upper_arm',
+              maxTrunkFlexionDeg: 68,
+              avgTrunkFlexionDeg: 51,
+            ),
     ),
   );
 }

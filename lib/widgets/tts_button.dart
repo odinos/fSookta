@@ -21,8 +21,10 @@ class SooktaTtsButton extends StatefulWidget {
 }
 
 class _SooktaTtsButtonState extends State<SooktaTtsButton> {
-  static const _thaiRate = 0.36;
-  static const _englishRate = 0.42;
+  // Keep the rate close to the engine's natural voice. Very slow speech can make
+  // some Thai/Android voices sound stretched or robotic.
+  static const _thaiRate = 0.43;
+  static const _englishRate = 0.46;
 
   late final FlutterTts _tts;
   late Future<void> _configured;
@@ -42,17 +44,25 @@ class _SooktaTtsButtonState extends State<SooktaTtsButton> {
         IosTextToSpeechAudioCategory.playback,
         [
           IosTextToSpeechAudioCategoryOptions.duckOthers,
+          IosTextToSpeechAudioCategoryOptions
+              .interruptSpokenAudioAndMixWithOthers,
         ],
-        IosTextToSpeechAudioMode.spokenAudio,
+        IosTextToSpeechAudioMode.voicePrompt,
       );
       await _tts.autoStopSharedSession(false);
       _debug('iOS audio shared=$sharedResult category=$categoryResult');
+    } else if (Platform.isAndroid) {
+      await _tryTtsCall('setQueueMode', () => _tts.setQueueMode(0));
+      await _tryTtsCall(
+        'setAudioAttributesForNavigation',
+        _tts.setAudioAttributesForNavigation,
+      );
     }
     final volumeResult = await _tts.setVolume(1.0);
     final languageResult = await _configureVoice();
     _debug('volume=$volumeResult voiceOrLanguage=$languageResult');
     await _tts.setSpeechRate(widget.thai ? _thaiRate : _englishRate);
-    await _tts.setPitch(widget.thai ? 0.96 : 0.98);
+    await _tts.setPitch(1.0);
     await _tts.awaitSpeakCompletion(true);
     _tts.setStartHandler(() {
       _debug('start speaking');
@@ -74,14 +84,17 @@ class _SooktaTtsButtonState extends State<SooktaTtsButton> {
 
   Future<dynamic> _configureVoice() async {
     final desiredLocale = widget.thai ? 'th-TH' : 'en-US';
-    if (Platform.isIOS) {
-      final voices = await _tts.getVoices;
-      final voice = _bestVoiceForLocale(voices, desiredLocale);
-      _debug('available voices=${voices is List ? voices.length : 'unknown'} '
-          'desired=$desiredLocale selected=$voice');
-      if (voice != null) {
-        return _tts.setVoice(voice);
-      }
+    final voices =
+        await _tryTtsCall<dynamic>('getVoices', () => _tts.getVoices);
+    final voice = _bestVoiceForLocale(voices, desiredLocale);
+    _debug('available voices=${voices is List ? voices.length : 'unknown'} '
+        'desired=$desiredLocale selected=$voice');
+    if (voice != null) {
+      final result = await _tryTtsCall<dynamic>(
+        'setVoice',
+        () => _tts.setVoice(voice),
+      );
+      if (result == 1 || result == true) return result;
     }
     final available = await _tts.isLanguageAvailable(desiredLocale);
     _debug('language $desiredLocale available=$available');
@@ -97,28 +110,67 @@ class _SooktaTtsButtonState extends State<SooktaTtsButton> {
           voiceLocale?.startsWith(normalizedLocale.split('-').first) == true;
     }).toList();
     if (matching.isEmpty) return null;
-    matching.sort((a, b) => _voiceRank(b).compareTo(_voiceRank(a)));
-    return matching.first.map(
-      (key, value) => MapEntry(key.toString(), value.toString()),
+    matching.sort(
+      (a, b) => _voiceRank(b, normalizedLocale)
+          .compareTo(_voiceRank(a, normalizedLocale)),
     );
+    final selected = matching.first;
+    final name = selected['name']?.toString();
+    final voiceLocale = selected['locale']?.toString();
+    if (name == null || voiceLocale == null) return null;
+    return {
+      'name': name,
+      'locale': voiceLocale,
+      if (selected['identifier'] != null)
+        'identifier': selected['identifier'].toString(),
+    };
   }
 
-  int _voiceRank(Map<dynamic, dynamic> voice) {
-    final quality = voice['quality']?.toString() ?? '';
+  int _voiceRank(Map<dynamic, dynamic> voice, String desiredLocale) {
+    final quality = voice['quality']?.toString().toLowerCase() ?? '';
+    final locale = voice['locale']?.toString().toLowerCase() ?? '';
     final name = voice['name']?.toString().toLowerCase() ?? '';
-    var rank = _qualityRank(quality) * 10;
-    if (name.contains('premium')) rank += 5;
-    if (name.contains('enhanced')) rank += 4;
-    if (name.contains('siri')) rank += 3;
-    if (name.contains('compact')) rank -= 3;
+    final networkRequired =
+        voice['network_required']?.toString().toLowerCase() == '1' ||
+            voice['networkConnectionRequired']?.toString().toLowerCase() ==
+                'true';
+    final features = voice['features']?.toString().toLowerCase() ?? '';
+    var rank = _qualityRank(quality) * 100;
+    if (locale == desiredLocale) rank += 80;
+    if (name.contains('premium')) rank += 35;
+    if (name.contains('enhanced')) rank += 28;
+    if (name.contains('siri')) rank += 18;
+    if (name.contains('neural')) rank += 16;
+    if (name.contains('wavenet')) rank += 14;
+    if (name.contains('natural')) rank += 12;
+    if (features.contains('embedded')) rank += 8;
+    if (networkRequired) rank -= 12;
+    if (name.contains('compact')) rank -= 30;
+    if (quality.contains('low')) rank -= 40;
     return rank;
   }
 
   int _qualityRank(String quality) {
     final lower = quality.toLowerCase();
-    if (lower.contains('premium')) return 3;
-    if (lower.contains('enhanced')) return 2;
+    if (lower.contains('very high')) return 5;
+    if (lower.contains('premium')) return 5;
+    if (lower.contains('high')) return 4;
+    if (lower.contains('enhanced')) return 4;
+    if (lower.contains('normal')) return 3;
+    if (lower.contains('low')) return 1;
     return 1;
+  }
+
+  Future<T?> _tryTtsCall<T>(
+    String label,
+    Future<T> Function() call,
+  ) async {
+    try {
+      return await call();
+    } catch (error) {
+      _debug('$label skipped: $error');
+      return null;
+    }
   }
 
   @override

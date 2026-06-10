@@ -52,6 +52,50 @@ void main() {
           ),
           rebaResult: before,
           ergoInput: ErgoInputData(jobType: JobType.reba),
+          poseFrames: [
+            PoseRebaFrameAnalysis(
+              imageIndex: 1,
+              timestampMs: 1200,
+              rebaInput: RebaInputData(trunkScore: 4, neckScore: 2),
+              rebaScore: 8,
+              riskLevel: RiskLevel.high,
+              trunkFlexionDeg: 66,
+            ),
+          ],
+          worstPoseImageIndex: 1,
+          motionSummary: MotionAnalysisSummary(
+            sourceKind: 'video_gallery',
+            durationMs: 9000,
+            sampledFrameCount: 8,
+            readableFrameCount: 8,
+            sampleRateFps: 0.89,
+            highRiskFrameCount: 5,
+            highRiskFrameRatio: 0.625,
+            deepTrunkFlexionFrameCount: 4,
+            deepTrunkFlexionRatio: 0.5,
+            estimatedHighRiskSeconds: 5.625,
+            estimatedDeepTrunkSeconds: 4.5,
+            movementChangeCount: 2,
+            pattern: MotionPattern.repeatedRiskMovement,
+            anySegmentRiskFrameCount: 6,
+            anySegmentRiskFrameRatio: 0.75,
+            estimatedSegmentRiskSeconds: 6.75,
+            neckRiskFrameCount: 2,
+            neckRiskFrameRatio: 0.25,
+            trunkRiskFrameCount: 6,
+            trunkRiskFrameRatio: 0.75,
+            upperArmRiskFrameCount: 3,
+            upperArmRiskFrameRatio: 0.375,
+            lowerArmRiskFrameCount: 1,
+            lowerArmRiskFrameRatio: 0.125,
+            wristRiskFrameCount: 1,
+            wristRiskFrameRatio: 0.125,
+            legRiskFrameCount: 2,
+            legRiskFrameRatio: 0.25,
+            dominantRiskBodyPart: 'trunk',
+            maxTrunkFlexionDeg: 66,
+            avgTrunkFlexionDeg: 44,
+          ),
         ),
       ),
       profile: const UserProfile(
@@ -94,6 +138,12 @@ void main() {
     expect(csv, contains('Productivity Loss (THB)'));
     expect(csv, contains('ค่าพบแพทย์/คลินิก'));
     expect(csv, contains('รายละเอียดการประเมิน REBA/ISO11228'));
+    expect(csv, contains('สรุปการเคลื่อนไหวจากวิดีโอ'));
+    expect(csv, contains('video_gallery'));
+    expect(csv, contains('ส่วนร่างกายเด่น'));
+    expect(csv, contains('ลำตัว/หลัง'));
+    expect(csv, contains('สัดส่วนต้นแขนเสี่ยง'));
+    expect(csv, contains('Timestamp (ms)'));
     expect(csv, contains('ข้อมูลย่อย REBA'));
     expect(csv, contains('ข้อมูลย่อย ISO11228'));
     expect(csv, contains('หลีกเลี่ยงการก้มหลังค้างนาน'));

@@ -629,6 +629,104 @@ class AssessmentExportService {
             ? 'ปลายแขน 60-100°=1 นอกช่วง=2; ขาไม่สมดุล/งอมาก=2'
             : 'Lower arm 60-100°=1 outside=2; non-neutral legs=2',
       ],
+      if (breakdown.motionSummary != null &&
+          breakdown.motionSummary!.isVideo) ...[
+        [],
+        [thai ? 'สรุปการเคลื่อนไหวจากวิดีโอ' : 'Video-derived motion summary'],
+        [thai ? 'รายการ' : 'Field', thai ? 'ค่า' : 'Value'],
+        [
+          thai ? 'แหล่งวิดีโอ' : 'Video source',
+          breakdown.motionSummary!.sourceKind,
+        ],
+        [
+          thai ? 'ความยาววิดีโอ (วินาที)' : 'Video duration (seconds)',
+          _num(breakdown.motionSummary!.durationMs / 1000),
+        ],
+        [
+          thai ? 'เฟรมที่สุ่ม' : 'Sampled frames',
+          breakdown.motionSummary!.sampledFrameCount,
+        ],
+        [
+          thai ? 'เฟรมที่อ่านท่าทางได้' : 'Readable frames',
+          breakdown.motionSummary!.readableFrameCount,
+        ],
+        [
+          thai ? 'อัตราเฟรมเสี่ยงสูง' : 'High-risk frame ratio',
+          _percent(breakdown.motionSummary!.highRiskFrameRatio),
+        ],
+        [
+          thai ? 'อัตราเฟรมที่มีส่วนร่างกายเสี่ยง' : 'Segment-risk frame ratio',
+          _percent(breakdown.motionSummary!.anySegmentRiskFrameRatio),
+        ],
+        [
+          thai ? 'ส่วนร่างกายเด่น' : 'Dominant body segment',
+          _bodySegment(breakdown.motionSummary!.dominantRiskBodyPart, thai),
+        ],
+        [
+          thai
+              ? 'เวลาช่วงเสี่ยงรายส่วนโดยประมาณ (วินาที)'
+              : 'Estimated segment-risk time (s)',
+          _num(breakdown.motionSummary!.estimatedSegmentRiskSeconds),
+        ],
+        [
+          thai
+              ? 'อัตราเฟรมก้มลำตัวลึก (metric เสริม)'
+              : 'Deep-trunk-flexion frame ratio (supporting metric)',
+          _percent(breakdown.motionSummary!.deepTrunkFlexionRatio),
+        ],
+        [
+          thai
+              ? 'เวลาช่วงเสี่ยงรวมโดยประมาณ (วินาที)'
+              : 'Estimated high-risk time (s)',
+          _num(breakdown.motionSummary!.estimatedHighRiskSeconds),
+        ],
+        [
+          thai
+              ? 'เวลาก้มลำตัวลึกโดยประมาณ (วินาที)'
+              : 'Estimated deep-trunk time (s)',
+          _num(breakdown.motionSummary!.estimatedDeepTrunkSeconds),
+        ],
+        [
+          thai ? 'จำนวนครั้งที่ท่าเปลี่ยนชัดเจน' : 'Clear posture changes',
+          breakdown.motionSummary!.movementChangeCount,
+        ],
+        [
+          thai ? 'รูปแบบการเคลื่อนไหว' : 'Motion pattern',
+          _motionPattern(breakdown.motionSummary!.pattern, thai),
+        ],
+        [
+          thai ? 'สัดส่วนคอเสี่ยง' : 'Neck-risk frame ratio',
+          _percent(breakdown.motionSummary!.neckRiskFrameRatio),
+        ],
+        [
+          thai ? 'สัดส่วนลำตัวเสี่ยง' : 'Trunk-risk frame ratio',
+          _percent(breakdown.motionSummary!.trunkRiskFrameRatio),
+        ],
+        [
+          thai ? 'สัดส่วนต้นแขนเสี่ยง' : 'Upper-arm-risk frame ratio',
+          _percent(breakdown.motionSummary!.upperArmRiskFrameRatio),
+        ],
+        [
+          thai ? 'สัดส่วนปลายแขนเสี่ยง' : 'Lower-arm-risk frame ratio',
+          _percent(breakdown.motionSummary!.lowerArmRiskFrameRatio),
+        ],
+        [
+          thai ? 'สัดส่วนข้อมือเสี่ยง' : 'Wrist-risk frame ratio',
+          _percent(breakdown.motionSummary!.wristRiskFrameRatio),
+        ],
+        [
+          thai ? 'สัดส่วนขา/เข่าเสี่ยง' : 'Leg-risk frame ratio',
+          _percent(breakdown.motionSummary!.legRiskFrameRatio),
+        ],
+        [
+          thai ? 'มุมลำตัวสูงสุด' : 'Max trunk flexion',
+          _angle(breakdown.motionSummary!.maxTrunkFlexionDeg),
+        ],
+        [
+          thai ? 'มุมลำตัวเฉลี่ย' : 'Avg trunk flexion',
+          _angle(breakdown.motionSummary!.avgTrunkFlexionDeg),
+        ],
+      ],
       if (breakdown.poseFrames.isNotEmpty) ...[
         [],
         [thai ? 'ผลวิเคราะห์รายภาพ' : 'Per-photo posture analysis'],
@@ -639,6 +737,7 @@ class AssessmentExportService {
           'Upper arm',
           'Lower arm',
           'Knee',
+          'Timestamp (ms)',
           'REBA',
           'Worst posture',
         ],
@@ -650,6 +749,7 @@ class AssessmentExportService {
             _angle(frame.upperArmFlexionDeg),
             _angle(frame.lowerArmAngleDeg),
             _angle(frame.kneeAngleDeg),
+            frame.timestampMs ?? '-',
             frame.rebaScore,
             _yesNo(frame.imageIndex == breakdown.worstPoseImageIndex, thai),
           ],
@@ -731,6 +831,49 @@ class AssessmentExportService {
   static Object _angle(double? value) {
     if (value == null || value.isNaN) return '-';
     return '${value.round()}°';
+  }
+
+  static String _percent(double ratio) => '${(ratio * 100).round()}%';
+
+  static String _motionPattern(MotionPattern pattern, bool thai) {
+    if (thai) {
+      return switch (pattern) {
+        MotionPattern.stableLowRisk => 'ท่าทางค่อนข้างคงที่และเสี่ยงต่ำ',
+        MotionPattern.intermittentWorstPosture => 'มีช่วงท่าเสี่ยงเป็นบางจุด',
+        MotionPattern.repeatedRiskMovement => 'มีการเคลื่อนไหวเสี่ยงซ้ำ',
+        MotionPattern.staticHighRiskHold => 'ค้างท่าเสี่ยงสูงหลายช่วง',
+      };
+    }
+    return switch (pattern) {
+      MotionPattern.stableLowRisk => 'stable lower-risk posture',
+      MotionPattern.intermittentWorstPosture => 'intermittent worst posture',
+      MotionPattern.repeatedRiskMovement => 'repeated risk movement',
+      MotionPattern.staticHighRiskHold => 'static high-risk hold',
+    };
+  }
+
+  static String _bodySegment(String? key, bool thai) {
+    if (key == null) return thai ? 'ไม่พบส่วนเด่น' : 'none';
+    if (thai) {
+      return switch (key) {
+        'neck' => 'คอ',
+        'trunk' => 'ลำตัว/หลัง',
+        'upper_arm' => 'ต้นแขน/ไหล่',
+        'lower_arm' => 'ปลายแขน',
+        'wrist' => 'ข้อมือ',
+        'legs' => 'ขา/เข่า',
+        _ => key,
+      };
+    }
+    return switch (key) {
+      'neck' => 'neck',
+      'trunk' => 'trunk/back',
+      'upper_arm' => 'upper arm/shoulder',
+      'lower_arm' => 'lower arm',
+      'wrist' => 'wrist',
+      'legs' => 'legs/knees',
+      _ => key,
+    };
   }
 
   static String _dateOnly(DateTime dateTime) {

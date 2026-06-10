@@ -51,6 +51,62 @@ class AssessmentBreakdownCard extends StatelessWidget {
               style: const TextStyle(color: Colors.black54),
             ),
             const SizedBox(height: 12),
+            if (data.motionSummary != null && data.motionSummary!.isVideo) ...[
+              _SectionTitle(thai
+                  ? 'สรุปการเคลื่อนไหวจากวิดีโอ'
+                  : 'Video-derived motion summary'),
+              _DetailRow(
+                label: thai ? 'ความยาววิดีโอ' : 'Video duration',
+                value:
+                    '${(data.motionSummary!.durationMs / 1000).toStringAsFixed(1)}s',
+              ),
+              _DetailRow(
+                label: thai ? 'เฟรมที่อ่านได้' : 'Readable frames',
+                value:
+                    '${data.motionSummary!.readableFrameCount}/${data.motionSummary!.sampledFrameCount}',
+              ),
+              _DetailRow(
+                label: thai ? 'เฟรมเสี่ยงสูง' : 'High-risk frames',
+                value: _percent(data.motionSummary!.highRiskFrameRatio),
+              ),
+              _DetailRow(
+                label:
+                    thai ? 'เฟรมที่มีส่วนร่างกายเสี่ยง' : 'Segment-risk frames',
+                value: _percent(data.motionSummary!.anySegmentRiskFrameRatio),
+              ),
+              _DetailRow(
+                label: thai ? 'ส่วนร่างกายเด่น' : 'Dominant body segment',
+                value: _bodyPartLabel(
+                  data.motionSummary!.dominantRiskBodyPart,
+                  thai,
+                ),
+              ),
+              _DetailRow(
+                label: thai
+                    ? 'เวลาช่วงเสี่ยงรายส่วนโดยประมาณ'
+                    : 'Estimated segment-risk time',
+                value:
+                    '${data.motionSummary!.estimatedSegmentRiskSeconds.toStringAsFixed(1)}s',
+              ),
+              _DetailRow(
+                label: thai
+                    ? 'เวลาช่วงเสี่ยงรวมโดยประมาณ'
+                    : 'Estimated high-risk time',
+                value:
+                    '${data.motionSummary!.estimatedHighRiskSeconds.toStringAsFixed(1)}s',
+              ),
+              _DetailRow(
+                label: thai ? 'รูปแบบการเคลื่อนไหว' : 'Motion pattern',
+                value: _motionPatternLabel(data.motionSummary!.pattern, thai),
+              ),
+              _DetailRow(
+                label: thai ? 'สัดส่วนรายส่วน' : 'Segment ratios',
+                value: thai
+                    ? 'คอ ${_percent(data.motionSummary!.neckRiskFrameRatio)}, ลำตัว ${_percent(data.motionSummary!.trunkRiskFrameRatio)}, ต้นแขน ${_percent(data.motionSummary!.upperArmRiskFrameRatio)}, ปลายแขน ${_percent(data.motionSummary!.lowerArmRiskFrameRatio)}, ข้อมือ ${_percent(data.motionSummary!.wristRiskFrameRatio)}, ขา ${_percent(data.motionSummary!.legRiskFrameRatio)}'
+                    : 'neck ${_percent(data.motionSummary!.neckRiskFrameRatio)}, trunk ${_percent(data.motionSummary!.trunkRiskFrameRatio)}, upper arm ${_percent(data.motionSummary!.upperArmRiskFrameRatio)}, lower arm ${_percent(data.motionSummary!.lowerArmRiskFrameRatio)}, wrist ${_percent(data.motionSummary!.wristRiskFrameRatio)}, legs ${_percent(data.motionSummary!.legRiskFrameRatio)}',
+              ),
+              const SizedBox(height: 10),
+            ],
             if (data.poseFrames.isNotEmpty) ...[
               _SectionTitle(thai ? 'ภาพที่ใช้ประเมิน' : 'Photo analysis'),
               ...data.poseFrames.map(
@@ -339,4 +395,47 @@ String _deg(double? value) {
 String _num(double value) {
   if (value == value.roundToDouble()) return value.round().toString();
   return value.toStringAsFixed(1);
+}
+
+String _percent(double ratio) => '${(ratio * 100).round()}%';
+
+String _motionPatternLabel(MotionPattern pattern, bool thai) {
+  if (thai) {
+    return switch (pattern) {
+      MotionPattern.stableLowRisk => 'ท่าทางค่อนข้างคงที่และเสี่ยงต่ำ',
+      MotionPattern.intermittentWorstPosture => 'มีช่วงท่าเสี่ยงเป็นบางจุด',
+      MotionPattern.repeatedRiskMovement => 'มีการเคลื่อนไหวเสี่ยงซ้ำ',
+      MotionPattern.staticHighRiskHold => 'ค้างท่าเสี่ยงสูงหลายช่วง',
+    };
+  }
+  return switch (pattern) {
+    MotionPattern.stableLowRisk => 'stable lower-risk posture',
+    MotionPattern.intermittentWorstPosture => 'intermittent worst posture',
+    MotionPattern.repeatedRiskMovement => 'repeated risk movement',
+    MotionPattern.staticHighRiskHold => 'static high-risk hold',
+  };
+}
+
+String _bodyPartLabel(String? key, bool thai) {
+  if (key == null) return thai ? 'ไม่พบส่วนเด่น' : 'none';
+  if (thai) {
+    return switch (key) {
+      'neck' => 'คอ',
+      'trunk' => 'ลำตัว/หลัง',
+      'upper_arm' => 'ต้นแขน/ไหล่',
+      'lower_arm' => 'ปลายแขน',
+      'wrist' => 'ข้อมือ',
+      'legs' => 'ขา/เข่า',
+      _ => key,
+    };
+  }
+  return switch (key) {
+    'neck' => 'neck',
+    'trunk' => 'trunk/back',
+    'upper_arm' => 'upper arm/shoulder',
+    'lower_arm' => 'lower arm',
+    'wrist' => 'wrist',
+    'legs' => 'legs/knees',
+    _ => key,
+  };
 }

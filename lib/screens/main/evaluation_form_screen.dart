@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../app/app_state.dart';
@@ -14,6 +15,7 @@ import '../../core/models/evaluation_models.dart';
 import '../../core/services/ergo_calculator.dart';
 import '../../core/services/firebase_telemetry_service.dart';
 import '../../core/services/pose_estimation_service.dart';
+import '../../core/services/video_frame_extraction_service.dart';
 import '../../core/theme/sookta_theme.dart';
 import '../../widgets/responsive_content.dart';
 import '../../widgets/tts_button.dart';
@@ -42,6 +44,7 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
   final sustainForceController = TextEditingController(text: '8');
   final imagePicker = ImagePicker();
   final poseService = PoseEstimationService();
+  final videoFrameService = const VideoFrameExtractionService();
   risk_ml.JointFeatureSchema? jointFeatureSchema;
   risk_ml.MoveNetJointFeatureExtractor? jointFeatureExtractor;
   risk_ml.XGBoostOnnxPredictor? xGBoostPredictor;
@@ -49,6 +52,7 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
   final selectedImagePaths = <String>[];
   final latestPoseEstimates = <PoseEstimate>[];
   final latestFrameAnalyses = <PoseRebaFrameAnalysis>[];
+  final latestFrameTimestampMs = <int>[];
   var selectedDurationHours = 1.0;
   var selectedFrequency = 0.2;
   var selectedStaticHoldLevel = 0;
@@ -59,6 +63,9 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
   var poseAssessmentReady = false;
   String? poseStatus;
   AiRiskAlert? latestXGBoostAlert;
+  MotionAnalysisSummary? latestMotionSummary;
+  var latestCaptureSourceKind = 'photo_set';
+  int? latestVideoDurationMs;
   late JobType selectedJobType;
   var rebaInput = const RebaInputData(
     trunkScore: 3,
@@ -194,6 +201,8 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
               onCamera: selectedImagePaths.length >= 4 ? null : _capturePhoto,
               onGallery:
                   selectedImagePaths.length >= 4 ? null : _pickGalleryPhoto,
+              onVideoCamera: poseBusy ? null : _captureVideo,
+              onVideoGallery: poseBusy ? null : _pickGalleryVideo,
               onSlotTap: _pickGalleryForSlot,
               onSlotRemove: _removeImageAt,
               thai: thai,
@@ -218,6 +227,7 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
                 thai: thai,
                 frames: latestFrameAnalyses,
                 worstImageIndex: _worstFrame(latestFrameAnalyses)?.imageIndex,
+                motionSummary: latestMotionSummary,
               ),
             ],
             const SizedBox(height: 16),
@@ -436,6 +446,103 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
     }
   }
 
+  Future<void> _captureVideo() async {
+    final video = await imagePicker.pickVideo(
+      source: ImageSource.camera,
+      maxDuration: VideoFrameExtractionService.maxDuration,
+    );
+    if (video != null) {
+      await _replaceImagesFromVideo(video.path, source: 'video_camera');
+    }
+  }
+
+  Future<void> _pickGalleryVideo() async {
+    final video = await imagePicker.pickVideo(
+      source: ImageSource.gallery,
+      maxDuration: VideoFrameExtractionService.maxDuration,
+    );
+    if (video != null) {
+      await _replaceImagesFromVideo(video.path, source: 'video_gallery');
+    }
+  }
+
+  Future<void> _replaceImagesFromVideo(
+    String videoPath, {
+    required String source,
+  }) async {
+    if (poseBusy) return;
+    final thai = (AppStateScope.of(context).language ?? AppLanguage.th) ==
+        AppLanguage.th;
+    setState(() {
+      poseBusy = true;
+      poseAssessmentReady = false;
+      poseStatus = thai
+          ? 'กำลังวิเคราะห์วิดีโอแบบหลายเฟรม ไม่เกิน 20 วินาที...'
+          : 'Analyzing a multi-frame video up to 20 seconds...';
+      latestXGBoostAlert = null;
+      latestMotionSummary = null;
+      latestPoseEstimates.clear();
+      latestFrameAnalyses.clear();
+      latestFrameTimestampMs.clear();
+    });
+
+    try {
+      final result = await videoFrameService.extractFrames(videoPath);
+      if (!mounted) return;
+      setState(() {
+        selectedImagePaths
+          ..clear()
+          ..addAll(result.framePaths);
+        latestCaptureSourceKind = source;
+        latestVideoDurationMs = result.durationMs;
+        latestFrameTimestampMs
+          ..clear()
+          ..addAll(result.frameTimestampMs);
+        poseStatus = thai
+            ? 'ได้เฟรมจากวิดีโอ ${result.framePaths.length} เฟรม จาก ${result.durationSeconds.toStringAsFixed(1)} วินาที กำลังอ่านท่าทาง...'
+            : 'Sampled ${result.framePaths.length} frames from ${result.durationSeconds.toStringAsFixed(1)} seconds of video. Reading posture...';
+      });
+      unawaited(FirebaseTelemetryService.logImageAdded(
+        source: source,
+        imageCount: selectedImagePaths.length,
+      ));
+    } on PlatformException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        poseStatus = _videoErrorText(thai, error.message);
+      });
+      return;
+    } on VideoFrameExtractionException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        poseStatus = _videoErrorText(thai, error.message);
+      });
+      return;
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        poseStatus = _videoErrorText(thai, error.toString());
+      });
+      return;
+    } finally {
+      if (mounted) setState(() => poseBusy = false);
+    }
+
+    await _applyPoseEstimates();
+  }
+
+  String _videoErrorText(bool thai, String? message) {
+    final normalized = (message ?? '').toLowerCase();
+    if (normalized.contains('20') || normalized.contains('shorter')) {
+      return thai
+          ? 'ยังประเมินไม่ได้: วิดีโอต้องยาวไม่เกิน 20 วินาที กรุณาถ่ายใหม่หรือเลือกไฟล์ที่สั้นลง'
+          : 'Cannot assess yet: video must be 20 seconds or shorter. Record again or choose a shorter file.';
+    }
+    return thai
+        ? 'วิเคราะห์วิดีโอไม่สำเร็จ กรุณาใช้วิดีโอที่เห็นบุคคลชัดเจนและยาวไม่เกิน 20 วินาที'
+        : 'Video analysis failed. Use a clear worker-posture video that is 20 seconds or shorter.';
+  }
+
   Future<void> _addImage(String path, {int slotIndex = -1}) async {
     if (selectedImagePaths.length >= 4 &&
         (slotIndex < 0 || slotIndex >= selectedImagePaths.length)) {
@@ -453,8 +560,12 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
       poseStatus = null;
       poseAssessmentReady = false;
       latestXGBoostAlert = null;
+      latestMotionSummary = null;
+      latestCaptureSourceKind = 'photo_set';
+      latestVideoDurationMs = null;
       latestPoseEstimates.clear();
       latestFrameAnalyses.clear();
+      latestFrameTimestampMs.clear();
     });
     await _applyPoseEstimates();
   }
@@ -466,8 +577,12 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
       poseStatus = null;
       poseAssessmentReady = false;
       latestXGBoostAlert = null;
+      latestMotionSummary = null;
+      latestCaptureSourceKind = 'photo_set';
+      latestVideoDurationMs = null;
       latestPoseEstimates.clear();
       latestFrameAnalyses.clear();
+      latestFrameTimestampMs.clear();
     });
     if (selectedImagePaths.isNotEmpty) {
       await _applyPoseEstimates();
@@ -501,6 +616,7 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
           latestPoseEstimates.clear();
           latestFrameAnalyses.clear();
           latestXGBoostAlert = null;
+          latestMotionSummary = null;
           poseStatus = thai
               ? 'ยังประเมินไม่ได้: ไม่พบคนหรืออ่านท่าทางไม่ได้ กรุณาใช้รูปที่เห็นบุคคลและท่าทางชัดเจน'
               : 'Cannot assess yet: no readable person posture was detected. Use a clear full-body photo.';
@@ -511,6 +627,7 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
       final frameAnalyses = await _analyzePoseFrames(estimates);
       final inferred = _inferWorstRebaInput(frameAnalyses);
       final xgbAlert = await _predictXGBoostAlert(frameAnalyses);
+      final motionSummary = _buildMotionSummary(frameAnalyses);
 
       if (selectedJobType == JobType.reba) {
         setState(() {
@@ -521,11 +638,17 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
             ..clear()
             ..addAll(frameAnalyses);
           latestXGBoostAlert = xgbAlert;
+          latestMotionSummary = motionSummary;
           rebaInput = inferred;
           poseAssessmentReady = true;
-          poseStatus = thai
-              ? 'ระบบประเมินคะแนน REBA จากภาพและตรวจเทียบด้วย XGBoost แล้ว'
-              : 'REBA scores updated from photos and checked with XGBoost.';
+          poseStatus = _poseReadyStatus(
+            thai: thai,
+            motionSummary: motionSummary,
+            fallbackThai:
+                'ระบบประเมินคะแนน REBA จากภาพและตรวจเทียบด้วย XGBoost แล้ว',
+            fallbackEnglish:
+                'REBA scores updated from photos and checked with XGBoost.',
+          );
         });
       } else if (selectedJobType == JobType.lifting) {
         final dimensions =
@@ -538,6 +661,7 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
             ..clear()
             ..addAll(frameAnalyses);
           latestXGBoostAlert = xgbAlert;
+          latestMotionSummary = motionSummary;
           rebaInput = inferred;
           if (dimensions == null) {
             poseAssessmentReady = false;
@@ -549,9 +673,13 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
                 dimensions.horizontalCm.round().toString();
             verticalController.text = dimensions.verticalCm.round().toString();
             poseAssessmentReady = true;
-            poseStatus = thai
-                ? 'ระบบอ่านระยะ H/V และคะแนน REBA จากภาพแล้ว'
-                : 'H/V distances and REBA posture scores updated from the latest photo.';
+            poseStatus = _poseReadyStatus(
+              thai: thai,
+              motionSummary: motionSummary,
+              fallbackThai: 'ระบบอ่านระยะ H/V และคะแนน REBA จากภาพแล้ว',
+              fallbackEnglish:
+                  'H/V distances and REBA posture scores updated from the latest photo.',
+            );
           }
         });
       } else {
@@ -563,28 +691,55 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
             ..clear()
             ..addAll(frameAnalyses);
           latestXGBoostAlert = xgbAlert;
+          latestMotionSummary = motionSummary;
           rebaInput = inferred;
           poseAssessmentReady = true;
-          poseStatus = thai
-              ? 'ระบบประเมินท่าทางจากภาพแล้ว'
-              : 'Posture scores updated from photos.';
+          poseStatus = _poseReadyStatus(
+            thai: thai,
+            motionSummary: motionSummary,
+            fallbackThai: 'ระบบประเมินท่าทางจากภาพแล้ว',
+            fallbackEnglish: 'Posture scores updated from photos.',
+          );
         });
       }
     } catch (e) {
       if (!mounted) return;
       final thai = (AppStateScope.of(context).language ?? AppLanguage.th) ==
           AppLanguage.th;
+      unawaited(FirebaseTelemetryService.logEvent(
+        'pose_analysis_failed',
+        {
+          'platform': Platform.operatingSystem,
+          'message': e.toString(),
+        },
+      ));
       setState(() {
         poseAssessmentReady = false;
         latestXGBoostAlert = null;
+        latestMotionSummary = null;
         latestPoseEstimates.clear();
         latestFrameAnalyses.clear();
-        poseStatus =
-            thai ? 'วิเคราะห์ภาพไม่สำเร็จ: $e' : 'Image analysis failed: $e';
+        poseStatus = _poseAnalysisErrorText(thai, e);
       });
     } finally {
       if (mounted) setState(() => poseBusy = false);
     }
+  }
+
+  String _poseAnalysisErrorText(bool thai, Object error) {
+    final raw = error.toString().toLowerCase();
+    final nativeMlUnavailable = raw.contains('tflite') ||
+        raw.contains('tensorflow') ||
+        raw.contains('dlsym') ||
+        raw.contains('symbol not found');
+    if (nativeMlUnavailable) {
+      return thai
+          ? 'ยังประเมินไม่ได้: ระบบอ่านท่าทางบนเครื่องนี้ไม่พร้อม กรุณาปิดแอปแล้วเปิดใหม่ หากยังพบปัญหาให้ติดตั้งเวอร์ชันล่าสุด'
+          : 'Cannot assess yet: posture analysis is not ready on this device. Close and reopen the app. If it still happens, install the latest version.';
+    }
+    return thai
+        ? 'ยังประเมินไม่ได้: กรุณาใช้รูปที่เห็นบุคคลและท่าทางชัดเจน แล้วลองอีกครั้ง'
+        : 'Cannot assess yet: use a clear photo with a readable person posture, then try again.';
   }
 
   Future<void> _analyze() async {
@@ -665,6 +820,7 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
       isoResult: isoResult,
       poseFrames: latestFrameAnalyses.toList(growable: false),
       worstPoseImageIndex: _worstFrame(latestFrameAnalyses)?.imageIndex,
+      motionSummary: latestMotionSummary,
     );
 
     if (!mounted) return;
@@ -762,9 +918,298 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
           estimates[i].person,
           rebaInput,
           imageIndex: i + 1,
+          timestampMs: i < latestFrameTimestampMs.length
+              ? latestFrameTimestampMs[i]
+              : null,
           jointFeatures: extractor?.extract(estimates[i].person) ?? const [],
         ),
     ];
+  }
+
+  MotionAnalysisSummary? _buildMotionSummary(
+    List<PoseRebaFrameAnalysis> frameAnalyses,
+  ) {
+    if (frameAnalyses.isEmpty ||
+        !latestCaptureSourceKind.startsWith('video_')) {
+      return null;
+    }
+    final durationMs = latestVideoDurationMs ?? 0;
+    final durationSeconds = durationMs > 0 ? durationMs / 1000 : 0.0;
+    final sampledFrameCount = latestFrameTimestampMs.isNotEmpty
+        ? latestFrameTimestampMs.length
+        : selectedImagePaths.length;
+    final readableFrameCount = frameAnalyses.length;
+    final highRiskFrameCount = frameAnalyses
+        .where((frame) =>
+            frame.riskLevel.index >= RiskLevel.high.index ||
+            frame.rebaScore >= 7)
+        .length;
+    final deepTrunkFlexionFrameCount = frameAnalyses
+        .where((frame) => (frame.trunkFlexionDeg ?? 0) >= 60)
+        .length;
+    final neckRiskFrameCount =
+        _segmentRiskFrameCount(frameAnalyses, _neckRiskDetected);
+    final trunkRiskFrameCount =
+        _segmentRiskFrameCount(frameAnalyses, _trunkRiskDetected);
+    final upperArmRiskFrameCount =
+        _segmentRiskFrameCount(frameAnalyses, _upperArmRiskDetected);
+    final lowerArmRiskFrameCount =
+        _segmentRiskFrameCount(frameAnalyses, _lowerArmRiskDetected);
+    final wristRiskFrameCount =
+        _segmentRiskFrameCount(frameAnalyses, _wristRiskDetected);
+    final legRiskFrameCount =
+        _segmentRiskFrameCount(frameAnalyses, _legRiskDetected);
+    final anySegmentRiskFrameCount =
+        _segmentRiskFrameCount(frameAnalyses, _anyRebaSegmentRiskDetected);
+    final highRiskFrameRatio =
+        readableFrameCount == 0 ? 0.0 : highRiskFrameCount / readableFrameCount;
+    final deepTrunkFlexionRatio = readableFrameCount == 0
+        ? 0.0
+        : deepTrunkFlexionFrameCount / readableFrameCount;
+    final anySegmentRiskFrameRatio =
+        _ratio(anySegmentRiskFrameCount, readableFrameCount);
+    final neckRiskFrameRatio = _ratio(neckRiskFrameCount, readableFrameCount);
+    final trunkRiskFrameRatio = _ratio(trunkRiskFrameCount, readableFrameCount);
+    final upperArmRiskFrameRatio =
+        _ratio(upperArmRiskFrameCount, readableFrameCount);
+    final lowerArmRiskFrameRatio =
+        _ratio(lowerArmRiskFrameCount, readableFrameCount);
+    final wristRiskFrameRatio = _ratio(wristRiskFrameCount, readableFrameCount);
+    final legRiskFrameRatio = _ratio(legRiskFrameCount, readableFrameCount);
+    final movementChangeCount = _movementChangeCount(frameAnalyses);
+    final pattern = _motionPattern(
+      highRiskFrameRatio: highRiskFrameRatio,
+      anySegmentRiskFrameRatio: anySegmentRiskFrameRatio,
+      deepTrunkFlexionRatio: deepTrunkFlexionRatio,
+      movementChangeCount: movementChangeCount,
+      highRiskFrameCount: highRiskFrameCount,
+      anySegmentRiskFrameCount: anySegmentRiskFrameCount,
+      deepTrunkFlexionFrameCount: deepTrunkFlexionFrameCount,
+    );
+
+    return MotionAnalysisSummary(
+      sourceKind: latestCaptureSourceKind,
+      durationMs: durationMs,
+      sampledFrameCount: sampledFrameCount,
+      readableFrameCount: readableFrameCount,
+      sampleRateFps:
+          durationSeconds > 0 ? sampledFrameCount / durationSeconds : 0,
+      highRiskFrameCount: highRiskFrameCount,
+      highRiskFrameRatio: highRiskFrameRatio,
+      deepTrunkFlexionFrameCount: deepTrunkFlexionFrameCount,
+      deepTrunkFlexionRatio: deepTrunkFlexionRatio,
+      estimatedHighRiskSeconds: highRiskFrameRatio * durationSeconds,
+      estimatedDeepTrunkSeconds: deepTrunkFlexionRatio * durationSeconds,
+      movementChangeCount: movementChangeCount,
+      pattern: pattern,
+      anySegmentRiskFrameCount: anySegmentRiskFrameCount,
+      anySegmentRiskFrameRatio: anySegmentRiskFrameRatio,
+      estimatedSegmentRiskSeconds: anySegmentRiskFrameRatio * durationSeconds,
+      neckRiskFrameCount: neckRiskFrameCount,
+      neckRiskFrameRatio: neckRiskFrameRatio,
+      trunkRiskFrameCount: trunkRiskFrameCount,
+      trunkRiskFrameRatio: trunkRiskFrameRatio,
+      upperArmRiskFrameCount: upperArmRiskFrameCount,
+      upperArmRiskFrameRatio: upperArmRiskFrameRatio,
+      lowerArmRiskFrameCount: lowerArmRiskFrameCount,
+      lowerArmRiskFrameRatio: lowerArmRiskFrameRatio,
+      wristRiskFrameCount: wristRiskFrameCount,
+      wristRiskFrameRatio: wristRiskFrameRatio,
+      legRiskFrameCount: legRiskFrameCount,
+      legRiskFrameRatio: legRiskFrameRatio,
+      dominantRiskBodyPart: _dominantRiskBodyPart({
+        'neck': neckRiskFrameCount,
+        'trunk': trunkRiskFrameCount,
+        'upper_arm': upperArmRiskFrameCount,
+        'lower_arm': lowerArmRiskFrameCount,
+        'wrist': wristRiskFrameCount,
+        'legs': legRiskFrameCount,
+      }),
+      maxNeckFlexionDeg:
+          _maxFrameValue(frameAnalyses.map((frame) => frame.neckFlexionDeg)),
+      avgNeckFlexionDeg:
+          _avgFrameValue(frameAnalyses.map((frame) => frame.neckFlexionDeg)),
+      maxTrunkFlexionDeg:
+          _maxFrameValue(frameAnalyses.map((frame) => frame.trunkFlexionDeg)),
+      avgTrunkFlexionDeg:
+          _avgFrameValue(frameAnalyses.map((frame) => frame.trunkFlexionDeg)),
+      maxUpperArmFlexionDeg: _maxFrameValue(
+        frameAnalyses.map((frame) => frame.upperArmFlexionDeg),
+      ),
+      avgUpperArmFlexionDeg: _avgFrameValue(
+        frameAnalyses.map((frame) => frame.upperArmFlexionDeg),
+      ),
+    );
+  }
+
+  String _poseReadyStatus({
+    required bool thai,
+    required MotionAnalysisSummary? motionSummary,
+    required String fallbackThai,
+    required String fallbackEnglish,
+  }) {
+    final summary = motionSummary;
+    if (summary == null || !summary.isVideo) {
+      return thai ? fallbackThai : fallbackEnglish;
+    }
+    final highRiskPercent = (summary.highRiskFrameRatio * 100).round();
+    final segmentPercent = (summary.anySegmentRiskFrameRatio * 100).round();
+    final dominant = _bodyPartLabel(summary.dominantRiskBodyPart, thai);
+    return thai
+        ? 'วิเคราะห์วิดีโอ ${summary.readableFrameCount} เฟรมแล้ว เลือก Worst Posture จากคะแนน REBA สูงสุด พบเฟรมเสี่ยงสูง $highRiskPercent% และมีคะแนนย่อย REBA เสี่ยงในส่วนร่างกาย $segmentPercent% จุดเด่นคือ $dominant'
+        : 'Video analysis completed on ${summary.readableFrameCount} frames. The app selected the highest-REBA worst posture, with $highRiskPercent% high-risk frames and $segmentPercent% frames showing REBA body-segment risk. Dominant segment: $dominant.';
+  }
+
+  MotionPattern _motionPattern({
+    required double highRiskFrameRatio,
+    required double anySegmentRiskFrameRatio,
+    required double deepTrunkFlexionRatio,
+    required int movementChangeCount,
+    required int highRiskFrameCount,
+    required int anySegmentRiskFrameCount,
+    required int deepTrunkFlexionFrameCount,
+  }) {
+    if (highRiskFrameRatio >= 0.75 ||
+        anySegmentRiskFrameRatio >= 0.75 ||
+        deepTrunkFlexionRatio >= 0.75) {
+      return MotionPattern.staticHighRiskHold;
+    }
+    if (movementChangeCount >= 2 ||
+        highRiskFrameRatio >= 0.5 ||
+        anySegmentRiskFrameRatio >= 0.5 ||
+        deepTrunkFlexionRatio >= 0.5) {
+      return MotionPattern.repeatedRiskMovement;
+    }
+    if (highRiskFrameCount > 0 ||
+        anySegmentRiskFrameCount > 0 ||
+        deepTrunkFlexionFrameCount > 0) {
+      return MotionPattern.intermittentWorstPosture;
+    }
+    return MotionPattern.stableLowRisk;
+  }
+
+  int _segmentRiskFrameCount(
+    List<PoseRebaFrameAnalysis> frames,
+    bool Function(PoseRebaFrameAnalysis frame) predicate,
+  ) {
+    return frames.where(predicate).length;
+  }
+
+  double _ratio(int count, int total) => total == 0 ? 0.0 : count / total;
+
+  bool _anyRebaSegmentRiskDetected(PoseRebaFrameAnalysis frame) {
+    return _neckRiskDetected(frame) ||
+        _trunkRiskDetected(frame) ||
+        _upperArmRiskDetected(frame) ||
+        _lowerArmRiskDetected(frame) ||
+        _wristRiskDetected(frame) ||
+        _legRiskDetected(frame);
+  }
+
+  bool _neckRiskDetected(PoseRebaFrameAnalysis frame) {
+    return frame.rebaInput.neckScore >= 2 ||
+        frame.neckSideBending ||
+        frame.neckTwisting;
+  }
+
+  bool _trunkRiskDetected(PoseRebaFrameAnalysis frame) {
+    return frame.rebaInput.trunkScore >= 3 ||
+        frame.rebaInput.adjustedTrunkScore >= 3 ||
+        frame.trunkSideBending ||
+        frame.trunkTwisting;
+  }
+
+  bool _upperArmRiskDetected(PoseRebaFrameAnalysis frame) {
+    return frame.rebaInput.upperArmScore >= 2 ||
+        frame.upperArmAbduction ||
+        frame.shoulderElevation;
+  }
+
+  bool _lowerArmRiskDetected(PoseRebaFrameAnalysis frame) {
+    return frame.rebaInput.lowerArmScore >= 2;
+  }
+
+  bool _wristRiskDetected(PoseRebaFrameAnalysis frame) {
+    return frame.rebaInput.adjustedWristScore >= 2 ||
+        frame.rebaInput.wristTwist;
+  }
+
+  bool _legRiskDetected(PoseRebaFrameAnalysis frame) {
+    return frame.rebaInput.legScore >= 2;
+  }
+
+  String? _dominantRiskBodyPart(Map<String, int> counts) {
+    final risky = counts.entries.where((entry) => entry.value > 0).toList();
+    if (risky.isEmpty) return null;
+    risky.sort((a, b) => b.value.compareTo(a.value));
+    return risky.first.key;
+  }
+
+  String _bodyPartLabel(String? key, bool thai) {
+    if (key == null) return thai ? 'ไม่พบส่วนเด่น' : 'none';
+    if (thai) {
+      return switch (key) {
+        'neck' => 'คอ',
+        'trunk' => 'ลำตัว/หลัง',
+        'upper_arm' => 'ต้นแขน/ไหล่',
+        'lower_arm' => 'ปลายแขน',
+        'wrist' => 'ข้อมือ',
+        'legs' => 'ขา/เข่า',
+        _ => key,
+      };
+    }
+    return switch (key) {
+      'neck' => 'neck',
+      'trunk' => 'trunk/back',
+      'upper_arm' => 'upper arm/shoulder',
+      'lower_arm' => 'lower arm',
+      'wrist' => 'wrist',
+      'legs' => 'legs/knees',
+      _ => key,
+    };
+  }
+
+  int _movementChangeCount(List<PoseRebaFrameAnalysis> frames) {
+    var changes = 0;
+    for (var index = 1; index < frames.length; index++) {
+      final previous = frames[index - 1];
+      final current = frames[index];
+      final deltas = [
+        _angleDelta(previous.trunkFlexionDeg, current.trunkFlexionDeg),
+        _angleDelta(previous.neckFlexionDeg, current.neckFlexionDeg),
+        _angleDelta(previous.upperArmFlexionDeg, current.upperArmFlexionDeg),
+      ].where((value) => value > 0).toList();
+      if (deltas.isEmpty) continue;
+      final maxDelta = deltas.reduce(math.max);
+      final totalDelta = deltas.fold<double>(0, (sum, value) => sum + value);
+      if (maxDelta >= 20 || totalDelta >= 35) changes += 1;
+    }
+    return changes;
+  }
+
+  double _angleDelta(double? previous, double? current) {
+    if (previous == null || current == null) return 0;
+    return (current - previous).abs();
+  }
+
+  double? _maxFrameValue(Iterable<double?> values) {
+    double? result;
+    for (final value in values) {
+      if (value == null || value.isNaN) continue;
+      result = result == null ? value : math.max(result, value);
+    }
+    return result;
+  }
+
+  double? _avgFrameValue(Iterable<double?> values) {
+    var sum = 0.0;
+    var count = 0;
+    for (final value in values) {
+      if (value == null || value.isNaN) continue;
+      sum += value;
+      count += 1;
+    }
+    return count == 0 ? null : sum / count;
   }
 
   RebaInputData _inferWorstRebaInput(
@@ -882,8 +1327,8 @@ class _EvaluationVoiceGuide extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final guide = thai
-        ? 'กิจกรรม $activityName ขั้นตอนนี้ให้ถ่ายรูปหรือเลือกรูปที่เห็นคนทำงานชัดเจน ระบบจะอ่านท่าทางจากรูปและตั้งค่าประเมินให้อัตโนมัติ วิธีประเมินคือ ${_jobLabel(jobType, true)} ค่าเริ่มต้นคือ ${_defaultSummary(true)}'
-        : 'Activity $activityName. Take or choose a clear photo of the worker. The app reads posture from the photo and prepares the assessment automatically. Assessment method is ${_jobLabel(jobType, false)}. Defaults are ${_defaultSummary(false)}.';
+        ? 'กิจกรรม $activityName ขั้นตอนนี้ให้ถ่ายรูป เลือกรูป หรือถ่ายวิดีโอไม่เกินยี่สิบวินาทีที่เห็นคนทำงานชัดเจน ระบบจะอ่านท่าทางและตั้งค่าประเมินให้อัตโนมัติ วิธีประเมินคือ ${_jobLabel(jobType, true)} ค่าเริ่มต้นคือ ${_defaultSummary(true)}'
+        : 'Activity $activityName. Take photos, choose photos, or record a video up to twenty seconds that clearly shows the worker. The app reads posture and prepares the assessment automatically. Assessment method is ${_jobLabel(jobType, false)}. Defaults are ${_defaultSummary(false)}.';
     return Card(
       color: const Color(0xFFEAF5EF),
       child: Padding(
@@ -936,6 +1381,8 @@ class _ImageSlots extends StatelessWidget {
     required this.imagePaths,
     required this.onCamera,
     required this.onGallery,
+    required this.onVideoCamera,
+    required this.onVideoGallery,
     required this.onSlotTap,
     required this.onSlotRemove,
     required this.thai,
@@ -944,16 +1391,23 @@ class _ImageSlots extends StatelessWidget {
   final List<String> imagePaths;
   final VoidCallback? onCamera;
   final VoidCallback? onGallery;
+  final VoidCallback? onVideoCamera;
+  final VoidCallback? onVideoGallery;
   final ValueChanged<int> onSlotTap;
   final ValueChanged<int> onSlotRemove;
   final bool thai;
 
   @override
   Widget build(BuildContext context) {
+    final slotCount = imagePaths.length > 4
+        ? math.min(imagePaths.length, VideoFrameExtractionService.maxFrames)
+        : 4;
+    final slotLimit =
+        imagePaths.length > 4 ? VideoFrameExtractionService.maxFrames : 4;
     return _SectionCard(
       title: thai
-          ? '1. ถ่ายรูปท่าทางทำงาน (${imagePaths.length}/4)'
-          : '1. Take a Work-Posture Photo (${imagePaths.length}/4)',
+          ? '1. ถ่ายรูปหรือวิดีโอท่าทางทำงาน (${imagePaths.length}/$slotLimit)'
+          : '1. Capture Work Posture (${imagePaths.length}/$slotLimit)',
       children: [
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -967,8 +1421,8 @@ class _ImageSlots extends StatelessWidget {
             SooktaTtsButton(
               thai: thai,
               text: thai
-                  ? 'ถ่ายรูปให้เห็นคนทำงานชัดเจน เห็นศีรษะ หลัง แขน มือ ขา และเท้าได้มากที่สุด เพิ่มได้ไม่เกินสี่รูป ถ้าระบบอ่านท่าทางไม่ได้ ให้ถ่ายใหม่หรือเลือกรูปใหม่'
-                  : 'Take a clear photo of the worker. Show the head, back, arms, hands, legs, and feet as much as possible. Add up to four photos. If the app cannot read the posture, retake or choose another photo.',
+                  ? 'ถ่ายรูป หรือถ่ายวิดีโอไม่เกินยี่สิบวินาที ให้เห็นคนทำงานชัดเจน เห็นศีรษะ หลัง แขน มือ ขา และเท้าได้มากที่สุด ระบบจะสุ่มภาพจากวิดีโอไม่เกินแปดเฟรม สรุปการเคลื่อนไหว และเลือกท่าที่เสี่ยงที่สุดมาประเมิน ถ้าระบบอ่านท่าทางไม่ได้ ให้ถ่ายใหม่หรือเลือกไฟล์ใหม่'
+                  : 'Take photos, or record a video up to twenty seconds. Show the worker clearly, including the head, back, arms, hands, legs, and feet as much as possible. The app samples up to eight video frames, summarizes motion, and assesses the riskiest posture. If the app cannot read the posture, retake or choose another file.',
               size: 36,
             ),
           ],
@@ -976,8 +1430,8 @@ class _ImageSlots extends StatelessWidget {
         const SizedBox(height: 6),
         Text(
           thai
-              ? 'ให้เห็นคนทำงานชัดที่สุด ระบบจะอ่านท่าทางและตั้งค่าประเมินให้อัตโนมัติ'
-              : 'Show the worker clearly. The app reads the posture and fills the assessment automatically.',
+              ? 'ใช้รูปชัด 1-4 รูป หรือวิดีโอสั้นไม่เกิน 20 วินาที ระบบจะอ่านท่าทาง สรุปการเคลื่อนไหว และตั้งค่าประเมินให้อัตโนมัติ'
+              : 'Use 1-4 clear photos or a short video up to 20 seconds. The app reads posture, summarizes motion, and fills the assessment automatically.',
           style: const TextStyle(color: Colors.black54),
         ),
         const SizedBox(height: 12),
@@ -987,7 +1441,7 @@ class _ImageSlots extends StatelessWidget {
             return GridView.builder(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
-              itemCount: 4,
+              itemCount: slotCount,
               gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: columns,
                 crossAxisSpacing: 10,
@@ -1091,6 +1545,26 @@ class _ImageSlots extends StatelessWidget {
                     label: Text(thai ? 'อัลบั้ม' : 'Gallery'),
                   ),
                 ),
+                SizedBox(
+                  width: stacked
+                      ? constraints.maxWidth
+                      : (constraints.maxWidth - 10) / 2,
+                  child: FilledButton.tonalIcon(
+                    onPressed: onVideoCamera,
+                    icon: const Icon(Icons.videocam_outlined),
+                    label: Text(thai ? 'ถ่ายวิดีโอ' : 'Record video'),
+                  ),
+                ),
+                SizedBox(
+                  width: stacked
+                      ? constraints.maxWidth
+                      : (constraints.maxWidth - 10) / 2,
+                  child: OutlinedButton.icon(
+                    onPressed: onVideoGallery,
+                    icon: const Icon(Icons.video_library_outlined),
+                    label: Text(thai ? 'เลือกวิดีโอ' : 'Choose video'),
+                  ),
+                ),
               ],
             );
           },
@@ -1138,8 +1612,8 @@ class _SimpleAssessmentCard extends StatelessWidget {
             ? Colors.red.shade700
             : Colors.amber.shade700;
     final statusSpeech = thai
-        ? '${ready ? 'ระบบตั้งค่าประเมินให้แล้ว' : blocked ? 'ยังประเมินไม่ได้' : 'ถ่ายรูปก่อน แล้วระบบจะช่วยคำนวณ'} ${poseStatus ?? 'ต้องมีรูปบุคคลที่เห็นท่าทางชัดเจนก่อน ระบบจึงจะแสดงตัวเลขประเมิน'} กิจกรรม $activityName วิธีประเมิน ${_jobLabel(jobType, true)} ค่าพื้นฐาน ${_defaultSummary(true)}'
-        : '${ready ? 'The app prepared the assessment.' : blocked ? 'Cannot assess yet.' : 'Take a photo and the app will calculate.'} ${poseStatus ?? 'A clear person-posture photo is required before the app shows assessment numbers.'} Activity $activityName. Assessment method ${_jobLabel(jobType, false)}. Defaults ${_defaultSummary(false)}.';
+        ? '${ready ? 'ระบบตั้งค่าประเมินให้แล้ว' : blocked ? 'ยังประเมินไม่ได้' : 'ถ่ายรูปหรือวิดีโอก่อน แล้วระบบจะช่วยคำนวณ'} ${poseStatus ?? 'ต้องมีรูปหรือวิดีโอที่เห็นบุคคลและท่าทางชัดเจนก่อน ระบบจึงจะแสดงตัวเลขประเมิน'} กิจกรรม $activityName วิธีประเมิน ${_jobLabel(jobType, true)} ค่าพื้นฐาน ${_defaultSummary(true)}'
+        : '${ready ? 'The app prepared the assessment.' : blocked ? 'Cannot assess yet.' : 'Take a photo or video and the app will calculate.'} ${poseStatus ?? 'A clear person-posture photo or video is required before the app shows assessment numbers.'} Activity $activityName. Assessment method ${_jobLabel(jobType, false)}. Defaults ${_defaultSummary(false)}.';
     return Card(
       color: ready
           ? const Color(0xFFEFF8EF)
@@ -1173,12 +1647,12 @@ class _SimpleAssessmentCard extends StatelessWidget {
                                 ? 'ระบบตั้งค่าประเมินให้แล้ว'
                                 : blocked
                                     ? 'ยังประเมินไม่ได้'
-                                    : 'ถ่ายรูปก่อน แล้วระบบจะช่วยคำนวณ')
+                                    : 'ถ่ายรูปหรือวิดีโอก่อน แล้วระบบจะช่วยคำนวณ')
                             : (ready
                                 ? 'The app prepared the assessment'
                                 : blocked
                                     ? 'Cannot assess yet'
-                                    : 'Take a photo and the app will calculate'),
+                                    : 'Take a photo or video and the app will calculate'),
                         style: const TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 16,
@@ -1192,8 +1666,8 @@ class _SimpleAssessmentCard extends StatelessWidget {
                                 : 'Reading posture from the photo...')
                             : (poseStatus ??
                                 (thai
-                                    ? 'ต้องมีรูปบุคคลที่เห็นท่าทางชัดเจนก่อน ระบบจึงจะแสดงตัวเลขประเมิน'
-                                    : 'A clear person-posture photo is required before the app shows assessment numbers.')),
+                                    ? 'ต้องมีรูปหรือวิดีโอที่เห็นบุคคลและท่าทางชัดเจนก่อน ระบบจึงจะแสดงตัวเลขประเมิน'
+                                    : 'A clear person-posture photo or video is required before the app shows assessment numbers.')),
                         style: const TextStyle(color: Colors.black54),
                       ),
                     ],
@@ -1340,17 +1814,26 @@ class _PoseFrameAnalysisCard extends StatelessWidget {
     required this.thai,
     required this.frames,
     required this.worstImageIndex,
+    required this.motionSummary,
   });
 
   final bool thai;
   final List<PoseRebaFrameAnalysis> frames;
   final int? worstImageIndex;
+  final MotionAnalysisSummary? motionSummary;
 
   @override
   Widget build(BuildContext context) {
     return _SectionCard(
       title: thai ? 'ผลวิเคราะห์รายภาพจาก AI' : 'Per-photo AI posture analysis',
       children: [
+        if (motionSummary != null && motionSummary!.isVideo) ...[
+          _VideoMotionSummaryPanel(
+            thai: thai,
+            summary: motionSummary!,
+          ),
+          const SizedBox(height: 12),
+        ],
         Text(
           thai
               ? 'ระบบเลือกภาพที่มีคะแนน REBA สูงที่สุดเป็น Worst Posture สำหรับคำนวณผลหลัก'
@@ -1461,6 +1944,188 @@ class _PoseFrameAnalysisCard extends StatelessWidget {
     return thai
         ? 'ตัวเพิ่มคะแนน: ${items.join(', ')}'
         : 'Modifiers: ${items.join(', ')}';
+  }
+}
+
+class _VideoMotionSummaryPanel extends StatelessWidget {
+  const _VideoMotionSummaryPanel({
+    required this.thai,
+    required this.summary,
+  });
+
+  final bool thai;
+  final MotionAnalysisSummary summary;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: const Color(0xFFEFF8EF),
+        borderRadius: BorderRadius.circular(10),
+        border:
+            Border.all(color: SooktaColors.leafGreen.withValues(alpha: 0.3)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                const Icon(
+                  Icons.motion_photos_auto_outlined,
+                  color: SooktaColors.darkGreen,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    thai
+                        ? 'สรุปการเคลื่อนไหวจากวิดีโอ'
+                        : 'Video-derived motion summary',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              thai
+                  ? 'แอปไม่ได้ประเมินทุกเฟรมต่อเนื่อง แต่สุ่มเฟรมหลายจุดจากวิดีโอแล้วสรุปช่วงที่เสี่ยงที่สุด'
+                  : 'The app does not score every video frame continuously. It samples multiple points from the video and summarizes the riskiest posture windows.',
+              style: const TextStyle(color: Colors.black54),
+            ),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              children: [
+                _MiniMetric(
+                  label: thai ? 'ความยาว' : 'Duration',
+                  value: '${(summary.durationMs / 1000).toStringAsFixed(1)}s',
+                ),
+                _MiniMetric(
+                  label: thai ? 'เฟรมที่อ่านได้' : 'Readable',
+                  value:
+                      '${summary.readableFrameCount}/${summary.sampledFrameCount}',
+                ),
+                _MiniMetric(
+                  label: thai ? 'REBA สูง' : 'High risk',
+                  value: _percent(summary.highRiskFrameRatio),
+                ),
+                _MiniMetric(
+                  label: thai ? 'ส่วนร่างกายเสี่ยง' : 'Segment risk',
+                  value: _percent(summary.anySegmentRiskFrameRatio),
+                ),
+                _MiniMetric(
+                  label: thai ? 'จุดเด่น' : 'Dominant',
+                  value: _bodyPartLabel(summary.dominantRiskBodyPart, thai),
+                ),
+                _MiniMetric(
+                  label: thai ? 'เวลาเสี่ยงย่อย' : 'Segment time',
+                  value:
+                      '${summary.estimatedSegmentRiskSeconds.toStringAsFixed(1)}s',
+                ),
+                _MiniMetric(
+                  label: thai ? 'เวลาเสี่ยงรวม' : 'High-risk time',
+                  value:
+                      '${summary.estimatedHighRiskSeconds.toStringAsFixed(1)}s',
+                ),
+                _MiniMetric(
+                  label: thai ? 'ลำตัวสูงสุด' : 'Max trunk',
+                  value: _deg(summary.maxTrunkFlexionDeg),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              children: [
+                _MiniMetric(
+                  label: thai ? 'คอ' : 'Neck',
+                  value: _percent(summary.neckRiskFrameRatio),
+                ),
+                _MiniMetric(
+                  label: thai ? 'ลำตัว' : 'Trunk',
+                  value: _percent(summary.trunkRiskFrameRatio),
+                ),
+                _MiniMetric(
+                  label: thai ? 'ต้นแขน' : 'Upper arm',
+                  value: _percent(summary.upperArmRiskFrameRatio),
+                ),
+                _MiniMetric(
+                  label: thai ? 'ปลายแขน' : 'Lower arm',
+                  value: _percent(summary.lowerArmRiskFrameRatio),
+                ),
+                _MiniMetric(
+                  label: thai ? 'ข้อมือ' : 'Wrist',
+                  value: _percent(summary.wristRiskFrameRatio),
+                ),
+                _MiniMetric(
+                  label: thai ? 'ขา/เข่า' : 'Legs',
+                  value: _percent(summary.legRiskFrameRatio),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              thai
+                  ? 'รูปแบบ: ${_patternLabel(summary.pattern, thai)} • เปลี่ยนท่าชัดเจน ${summary.movementChangeCount} ครั้ง'
+                  : 'Pattern: ${_patternLabel(summary.pattern, thai)} • ${summary.movementChangeCount} clear posture changes',
+              style: const TextStyle(color: SooktaColors.darkGreen),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _percent(double ratio) => '${(ratio * 100).round()}%';
+
+  String _deg(double? value) {
+    if (value == null || value.isNaN) return '-';
+    return '${value.round()}°';
+  }
+
+  String _patternLabel(MotionPattern pattern, bool thai) {
+    if (thai) {
+      return switch (pattern) {
+        MotionPattern.stableLowRisk => 'ท่าทางค่อนข้างคงที่และเสี่ยงต่ำ',
+        MotionPattern.intermittentWorstPosture => 'มีช่วงท่าเสี่ยงเป็นบางจุด',
+        MotionPattern.repeatedRiskMovement => 'มีการเคลื่อนไหวเสี่ยงซ้ำ',
+        MotionPattern.staticHighRiskHold => 'ค้างท่าเสี่ยงสูงหลายช่วง',
+      };
+    }
+    return switch (pattern) {
+      MotionPattern.stableLowRisk => 'stable lower-risk posture',
+      MotionPattern.intermittentWorstPosture => 'intermittent worst posture',
+      MotionPattern.repeatedRiskMovement => 'repeated risk movement',
+      MotionPattern.staticHighRiskHold => 'static high-risk hold',
+    };
+  }
+
+  String _bodyPartLabel(String? key, bool thai) {
+    if (key == null) return thai ? 'ไม่พบส่วนเด่น' : 'none';
+    if (thai) {
+      return switch (key) {
+        'neck' => 'คอ',
+        'trunk' => 'ลำตัว/หลัง',
+        'upper_arm' => 'ต้นแขน/ไหล่',
+        'lower_arm' => 'ปลายแขน',
+        'wrist' => 'ข้อมือ',
+        'legs' => 'ขา/เข่า',
+        _ => key,
+      };
+    }
+    return switch (key) {
+      'neck' => 'neck',
+      'trunk' => 'trunk/back',
+      'upper_arm' => 'upper arm/shoulder',
+      'lower_arm' => 'lower arm',
+      'wrist' => 'wrist',
+      'legs' => 'legs/knees',
+      _ => key,
+    };
   }
 }
 

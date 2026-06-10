@@ -95,6 +95,7 @@ class ErgoCalculator {
     Person person,
     RebaInputData currentData, {
     required int imageIndex,
+    int? timestampMs,
     List<double> jointFeatures = const [],
   }) {
     final nose = _point(person, PoseLandmark.nose);
@@ -232,6 +233,7 @@ class ErgoCalculator {
       rebaInput: inferred,
       rebaScore: breakdown.finalScore,
       riskLevel: breakdown.riskLevel,
+      timestampMs: timestampMs,
       neckFlexionDeg: neckAngle,
       trunkFlexionDeg: trunkAngle,
       upperArmFlexionDeg:
