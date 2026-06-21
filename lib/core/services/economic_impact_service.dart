@@ -6,6 +6,9 @@ import '../models/evaluation_models.dart';
 class EconomicImpactService {
   const EconomicImpactService._();
 
+  static const double impactReductionPerScorePoint = 0.28;
+  static const int maxComparableScoreReduction = 4;
+
   static const treatmentCostRecords = <CostSurveyRecord>[
     CostSurveyRecord(
       labelTh: 'โรงพยาบาลรัฐ ค่าตรวจ+ค่ายา',
@@ -227,6 +230,97 @@ class EconomicImpactService {
     );
   }
 
+  static EconomicImpactComparison compareBeforeAfter({
+    required int beforeImpact,
+    required int beforeScore,
+    required int afterScore,
+  }) {
+    final scoreReduction = math.max(0, beforeScore - afterScore);
+    final effectiveScoreReduction =
+        math.min(scoreReduction, maxComparableScoreReduction);
+    final reductionRate = math.min(
+      1.0,
+      impactReductionPerScorePoint * effectiveScoreReduction,
+    );
+    final afterImpact =
+        (beforeImpact * (1 - reductionRate)).round().clamp(0, 999999).toInt();
+    return EconomicImpactComparison(
+      beforeImpact: beforeImpact,
+      afterImpact: afterImpact,
+      savedAmount: (beforeImpact - afterImpact).clamp(0, 999999).toInt(),
+      scoreReduction: scoreReduction,
+      effectiveScoreReduction: effectiveScoreReduction,
+      reductionRate: reductionRate,
+    );
+  }
+
+  static int estimateAfterImpact({
+    required int beforeImpact,
+    required int beforeScore,
+    required int afterScore,
+  }) {
+    return compareBeforeAfter(
+      beforeImpact: beforeImpact,
+      beforeScore: beforeScore,
+      afterScore: afterScore,
+    ).afterImpact;
+  }
+
+  static EconomicImpactBreakdown estimateAfterBreakdown({
+    required EconomicImpactBreakdown beforeImpact,
+    required int beforeScore,
+    required int afterScore,
+  }) {
+    final comparison = compareBeforeAfter(
+      beforeImpact: beforeImpact.totalCost,
+      beforeScore: beforeScore,
+      afterScore: afterScore,
+    );
+    final remainingRate = comparison.remainingRate;
+    final bodyImpacts = beforeImpact.bodyImpacts
+        .map(
+          (impact) => BodyPartCostImpact(
+            bodyPart: impact.bodyPart,
+            riskLevel: impact.riskLevel,
+            estimatedTreatmentCost:
+                _scaleCost(impact.estimatedTreatmentCost, remainingRate),
+          ),
+        )
+        .toList(growable: false);
+
+    final bodyTreatmentCost =
+        _scaleCost(beforeImpact.bodyTreatmentCost, remainingRate);
+    final medicalVisitCost =
+        _scaleCost(beforeImpact.medicalVisitCost, remainingRate);
+    final medicineAndSuppliesCost =
+        _scaleCost(beforeImpact.medicineAndSuppliesCost, remainingRate);
+    final travelCost = _scaleCost(beforeImpact.travelCost, remainingRate);
+    final lostIncome = _scaleCost(beforeImpact.lostIncome, remainingRate);
+    final compensationCost =
+        _scaleCost(beforeImpact.compensationCost, remainingRate);
+    var reducedIncome = _scaleCost(beforeImpact.reducedIncome, remainingRate);
+    final roundedTotal = bodyTreatmentCost +
+        medicalVisitCost +
+        medicineAndSuppliesCost +
+        travelCost +
+        lostIncome +
+        reducedIncome;
+    reducedIncome = math
+        .max(0, reducedIncome + comparison.afterImpact - roundedTotal)
+        .toInt();
+
+    return EconomicImpactBreakdown(
+      bodyTreatmentCost: bodyTreatmentCost,
+      medicalVisitCost: medicalVisitCost,
+      medicineAndSuppliesCost: medicineAndSuppliesCost,
+      travelCost: travelCost,
+      lostIncome: lostIncome,
+      reducedIncome: reducedIncome,
+      compensationCost: compensationCost,
+      bodyImpacts: bodyImpacts,
+    );
+  }
+
   static double averageTreatmentCost(String labelTh) {
     return treatmentCostRecords
         .firstWhere(
@@ -281,6 +375,10 @@ class EconomicImpactService {
       RiskLevel.high => 0.75,
       RiskLevel.veryHigh => 1,
     };
+  }
+
+  static int _scaleCost(int value, double factor) {
+    return (value * factor).round().clamp(0, 999999).toInt();
   }
 
   static double _lostWorkDays(RiskLevel risk) {

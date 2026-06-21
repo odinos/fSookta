@@ -70,18 +70,6 @@ void main() {
     expect(result.confidenceScore, inInclusiveRange(0, 1));
   });
 
-  test('assess risk use case initializes predictor lazily', () async {
-    final useCase = AssessRiskUseCase(
-      LogisticRegressionPredictor(
-        assetPath: 'assets/models/logistic_weights.json',
-      ),
-    );
-
-    final result = await useCase(List<double>.filled(51, 0.7));
-
-    expect(result.confidenceScore, inInclusiveRange(0, 1));
-  });
-
   test('loads canonical MoveNet joint feature schema from assets', () async {
     final schema = await const JointFeatureSchemaLoader().load();
 

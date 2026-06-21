@@ -1,6 +1,6 @@
 # Store Readiness Final Checklist
 
-Updated: 2026-05-24
+Updated: 2026-06-06
 
 This checklist aligns the Flutter app with the Functional Design Document scope:
 SookTa is a research prototype for ergonomic risk communication, preventive
@@ -41,14 +41,19 @@ confirmed injury predictor, or exact economic forecasting system.
 
 Latest build verification:
 
-- Store version prepared in git: `1.0.0+2`.
-- iOS release build passed from `/private/tmp/fSookta-store-build`; the generated
-  app reports `CFBundleShortVersionString=1.0.0` and `CFBundleVersion=2`.
-- Android App Bundle build passed from `/private/tmp/fSookta-store-build`; output
-  is `/private/tmp/fSookta-store-build/build/app/outputs/bundle/release/app-release.aab`.
-- Android upload signing is still the remaining Play Store blocker because
-  `android/key.properties` and the upload keystore are intentionally not present
-  in git.
+- Store version prepared in git: `1.1.2+10`.
+- iOS App Store IPA build passed from
+  `/Users/kpc/Documents/GitHub/fSookta`; the generated app reports
+  `CFBundleShortVersionString=1.1.2`, `CFBundleVersion=10`, and
+  `CFBundleIdentifier=com.kdev.sookta`.
+- iOS IPA output:
+  `/Users/kpc/Documents/GitHub/fSookta/build/ios/ipa/Sookta.ipa`.
+- Android App Bundle build passed from
+  `/Users/kpc/Documents/GitHub/fSookta`; output is
+  `/Users/kpc/Documents/GitHub/fSookta/build/app/outputs/bundle/release/app-release.aab`.
+- Android upload signing is configured locally through ignored
+  `android/key.properties`; do not commit `android/key.properties` or the
+  upload `.jks` file.
 
 ## Must Pass Before TestFlight/App Store Submission
 
@@ -66,22 +71,24 @@ Latest build verification:
 
 ## Research Model Scope
 
-- The current Logistic Regression asset is marked
-  `placeholder_pending_research_training` and must not be described as a
-  validated research-trained model.
-- The XGBoost ONNX path exists in the architecture for later A/B testing, but no
-  `assets/models/xgboost_model.onnx` artifact is currently present.
-- Until expert labels and trained artifacts exist, ML output should be described
-  as a research-prototype awareness signal based on posture and task scores.
+- The current XGBoost ONNX artifact is present at
+  `assets/models/xgboost_model.onnx` and is used for posture-risk support in the
+  REBA/ISO assessment flow.
+- The daily Logistic Regression artifact is present at
+  `assets/ml/daily_injury_logistic_model.json` and is used only for the
+  7-transaction trend-prediction flow.
+- The current ML assets must still be described as research-prototype ergonomic
+  risk support, not as clinically validated diagnostic AI, medical diagnosis, or
+  confirmed injury prediction.
 
 ## Deferred After Store/TestFlight If Time Is Tight
 
-- Firebase iOS configuration and FlutterFire initialization.
-- Validated Logistic Regression coefficients from the expert-labeled research
-  dataset.
-- Exported XGBoost ONNX model and on-device fixed-vector inference tests.
-- Firebase configuration and remote research data sync, if required by the final
-  research workflow.
+- Continued calibration of ML coefficients from expert-labeled field datasets.
+- Batch validation with a held-out research dataset, including false-low-risk
+  rate and high-risk recall.
+- Firebase dashboard smoke checks after the first production/TestFlight users
+  generate analytics/crash events.
+- Remote research data sync, if required by the final research workflow.
 - Pixel-perfect parity fixes that do not block the iOS research prototype flow.
 
 

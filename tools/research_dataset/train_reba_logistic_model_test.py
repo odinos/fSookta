@@ -90,6 +90,7 @@ class TrainRebaLogisticModelTest(unittest.TestCase):
             },
             expert_labels=[],
             iso_labels=[],
+            calibration_labels=[],
         )
 
         self.assertEqual(label.score, 9)
@@ -114,6 +115,7 @@ class TrainRebaLogisticModelTest(unittest.TestCase):
                     "label_source": "research_team_iso11228_workbook",
                 }
             ],
+            calibration_labels=[],
         )
 
         self.assertGreater(label.score, label.reba_score)
@@ -154,6 +156,42 @@ class TrainRebaLogisticModelTest(unittest.TestCase):
         self.assertIsNotNone(label)
         self.assertEqual(label.match_type, "iso11228_exact")
         self.assertEqual(label.total_score, 15)
+
+    def test_calibration_label_overrides_activity_level_score(self):
+        row = base_pose_row(activity="fertilizing", session_id="2.2")
+        pseudo = derive_reba_label(row)
+
+        label = build_training_label(
+            row,
+            pseudo,
+            exact_expert_labels={},
+            expert_labels=[],
+            iso_labels=[
+                {
+                    "activity": "fertilizing",
+                    "session_id": "2.2",
+                    "iso11228_total_score": "15",
+                    "risk_level_th": "สูง",
+                    "label_source": "older_iso_workbook",
+                }
+            ],
+            calibration_labels=[
+                {
+                    "activity": "fertilizing",
+                    "session_id": "activity_level",
+                    "reba_score": "9",
+                    "reba_risk_level": "high",
+                    "iso11228_total_score": "10",
+                    "iso_risk_level_th": "ปานกลาง",
+                    "label_source": "research_team_calibration_pdf_20260607",
+                }
+            ],
+        )
+
+        self.assertEqual(label.reba_score, 9)
+        self.assertEqual(label.iso_total_score, 10)
+        self.assertEqual(label.risk_level, "high")
+        self.assertEqual(label.match_type, "calibration_activity_level")
 
 
 if __name__ == "__main__":

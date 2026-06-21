@@ -34,4 +34,30 @@ void main() {
     expect(impact.lostIncome, greaterThan(0));
     expect(impact.totalCost, greaterThan(impact.directCareCost));
   });
+
+  test('compares before and after impact with 28 percent per score point', () {
+    final comparison = EconomicImpactService.compareBeforeAfter(
+      beforeImpact: 18080,
+      beforeScore: 7,
+      afterScore: 5,
+    );
+
+    expect(comparison.scoreReduction, 2);
+    expect(comparison.reductionPercent, 56);
+    expect(comparison.afterImpact, 7955);
+    expect(comparison.savedAmount, 10125);
+  });
+
+  test('caps economic impact comparison at zero baht', () {
+    final comparison = EconomicImpactService.compareBeforeAfter(
+      beforeImpact: 18080,
+      beforeScore: 7,
+      afterScore: 3,
+    );
+
+    expect(comparison.scoreReduction, 4);
+    expect(comparison.reductionPercent, 100);
+    expect(comparison.afterImpact, 0);
+    expect(comparison.savedAmount, 18080);
+  });
 }

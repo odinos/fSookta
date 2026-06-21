@@ -21,6 +21,12 @@ class SooktaTtsButton extends StatefulWidget {
 }
 
 class _SooktaTtsButtonState extends State<SooktaTtsButton> {
+  // Keep the rate close to the engine's natural voice. Very slow speech can make
+  // some Thai/Android voices sound stretched or robotic.
+  static const _thaiRate = 0.43;
+  static const _englishRate = 0.50;
+  static const _iosEnglishPitch = 1.03;
+
   late final FlutterTts _tts;
   late Future<void> _configured;
   bool _speaking = false;
@@ -39,17 +45,26 @@ class _SooktaTtsButtonState extends State<SooktaTtsButton> {
         IosTextToSpeechAudioCategory.playback,
         [
           IosTextToSpeechAudioCategoryOptions.duckOthers,
+          IosTextToSpeechAudioCategoryOptions
+              .interruptSpokenAudioAndMixWithOthers,
         ],
-        IosTextToSpeechAudioMode.spokenAudio,
+        IosTextToSpeechAudioMode.voicePrompt,
       );
       await _tts.autoStopSharedSession(false);
       _debug('iOS audio shared=$sharedResult category=$categoryResult');
+    } else if (Platform.isAndroid) {
+      await _tryTtsCall('setQueueMode', () => _tts.setQueueMode(0));
+      await _tryTtsCall(
+        'setAudioAttributesForNavigation',
+        _tts.setAudioAttributesForNavigation,
+      );
     }
     final volumeResult = await _tts.setVolume(1.0);
     final languageResult = await _configureVoice();
     _debug('volume=$volumeResult voiceOrLanguage=$languageResult');
-    await _tts.setSpeechRate(widget.thai ? 0.45 : 0.48);
-    await _tts.setPitch(1.0);
+    await _tts.setSpeechRate(widget.thai ? _thaiRate : _englishRate);
+    await _tts
+        .setPitch(Platform.isIOS && !widget.thai ? _iosEnglishPitch : 1.0);
     await _tts.awaitSpeakCompletion(true);
     _tts.setStartHandler(() {
       _debug('start speaking');
@@ -71,14 +86,17 @@ class _SooktaTtsButtonState extends State<SooktaTtsButton> {
 
   Future<dynamic> _configureVoice() async {
     final desiredLocale = widget.thai ? 'th-TH' : 'en-US';
-    if (Platform.isIOS) {
-      final voices = await _tts.getVoices;
-      final voice = _bestVoiceForLocale(voices, desiredLocale);
-      _debug('available voices=${voices is List ? voices.length : 'unknown'} '
-          'desired=$desiredLocale selected=$voice');
-      if (voice != null) {
-        return _tts.setVoice(voice);
-      }
+    final voices =
+        await _tryTtsCall<dynamic>('getVoices', () => _tts.getVoices);
+    final voice = _bestVoiceForLocale(voices, desiredLocale);
+    _debug('available voices=${voices is List ? voices.length : 'unknown'} '
+        'desired=$desiredLocale selected=$voice');
+    if (voice != null) {
+      final result = await _tryTtsCall<dynamic>(
+        'setVoice',
+        () => _tts.setVoice(voice),
+      );
+      if (result == 1 || result == true) return result;
     }
     final available = await _tts.isLanguageAvailable(desiredLocale);
     _debug('language $desiredLocale available=$available');
@@ -94,21 +112,99 @@ class _SooktaTtsButtonState extends State<SooktaTtsButton> {
           voiceLocale?.startsWith(normalizedLocale.split('-').first) == true;
     }).toList();
     if (matching.isEmpty) return null;
-    matching.sort((a, b) {
-      final aq = a['quality']?.toString() ?? '';
-      final bq = b['quality']?.toString() ?? '';
-      return _qualityRank(bq).compareTo(_qualityRank(aq));
-    });
-    return matching.first.map(
-      (key, value) => MapEntry(key.toString(), value.toString()),
+    matching.sort(
+      (a, b) => _voiceRank(b, normalizedLocale)
+          .compareTo(_voiceRank(a, normalizedLocale)),
     );
+    final selected = matching.first;
+    final name = selected['name']?.toString();
+    final voiceLocale = selected['locale']?.toString();
+    if (name == null || voiceLocale == null) return null;
+    return {
+      'name': name,
+      'locale': voiceLocale,
+      if (selected['identifier'] != null)
+        'identifier': selected['identifier'].toString(),
+    };
+  }
+
+  int _voiceRank(Map<dynamic, dynamic> voice, String desiredLocale) {
+    final quality = voice['quality']?.toString().toLowerCase() ?? '';
+    final locale = voice['locale']?.toString().toLowerCase() ?? '';
+    final name = voice['name']?.toString().toLowerCase() ?? '';
+    final identifier = voice['identifier']?.toString().toLowerCase() ?? '';
+    final networkRequired =
+        voice['network_required']?.toString().toLowerCase() == '1' ||
+            voice['networkConnectionRequired']?.toString().toLowerCase() ==
+                'true';
+    final features = voice['features']?.toString().toLowerCase() ?? '';
+    final searchable = '$name $identifier $quality $features';
+    var rank = _qualityRank(quality) * 100;
+    if (locale == desiredLocale) rank += 80;
+    if (!widget.thai && desiredLocale == 'en-us') {
+      rank += _iosEnglishHumanVoicePreference(searchable);
+    }
+    if (searchable.contains('premium')) rank += 55;
+    if (searchable.contains('enhanced')) rank += 44;
+    if (searchable.contains('siri')) rank += 42;
+    if (searchable.contains('neural')) rank += 28;
+    if (searchable.contains('wavenet')) rank += 22;
+    if (searchable.contains('natural')) rank += 18;
+    if (features.contains('embedded')) rank += 8;
+    if (networkRequired) rank -= 12;
+    if (searchable.contains('compact')) rank -= 45;
+    if (name.contains('kathy')) rank -= 18;
+    if (quality.contains('low')) rank -= 40;
+    return rank;
+  }
+
+  int _iosEnglishHumanVoicePreference(String searchable) {
+    // iOS does not expose the exact Siri assistant voice to third-party apps,
+    // but AVSpeechSynthesizer can use installed Apple enhanced/premium voices.
+    // Prefer the smoother US English voices first, then fall back gracefully.
+    const preferredNames = <String, int>{
+      'siri_female_en-us': 120,
+      'siri_male_en-us': 118,
+      'samantha': 100,
+      'ava': 96,
+      'allison': 88,
+      'susan': 82,
+      'joelle': 76,
+      'noelle': 74,
+      'nathan': 70,
+      'evan': 68,
+      'zoe': 64,
+      'tom': 58,
+      'fred': 12,
+      'kathy': 0,
+    };
+    for (final entry in preferredNames.entries) {
+      if (searchable.contains(entry.key)) return entry.value;
+    }
+    return 0;
   }
 
   int _qualityRank(String quality) {
     final lower = quality.toLowerCase();
-    if (lower.contains('premium')) return 3;
-    if (lower.contains('enhanced')) return 2;
+    if (lower.contains('very high')) return 5;
+    if (lower.contains('premium')) return 5;
+    if (lower.contains('high')) return 4;
+    if (lower.contains('enhanced')) return 4;
+    if (lower.contains('normal')) return 3;
+    if (lower.contains('low')) return 1;
     return 1;
+  }
+
+  Future<T?> _tryTtsCall<T>(
+    String label,
+    Future<T> Function() call,
+  ) async {
+    try {
+      return await call();
+    } catch (error) {
+      _debug('$label skipped: $error');
+      return null;
+    }
   }
 
   @override
@@ -136,7 +232,7 @@ class _SooktaTtsButtonState extends State<SooktaTtsButton> {
       await _configured;
       if (!mounted) return;
       setState(() => _speaking = true);
-      final text = widget.text.trim();
+      final text = _speechText(widget.text, widget.thai);
       _debug('speak requested chars=${text.length} thai=${widget.thai}');
       final result = await _tts.speak(text);
       _debug('speak result=$result');
@@ -146,6 +242,41 @@ class _SooktaTtsButtonState extends State<SooktaTtsButton> {
     } catch (_) {
       _showTtsError();
     }
+  }
+
+  String _speechText(String raw, bool thai) {
+    var text = raw
+        .replaceAll(RegExp(r'https?:\/\/\S+'), '')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .replaceAll('•', '. ')
+        .replaceAll('→', thai ? ' ไปเป็น ' : ' to ')
+        .replaceAll('->', thai ? ' ไปเป็น ' : ' to ')
+        .replaceAll('/', thai ? ' และ ' : ' and ')
+        .trim();
+    if (thai) {
+      text = text
+          .replaceAll('REBA', 'รีบา')
+          .replaceAll('ISO11228', 'ไอ เอส โอ หนึ่ง หนึ่ง สอง สอง แปด')
+          .replaceAll('ISO 11228', 'ไอ เอส โอ หนึ่ง หนึ่ง สอง สอง แปด')
+          .replaceAll('XGBoost', 'เอ็กซ์ จี บูสต์')
+          .replaceAll('MoveNet', 'มูฟเน็ต')
+          .replaceAll('TFLite', 'ที เอฟ ไลต์')
+          .replaceAll('H/V', 'เอช และ วี')
+          .replaceAll(RegExp(r'\bkg\b', caseSensitive: false), 'กิโลกรัม')
+          .replaceAll('กก.', 'กิโลกรัม')
+          .replaceAll('ชม.', 'ชั่วโมง')
+          .replaceAll(RegExp(r'\bN\b'), 'นิวตัน')
+          .replaceAll('THB', 'บาท');
+    } else {
+      text = text
+          .replaceAll('REBA', 'R E B A')
+          .replaceAll('ISO11228', 'ISO eleven two twenty eight')
+          .replaceAll('ISO 11228', 'ISO eleven two twenty eight')
+          .replaceAll('XGBoost', 'X G Boost')
+          .replaceAll('MoveNet', 'Move Net')
+          .replaceAll('H/V', 'H and V');
+    }
+    return text;
   }
 
   void _showTtsError() {
@@ -173,19 +304,23 @@ class _SooktaTtsButtonState extends State<SooktaTtsButton> {
   @override
   Widget build(BuildContext context) {
     final label = widget.thai ? 'อ่านข้อความ' : 'Read aloud';
-    return Tooltip(
-      message: label,
-      child: IconButton(
-        iconSize: widget.size * 0.56,
-        constraints: BoxConstraints.tightFor(
-          width: widget.size,
-          height: widget.size,
+    return Semantics(
+      label: label,
+      button: true,
+      enabled: true,
+      onTap: _toggle,
+      child: ExcludeSemantics(
+        child: IconButton(
+          iconSize: widget.size * 0.56,
+          constraints: BoxConstraints.tightFor(
+            width: widget.size,
+            height: widget.size,
+          ),
+          padding: EdgeInsets.zero,
+          onPressed: _toggle,
+          icon: Icon(_speaking ? Icons.stop_circle : Icons.volume_up),
+          color: const Color(0xFF5C9A81),
         ),
-        padding: EdgeInsets.zero,
-        onPressed: _toggle,
-        icon: Icon(_speaking ? Icons.stop_circle : Icons.volume_up),
-        color: const Color(0xFF5C9A81),
-        tooltip: label,
       ),
     );
   }

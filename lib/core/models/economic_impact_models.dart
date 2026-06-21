@@ -85,3 +85,25 @@ class EconomicImpactBreakdown {
       medicineAndSuppliesCost +
       travelCost;
 }
+
+class EconomicImpactComparison {
+  const EconomicImpactComparison({
+    required this.beforeImpact,
+    required this.afterImpact,
+    required this.savedAmount,
+    required this.scoreReduction,
+    required this.effectiveScoreReduction,
+    required this.reductionRate,
+  });
+
+  final int beforeImpact;
+  final int afterImpact;
+  final int savedAmount;
+  final int scoreReduction;
+  final int effectiveScoreReduction;
+  final double reductionRate;
+
+  double get remainingRate => 1 - reductionRate;
+
+  int get reductionPercent => (reductionRate * 100).round();
+}

@@ -2,6 +2,8 @@ platform :ios, '15.0'
 
 ENV['COCOAPODS_DISABLE_STATS'] = 'true'
 
+require 'fileutils'
+
 project 'Runner', {
   'Debug' => :debug,
   'Profile' => :release,
@@ -24,6 +26,15 @@ end
 require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelper'), flutter_root)
 
 flutter_ios_podfile_setup
+
+pre_install do |_installer|
+  # Remove macOS copy-conflict files such as `pb 3.h` from generated Pods.
+  # These can poison Xcode header maps and make Firebase/nanopb include the
+  # wrong header during archive builds.
+  Dir.glob(File.join(__dir__, 'Pods', '**', '* [0-9]*')).each do |path|
+    FileUtils.rm_rf(path)
+  end
+end
 
 target 'Runner' do
   use_frameworks!
@@ -62,5 +73,86 @@ post_install do |installer|
 
     file_ref.source_tree = '<absolute>'
     file_ref.path = File.join(integration_test_root, integration_test_sources[file_ref.display_name])
+  end
+
+  # tflite_flutter looks up TensorFlow Lite C symbols through Dart FFI on iOS.
+  # TensorFlowLiteC is delivered as static objects, so keep the specific C API
+  # symbols that Dart looks up in Runner instead of embedding a runtime framework.
+  runner_project = Xcodeproj::Project.open(File.expand_path('Runner.xcodeproj', __dir__))
+  runner_target = runner_project.targets.find { |target| target.name == 'Runner' }
+  if runner_target
+    ['Run Script', 'Thin Binary'].each do |flutter_phase_name|
+      flutter_phase = runner_target.shell_script_build_phases
+        .find { |phase| phase.name == flutter_phase_name }
+      next unless flutter_phase
+
+      codesign_path = 'export PATH="${SRCROOT}/scripts:${PATH}"'
+      next if flutter_phase.shell_script.include?(codesign_path)
+
+      flutter_phase.shell_script = "#{codesign_path}\n#{flutter_phase.shell_script}"
+    end
+
+    phase_name = '[Sookta] Embed TensorFlowLiteC'
+    runner_target.shell_script_build_phases
+      .select { |phase| phase.name == phase_name }
+      .each { |phase| runner_target.build_phases.delete(phase) }
+
+    metadata_script = <<~'SCRIPT'
+      set -e
+
+      strip_metadata() {
+        target="$1"
+        [ -e "$target" ] || return 0
+        find "$target" \( -name '.DS_Store' -o -name '._*' -o -name '__MACOSX' \) -exec rm -rf {} + 2>/dev/null || true
+        find "$target" -exec xattr -d com.apple.FinderInfo {} \; 2>/dev/null || true
+        find "$target" -exec xattr -d com.apple.ResourceFork {} \; 2>/dev/null || true
+        find "$target" -exec xattr -d 'com.apple.fileprovider.fpfs#P' {} \; 2>/dev/null || true
+        find "$target" -exec xattr -d com.apple.provenance {} \; 2>/dev/null || true
+        find "$target" -exec xattr -d com.apple.quarantine {} \; 2>/dev/null || true
+      }
+
+      strip_metadata "${TARGET_BUILD_DIR}/${WRAPPER_NAME}"
+      strip_metadata "${TARGET_BUILD_DIR}/App.framework"
+      strip_metadata "${CONFIGURATION_BUILD_DIR}/App.framework"
+      strip_metadata "${BUILT_PRODUCTS_DIR}/App.framework"
+      strip_metadata "${SRCROOT}/../build/native_assets/ios"
+    SCRIPT
+
+    pre_metadata_phase_name = '[Sookta] Strip macOS metadata before Flutter'
+    pre_metadata_phase = runner_target.shell_script_build_phases
+      .find { |phase| phase.name == pre_metadata_phase_name } ||
+      runner_target.new_shell_script_build_phase(pre_metadata_phase_name)
+    pre_metadata_phase.shell_script = metadata_script
+    runner_target.build_phases.delete(pre_metadata_phase)
+    run_script_phase = runner_target.shell_script_build_phases
+      .find { |phase| phase.name == 'Run Script' }
+    run_script_index = runner_target.build_phases.index(run_script_phase) || 0
+    runner_target.build_phases.insert(run_script_index, pre_metadata_phase)
+
+    metadata_phase_name = '[Sookta] Strip macOS metadata'
+    metadata_phase = runner_target.shell_script_build_phases
+      .find { |phase| phase.name == metadata_phase_name } ||
+      runner_target.new_shell_script_build_phase(metadata_phase_name)
+    metadata_phase.shell_script = metadata_script
+
+    tflite_symbols = [
+      '_TfLiteInterpreterOptionsCreate',
+      '_TfLiteInterpreterCreate',
+      '_TfLiteModelCreate',
+    ].map { |symbol| "-u #{symbol}" }.join(' ')
+    tflite_exports =
+      '-Xlinker -exported_symbols_list -Xlinker $(SRCROOT)/Runner/tflite_exported_symbols.txt'
+    runner_target.build_configurations.each do |config|
+      config.build_settings['COPY_PHASE_STRIP'] = 'NO'
+      config.build_settings['DEPLOYMENT_POSTPROCESSING'] = 'NO'
+      config.build_settings['STRIP_INSTALLED_PRODUCT'] = 'NO'
+      config.build_settings['STRIP_STYLE'] = 'debugging'
+      config.build_settings.delete('OTHER_LDFLAGS')
+      config.build_settings['OTHER_LDFLAGS[sdk=iphoneos*]'] =
+        "$(inherited) #{tflite_exports} #{tflite_symbols}"
+      config.build_settings['OTHER_LDFLAGS[sdk=iphonesimulator*]'] =
+        "$(inherited) #{tflite_exports} #{tflite_symbols}"
+    end
+    runner_project.save
   end
 end

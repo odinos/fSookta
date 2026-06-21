@@ -11,8 +11,11 @@ import '../../core/models/evaluation_models.dart';
 import '../../core/services/economic_impact_service.dart';
 import '../../core/services/risk_recommendation_service.dart';
 import '../../core/theme/sookta_theme.dart';
+import '../../widgets/assessment_breakdown_card.dart';
+import '../../widgets/economic_impact_comparison_card.dart';
 import '../../widgets/research_disclaimer_card.dart';
 import '../../widgets/responsive_content.dart';
+import '../../widgets/tts_button.dart';
 import 'final_result_screen.dart';
 
 class InitialRiskScreen extends StatefulWidget {
@@ -98,6 +101,12 @@ class _InitialRiskScreenState extends State<InitialRiskScreen> {
             const SizedBox(height: 16),
             _BodyMapCard(
               bodyRisks: before.bodyPartRisks,
+              breakdown: widget.payload.breakdown,
+              thai: thai,
+            ),
+            const SizedBox(height: 16),
+            AssessmentMethodSummaryCard(
+              breakdown: widget.payload.breakdown,
               thai: thai,
             ),
             const SizedBox(height: 16),
@@ -121,6 +130,16 @@ class _InitialRiskScreenState extends State<InitialRiskScreen> {
                           : 'Tap only the actions you can really do. The app recalculates the after score immediately.',
                       style: const TextStyle(color: Colors.black54),
                     ),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: SooktaTtsButton(
+                        thai: thai,
+                        text: thai
+                            ? 'เลือกวิธีลดความเสี่ยง แตะเลือกเฉพาะข้อที่ทำได้จริง ระบบจะคำนวณคะแนนหลังปรับให้ทันที'
+                            : 'Choose risk-reduction actions. Tap only the actions you can really do. The app recalculates the after score immediately.',
+                        size: 38,
+                      ),
+                    ),
                     const SizedBox(height: 8),
                     ...suggestions.map((key) {
                       final action = _actionFor(key);
@@ -140,6 +159,13 @@ class _InitialRiskScreenState extends State<InitialRiskScreen> {
                           thai
                               ? 'คาดว่าลดคะแนน ${action.scoreReduction} จุด • ลดความเสี่ยง ${action.partLabels(thai: true)}'
                               : 'Estimated score reduction ${action.scoreReduction} • Targets ${action.partLabels(thai: false)}',
+                        ),
+                        secondary: SooktaTtsButton(
+                          thai: thai,
+                          text: thai
+                              ? '${strings.get(key)} คาดว่าลดคะแนน ${action.scoreReduction} จุด ลดความเสี่ยง ${action.partLabels(thai: true)}'
+                              : '${strings.get(key)}. Estimated score reduction ${action.scoreReduction}. Targets ${action.partLabels(thai: false)}.',
+                          size: 34,
                         ),
                         controlAffinity: ListTileControlAffinity.leading,
                         contentPadding: EdgeInsets.zero,
@@ -164,6 +190,21 @@ class _InitialRiskScreenState extends State<InitialRiskScreen> {
                       : 'Score reduced by selected actions'),
               thai: thai,
             ),
+            if (selectedKeys.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              EconomicImpactComparisonCard(
+                comparison: EconomicImpactService.compareBeforeAfter(
+                  beforeImpact: before.economicLoss,
+                  beforeScore: before.userScore,
+                  afterScore: after.userScore,
+                ),
+                thai: thai,
+                title: thai
+                    ? 'เงินที่อาจลดการสูญเสียได้'
+                    : 'Potential Lost Income Reduction',
+                compact: true,
+              ),
+            ],
             const SizedBox(height: 24),
             FilledButton.icon(
               onPressed: () {
@@ -197,6 +238,11 @@ class _InitialRiskScreenState extends State<InitialRiskScreen> {
         activity: activity,
         riskLevel: result.riskLevel,
       ),
+      ...RiskRecommendationService.bodyMapKeys(
+        bodyPartRisks: result.bodyPartRisks,
+        activity: activity,
+        overallRisk: result.riskLevel,
+      ),
       ...result.suggestionKeys,
     };
     if (keys.isEmpty) keys.add('act_rest_stretch');
@@ -213,12 +259,15 @@ class _InitialRiskScreenState extends State<InitialRiskScreen> {
     );
     final score = (before.userScore - reduction).clamp(1, 9).toInt();
     final risk = _riskFromUserScore(score);
-    final lossFactor =
-        selectedKeys.isEmpty ? 1.0 : math.max(0.0, 1 - (0.28 * reduction));
     final affectedParts = <BodyPart>{};
     for (final key in selectedKeys) {
       affectedParts.addAll(_actionFor(key).bodyParts);
     }
+    final afterImpact = EconomicImpactService.estimateAfterImpact(
+      beforeImpact: before.economicLoss,
+      beforeScore: before.userScore,
+      afterScore: score,
+    );
     return ErgoResult(
       riskLevel: risk,
       techScore: math.max(1.0, before.techScore - reduction),
@@ -226,7 +275,7 @@ class _InitialRiskScreenState extends State<InitialRiskScreen> {
       userScoreColor: _scoreColor(score),
       limitValue: before.limitValue,
       suggestionKey: before.suggestionKey,
-      economicLoss: (before.economicLoss * lossFactor).round(),
+      economicLoss: afterImpact,
       suggestionKeys: before.suggestionKeys,
       bodyPartRisks: before.bodyPartRisks.map(
         (part, level) => MapEntry(
@@ -238,6 +287,27 @@ class _InitialRiskScreenState extends State<InitialRiskScreen> {
   }
 
   _ImprovementAction _actionFor(String key) {
+    if (key.startsWith('act_body_neck_')) {
+      return _bodyMapAction(key, {BodyPart.neck});
+    }
+    if (key.startsWith('act_body_trunk_')) {
+      return _bodyMapAction(key, {BodyPart.trunk});
+    }
+    if (key.startsWith('act_body_arms_')) {
+      return _bodyMapAction(key, {BodyPart.arms});
+    }
+    if (key.startsWith('act_body_wrists_')) {
+      return _bodyMapAction(key, {BodyPart.wrists});
+    }
+    if (key.startsWith('act_body_legs_')) {
+      return _bodyMapAction(key, {BodyPart.legs});
+    }
+    if (key.startsWith('act_body_manual_')) {
+      return _bodyMapAction(
+        key,
+        {BodyPart.trunk, BodyPart.arms, BodyPart.wrists, BodyPart.legs},
+      );
+    }
     if (key.startsWith('act_ref_weight_')) {
       return const _ImprovementAction(
         scoreReduction: 2,
@@ -452,6 +522,15 @@ class _InitialRiskScreenState extends State<InitialRiskScreen> {
     };
   }
 
+  _ImprovementAction _bodyMapAction(String key, Set<BodyPart> bodyParts) {
+    final reduction =
+        key.endsWith('_very_high') || key.endsWith('_high') ? 2 : 1;
+    return _ImprovementAction(
+      scoreReduction: reduction,
+      bodyParts: bodyParts,
+    );
+  }
+
   RiskLevel _riskFromUserScore(int score) {
     if (score <= 3) return RiskLevel.low;
     if (score <= 6) return RiskLevel.medium;
@@ -500,6 +579,11 @@ class _FarmerGuideCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final improved = selectedCount > 0 && after.userScore < before.userScore;
+    final impactComparison = EconomicImpactService.compareBeforeAfter(
+      beforeImpact: before.economicLoss,
+      beforeScore: before.userScore,
+      afterScore: after.userScore,
+    );
     return Card(
       color: const Color(0xFFF4FBF5),
       child: Padding(
@@ -525,6 +609,13 @@ class _FarmerGuideCard extends StatelessWidget {
                     ),
                   ),
                 ),
+                SooktaTtsButton(
+                  thai: thai,
+                  text: thai
+                      ? 'อ่านตรงนี้ก่อน คะแนนตอนนี้คือ ${before.userScore} ${before.riskLevel.label}. ${improved ? 'ถ้าทำตามที่เลือก คะแนนจะลดเหลือ ${after.userScore} ผลกระทบก่อนปรับ ${impactComparison.beforeImpact} บาทต่อปี หลังปรับประมาณ ${impactComparison.afterImpact} บาทต่อปี อาจประหยัดได้ ${impactComparison.savedAmount} บาทต่อปี' : 'เลือกวิธีที่ทำได้จริงด้านล่าง ไม่ต้องกรอกข้อมูลเพิ่ม'}'
+                      : 'Read this first. Current score is ${before.userScore}, ${_riskLabel(before.riskLevel)}. ${improved ? 'With selected actions, the score may drop to ${after.userScore}. Before impact ${impactComparison.beforeImpact} baht per year. After impact about ${impactComparison.afterImpact} baht per year. Potential saving ${impactComparison.savedAmount} baht per year.' : 'Choose practical actions below. No extra form is needed.'}',
+                  size: 38,
+                ),
               ],
             ),
             const SizedBox(height: 8),
@@ -538,8 +629,8 @@ class _FarmerGuideCard extends StatelessWidget {
             Text(
               improved
                   ? (thai
-                      ? 'ถ้าทำตามที่เลือก คะแนนจะลดเหลือ ${after.userScore} ให้เจ้าหน้าที่ช่วยดูต่อได้'
-                      : 'With selected actions, the score may drop to ${after.userScore}. Staff can review the export.')
+                      ? 'ถ้าทำตามที่เลือก คะแนนจะลดเหลือ ${after.userScore} ผลกระทบก่อนปรับ ${impactComparison.beforeImpact} บาท/ปี หลังปรับประมาณ ${impactComparison.afterImpact} บาท/ปี อาจประหยัดได้ ${impactComparison.savedAmount} บาท/ปี'
+                      : 'With selected actions, the score may drop to ${after.userScore}. Impact changes from ${impactComparison.beforeImpact} to about ${impactComparison.afterImpact} THB/year, saving ${impactComparison.savedAmount} THB/year.')
                   : (thai
                       ? 'เลือกวิธีที่ทำได้จริงด้านล่าง ไม่ต้องกรอกข้อมูลเพิ่ม'
                       : 'Choose practical actions below. No extra form is needed.'),
@@ -616,37 +707,39 @@ class _AiRiskAlertCard extends StatelessWidget {
             const SizedBox(height: 6),
             Text(
               thai
-                  ? 'เป็นการประมาณแนวโน้มในต้นแบบวิจัยจากข้อมูลท่าทางและคะแนนงาน ไม่ใช่การทำนายการบาดเจ็บรายบุคคล'
-                  : 'This research-prototype estimate uses posture and task scores. It is not an individual injury prediction.',
+                  ? 'เป็นการตรวจเทียบความเสี่ยงท่าทางด้วย XGBoost จากข้อมูล MoveNet ไม่ใช่การทำนายการบาดเจ็บรายบุคคล'
+                  : 'This XGBoost check uses MoveNet posture data. It is not an individual injury prediction.',
               style: const TextStyle(fontSize: 12, color: Colors.black54),
             ),
-            const SizedBox(height: 12),
-            Text(
-              thai
-                  ? 'ปัจจัยที่ใช้สื่อสารความเสี่ยง'
-                  : 'Factors used for risk communication',
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            ...alert.featureImportance.map(
-              (feature) => Padding(
-                padding: const EdgeInsets.only(bottom: 6),
-                child: Row(
-                  children: [
-                    Expanded(child: Text(feature.label(thai: thai))),
-                    const SizedBox(width: 8),
-                    SizedBox(
-                      width: 92,
-                      child: LinearProgressIndicator(
-                        value: feature.score.clamp(0.0, 1.0).toDouble(),
-                        color: color,
-                        backgroundColor: color.withValues(alpha: 0.12),
+            if (alert.featureImportance.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Text(
+                thai
+                    ? 'ปัจจัยที่ใช้สื่อสารความเสี่ยง'
+                    : 'Factors used for risk communication',
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              ...alert.featureImportance.map(
+                (feature) => Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: Row(
+                    children: [
+                      Expanded(child: Text(feature.label(thai: thai))),
+                      const SizedBox(width: 8),
+                      SizedBox(
+                        width: 92,
+                        child: LinearProgressIndicator(
+                          value: feature.score.clamp(0.0, 1.0).toDouble(),
+                          color: color,
+                          backgroundColor: color.withValues(alpha: 0.12),
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
-            ),
+            ],
           ],
         ),
       ),
@@ -696,6 +789,10 @@ class _RiskSummaryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = Color(result.userScoreColor);
+    final scoreTextColor =
+        ThemeData.estimateBrightnessForColor(color) == Brightness.light
+            ? const Color(0xFF263238)
+            : Colors.white;
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -712,7 +809,7 @@ class _RiskSummaryCard extends StatelessWidget {
                     '${result.userScore}',
                     maxLines: 1,
                     style: TextStyle(
-                      color: Colors.white,
+                      color: scoreTextColor,
                       fontSize: compact ? 30 : 34,
                       fontWeight: FontWeight.bold,
                     ),
@@ -949,10 +1046,12 @@ class _ImpactRow extends StatelessWidget {
 class _BodyMapCard extends StatelessWidget {
   const _BodyMapCard({
     required this.bodyRisks,
+    required this.breakdown,
     required this.thai,
   });
 
   final Map<BodyPart, RiskLevel> bodyRisks;
+  final AssessmentBreakdown? breakdown;
   final bool thai;
 
   @override
@@ -985,17 +1084,44 @@ class _BodyMapCard extends StatelessWidget {
               },
             ),
             const SizedBox(height: 12),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: parts.map((part) {
-                final risk = bodyRisks[part] ?? RiskLevel.low;
-                return Chip(
-                  avatar: CircleAvatar(backgroundColor: Color(risk.colorHex)),
-                  label: Text('${_partLabel(part, thai)}: ${_shortRisk(risk)}'),
-                );
-              }).toList(),
-            ),
+            ...parts.map((part) {
+              final risk = bodyRisks[part] ?? RiskLevel.low;
+              final reasons =
+                  assessmentBodyRiskReasons(breakdown, thai)[part] ?? const [];
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.only(top: 5),
+                      child: CircleAvatar(
+                        radius: 7,
+                        backgroundColor: Color(risk.colorHex),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                              '${_partLabel(part, thai)}: ${_shortRisk(risk)}'),
+                          if (risk != RiskLevel.low && reasons.isNotEmpty)
+                            Text(
+                              '${thai ? 'สาเหตุ' : 'Reason'}: ${reasons.take(2).join(', ')}',
+                              style: const TextStyle(
+                                color: Colors.black54,
+                                fontSize: 12,
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
           ],
         ),
       ),

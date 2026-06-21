@@ -38,9 +38,14 @@ The landmark order is:
 16. leftAnkle
 17. rightAnkle
 
-## Required Logistic Regression JSON
+## Legacy Logistic Regression JSON
 
 Path: `assets/models/logistic_weights.json`
+
+This artifact is retained for research traceability and unit tests, but it is
+no longer used by the app's REBA/ISO assessment flow. Logistic Regression was
+separated from posture scoring on 2026-06-06 because its prediction target is
+now daily injury/treatment follow-up, not today's REBA/ISO posture risk.
 
 Required fields:
 
@@ -77,7 +82,7 @@ preprocessing layer before the model is exported.
 
 Current artifact:
 
-- Model version: `reba-iso-xgboost-onnx-2026-05-25`
+- Model version: `reba-iso-xgboost-onnx-2026-06-06`
 - Model source: `research_team_reba2_iso11228_document_guided_xgboost`
 - Training script: `tools/research_dataset/train_xgboost_onnx_model.py`
 - Asset: `assets/models/xgboost_model.onnx`
@@ -87,57 +92,92 @@ Current artifact:
 - Holdout rows: `90`
 - Total labeled rows: `388`
 - Holdout risk accuracy: `0.9333`
-- Holdout combined REBA-equivalent score MAE: `0.6044`
+- Holdout combined REBA-equivalent score MAE: `0.6679`
 - The training target is the app's combined REBA + ISO REBA-equivalent risk
   probability. Economic impact values are excluded from training and remain a
   post-assessment communication layer.
+
+## Daily Logistic Regression JSON
+
+Path: `assets/ml/daily_injury_logistic_model.json`
+
+This is the only Logistic Regression model that should be used in app UI after
+2026-06-06. It reads the selected farmer's latest seven assessment records and
+predicts whether the pattern should be flagged for research/medical follow-up.
+
+Required fields:
+
+- `version`
+- `source`
+- `minTransactions`
+- `thresholds.watch`
+- `thresholds.high`
+- `thresholds.critical`
+- `features`
+- `targetLabel.name`
+- `logisticRegression.intercept`
+- `logisticRegression.coefficients`
+
+Training template:
+
+- `data/research/templates/daily_injury_logistic_training_template.csv`
+
+Training script:
+
+- `tools/research_dataset/train_daily_injury_logistic_model.py`
+
+The existing REBA/ISO pose dataset does not contain confirmed daily treatment
+outcome labels. The daily Logistic model must be retrained when the research
+team supplies `requires_medical_treatment_within_7_days` labels.
 
 ## Production Gate
 
 Do not mark the model as research-trained until all are true:
 
-- Logistic JSON has `modelSource: "research_trained"`.
-- Logistic JSON `featureSchemaId` matches `joint_feature_schema.json`.
-- `xgboost_model.onnx` exists and was exported from the same feature schema.
+- `xgboost_model.onnx` exists and was exported from the MoveNet feature schema.
 - Fixed sample vectors from the research dataset pass on-device inference tests.
 - Expert labels include the ERGO process fields required by REBA and ISO
   11228-1/2, including trunk twist, trunk side flexion, wrist twist, coupling,
   activity, lifting inputs, and push/pull force limits.
+- Daily Logistic Regression has confirmed 7-transaction treatment outcome
+  labels with both positive and negative windows.
 
 ## Current REBA + ISO Document-Guided Model
 
-The app now includes a first real Logistic Regression artifact trained from the
-local MoveNet research dataset:
+The app now uses the REBA/ISO calculation path with XGBoost ONNX guardrail for
+current posture-risk assessment:
 
-- Asset: `assets/models/logistic_weights.json`
 - XGBoost ONNX asset: `assets/models/xgboost_model.onnx`
-- Model source: `research_team_reba2_iso11228_document_guided_trained`
-- Training script: `tools/research_dataset/train_reba_logistic_model.py`
+- XGBoost ONNX version: `reba-iso-xgboost-onnx-2026-06-06`
+- Model source: `research_team_reba2_iso11228_document_guided_xgboost`
+- Training script: `tools/research_dataset/train_xgboost_onnx_model.py`
+- REBA label generation script: `tools/research_dataset/train_reba_logistic_model.py`
 - Training rows: `388` valid MoveNet pose rows from
   `data/research/extracted/pose_feature_dataset.csv`
 - Input feature count: `51` raw MoveNet values
-- Model feature count: `71`, after appending `reba_angle_features_v1`
-- Engineered features: trunk angle, neck angle, arm angles, elbow deviation,
-  knee flexion, shoulder/hip slope and width, upper-body lean, and visibility
-  quality features
 - Label source: research-team REBA-2 labels extracted to
   `data/research/expert_labels/reba2_expert_labels.csv`. Exact session matches
   are preferred. Ambiguous parent media folders, such as `4.1`, use the
   traceable mean of child labels such as `4.1.1` and `4.1.2`.
 - ISO 11228 research labels are extracted to
-  `data/research/expert_labels/iso11228_expert_labels.csv`. The current
-  Logistic Regression training uses these workbook labels where they match the
-  activity/session, then applies document-guided ISO 11228-3 pseudo labels for
-  repetitive low-load work when direct ISO labels are not available.
+  `data/research/expert_labels/iso11228_expert_labels.csv`. The XGBoost
+  training uses these workbook labels where they match the activity/session,
+  then applies document-guided ISO 11228-3 pseudo labels for repetitive
+  low-load work when direct ISO labels are not available.
 - ISO 11228-1/2/3 and agriculture recommendation references are tracked in
   `data/research/reference_sources/training_reference_sources.json`; the PDFs
   remain outside the repository because several are copyright-protected
   standards.
-- Metrics output: `data/research/extracted/reba_logistic_metrics.json`
+- Metrics output: `data/research/extracted/xgboost_onnx_metrics.json`
+- REBA score calculation uses the standard REBA worksheet flow: Table A
+  combines neck, trunk, and legs; load/force is added to produce Score A;
+  Table B combines upper arm, lower arm, and wrist; coupling is added to
+  produce Score B; Table C combines Score A and Score B; activity is added to
+  produce the final REBA score.
 
-This is a real on-device ML artifact seeded by field labels from the research
-team and document-guided ISO 11228 rules from the supplied references. It is
-still not a fully validated research model because the current extracted pose
-dataset covers only a subset of sessions, some labels are mapped at
-parent-folder or activity level, and the ISO 11228-3 rows are deterministic
-pseudo labels rather than independent expert outcome labels.
+This is a real on-device XGBoost posture-risk artifact seeded by field labels
+from the research team and document-guided ISO 11228 rules from the supplied
+references. It is still not a fully validated research model because the
+current extracted pose dataset covers only a subset of sessions, some labels are
+mapped at parent-folder or activity level, and the ISO 11228-3 rows are
+deterministic pseudo labels rather than independent expert outcome labels.

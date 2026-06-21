@@ -183,11 +183,20 @@ class FarmerManagerScreen extends StatelessWidget {
                       controller: weight,
                       label: text.weight,
                       keyboardType: TextInputType.number,
+                      onChanged: (_) => setDialogState(() {}),
                     ),
                     _Field(
                       controller: height,
                       label: text.height,
                       keyboardType: TextInputType.number,
+                      onChanged: (_) => setDialogState(() {}),
+                    ),
+                    _BmiPreviewLine(
+                      profile: UserProfile(
+                        weight: weight.text,
+                        height: height.text,
+                      ),
+                      thai: thai,
                     ),
                     _Field(
                       controller: income,
@@ -322,6 +331,10 @@ class _FarmerCard extends StatelessWidget {
           [
             if (farmer.farmerId.isNotEmpty) farmer.farmerId,
             if (farmer.location.isNotEmpty) farmer.location,
+            if (farmer.bmi != null)
+              thai
+                  ? 'BMI ${farmer.bmi!.toStringAsFixed(1)}'
+                  : 'BMI ${farmer.bmi!.toStringAsFixed(1)}',
             thai ? '$historyCount รายการ' : '$historyCount records',
           ].join(' • '),
           maxLines: 2,
@@ -354,6 +367,7 @@ class _Field extends StatelessWidget {
     this.keyboardType,
     this.helperText,
     this.suffixIcon,
+    this.onChanged,
   });
 
   final TextEditingController controller;
@@ -361,6 +375,7 @@ class _Field extends StatelessWidget {
   final TextInputType? keyboardType;
   final String? helperText;
   final Widget? suffixIcon;
+  final ValueChanged<String>? onChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -369,10 +384,42 @@ class _Field extends StatelessWidget {
       child: TextField(
         controller: controller,
         keyboardType: keyboardType,
+        onChanged: onChanged,
         decoration: InputDecoration(
           labelText: label,
           helperText: helperText,
           suffixIcon: suffixIcon,
+        ),
+      ),
+    );
+  }
+}
+
+class _BmiPreviewLine extends StatelessWidget {
+  const _BmiPreviewLine({
+    required this.profile,
+    required this.thai,
+  });
+
+  final UserProfile profile;
+  final bool thai;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Align(
+        alignment: AlignmentDirectional.centerStart,
+        child: Text(
+          profile.bmi == null
+              ? (thai
+                  ? 'BMI: กรอกน้ำหนักและส่วนสูงเพื่อคำนวณ'
+                  : 'BMI: enter weight and height to calculate')
+              : 'BMI: ${profile.bmiDisplay(thai: thai)}',
+          style: const TextStyle(
+            color: SooktaColors.darkGreen,
+            fontWeight: FontWeight.w600,
+          ),
         ),
       ),
     );

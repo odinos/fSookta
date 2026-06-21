@@ -5,6 +5,7 @@ import '../../app/sookta_app.dart';
 import '../../core/models/assessment_session.dart';
 import '../../core/theme/sookta_theme.dart';
 import '../../widgets/responsive_content.dart';
+import '../../widgets/tts_button.dart';
 import 'evaluation_form_screen.dart';
 
 class EvaluationMenuScreen extends StatelessWidget {
@@ -41,6 +42,17 @@ class EvaluationMenuScreen extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(color: Colors.black54, fontSize: 16),
                   ),
+                  const SizedBox(height: 8),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: SooktaTtsButton(
+                      thai: thai,
+                      text: thai
+                          ? 'เลือกกิจกรรมที่ต้องการประเมิน เช่น ปลูกกล้า ใส่ปุ๋ย ฉีดพ่น ตัดแต่งกิ่ง เก็บเกี่ยว หรือขนย้ายผลผลิต หลังเลือกแล้วให้ถ่ายรูปท่าทางทำงานให้เห็นคนชัดเจน'
+                          : 'Choose the activity to assess, such as transplanting, fertilizing, spraying, pruning, harvesting, or transport. After choosing, take a clear work-posture photo.',
+                      size: 42,
+                    ),
+                  ),
                   const SizedBox(height: 16),
                   Expanded(
                     child: LayoutBuilder(
@@ -65,6 +77,7 @@ class EvaluationMenuScreen extends StatelessWidget {
                             return _ActivityCard(
                               activity: activity,
                               label: activity.label(thai: thai),
+                              thai: thai,
                               onTap: () => Navigator.of(context).pushNamed(
                                 EvaluationFormScreen.routeName,
                                 arguments: activity,
@@ -89,11 +102,13 @@ class _ActivityCard extends StatelessWidget {
   const _ActivityCard({
     required this.activity,
     required this.label,
+    required this.thai,
     required this.onTap,
   });
 
   final SooktaActivity activity;
   final String label;
+  final bool thai;
   final VoidCallback onTap;
 
   @override
@@ -131,6 +146,13 @@ class _ActivityCard extends StatelessWidget {
                     fontWeight: FontWeight.w700,
                   ),
                 ),
+              ),
+              SooktaTtsButton(
+                thai: thai,
+                text: thai
+                    ? '$label ระบบจะเตรียมวิธีคำนวณที่เหมาะกับกิจกรรมนี้ให้'
+                    : '$label. The app will prepare the suitable calculation method for this activity.',
+                size: 34,
               ),
             ],
           ),

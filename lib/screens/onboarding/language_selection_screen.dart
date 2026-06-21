@@ -5,6 +5,7 @@ import '../../app/app_text.dart';
 import '../../app/assets.dart';
 import '../../app/sookta_app.dart';
 import '../../widgets/responsive_content.dart';
+import '../../widgets/tts_button.dart';
 import 'setup_screen.dart';
 
 class LanguageSelectionScreen extends StatelessWidget {
@@ -80,6 +81,14 @@ class LanguageSelectionScreen extends StatelessWidget {
                         textAlign: TextAlign.center,
                         style:
                             const TextStyle(fontSize: 14, color: Colors.grey),
+                      ),
+                      const SizedBox(height: 10),
+                      SooktaTtsButton(
+                        thai: text.isThai,
+                        text: text.isThai
+                            ? 'ยินดีต้อนรับสู่สุขท่า กรุณาเลือกภาษาไทยหรือภาษาอังกฤษ ก่อนเริ่มกรอกข้อมูลผู้เข้าร่วมวิจัย'
+                            : 'Welcome to Sookta. Please choose Thai or English before entering participant information.',
+                        size: 44,
                       ),
                       const SizedBox(height: 40),
                       _LanguageOptionCard(

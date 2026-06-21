@@ -1,0 +1,54 @@
+Sookta checklist + model separation UAT evidence summary
+Date: 2026-06-07 ICT
+Version: 1.1.2+10
+Branch: codex/ios-real-integrations
+Base commit: 1b3bbb8
+
+AUTOMATED HOST CHECKS
+- flutter analyze: PASS
+  Result: No issues found! (ran in 95.8s)
+- flutter test: PASS
+  Result: 51 tests passed
+
+ANDROID
+- Device detected:
+  R5CW13JKESA, Samsung SM-S918B, Android 16 API 36
+- Release appbundle:
+  build/app/outputs/bundle/release/app-release.aab
+  Size: 131,908,325 bytes
+  Timestamp: 2026-06-07 08:37
+- 16KB ELF alignment:
+  PASS. See android/16kb_elf_alignment.txt
+- Full-page device smoke:
+  NOT COMPLETED. flutter integration test remained at
+  "Running Gradle task 'assembleDebug'..." beyond the test window and was stopped.
+- Android ML device inference:
+  NOT COMPLETED. Same assembleDebug blocker as full-page smoke.
+
+IOS
+- Device detected:
+  iPhone SE, iPhone12,8, iOS 26.5, UDID 00008030-0008788421F3802E
+  Developer Mode enabled, wired connected.
+- Release no-codesign build from clean tree:
+  PASS at /private/tmp/fSookta-ios-cleanbuild-20260607/build/ios/iphoneos/Runner.app
+  Size: 187MB
+- Build from repo path:
+  NOT COMPLETED. Main Documents/GitHub path hit resource fork/FileProvider xattr
+  codesign issue. Clean tree build passed, so this is path metadata related.
+- Full-page device smoke:
+  PARTIAL. Installed/launched on iPhone. TH language first-run/edit screens passed.
+  Test did not complete at TH setup first-run.
+- iOS ML device inference:
+  NOT COMPLETED. App launch began but Flutter test runner could not discover
+  Dart VM Service / LLDB attach in time.
+
+MODEL SEPARATION
+- REBA/ISO posture assessment:
+  assets/models/xgboost_model.onnx
+  version reba-iso-xgboost-onnx-2026-06-07
+  input 51 raw MoveNet features
+- Daily 7-transaction prediction:
+  assets/ml/daily_injury_logistic_model.json
+  version daily-injury-logistic-template-2026-06-06
+  not used for posture assessment
+

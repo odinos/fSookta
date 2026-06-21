@@ -1,6 +1,6 @@
 # Android Play Store Release Checklist
 
-Updated: 2026-05-24
+Updated: 2026-06-06
 
 This app should be uploaded to Google Play as a signed Android App Bundle (`.aab`).
 The package name must stay `com.kdev.sookta` unless the store listing is intentionally
@@ -29,7 +29,7 @@ Run these from the Flutter repo root after `flutter pub get`:
 ```sh
 flutter analyze
 flutter test
-flutter build appbundle --release --build-name=1.0.0 --build-number=2
+flutter build appbundle --release
 ```
 
 The upload artifact is:
@@ -40,16 +40,16 @@ build/app/outputs/bundle/release/app-release.aab
 
 Latest local verification:
 
-- Version: `1.0.0+2`
+- Version: `1.1.2+10`
 - Package: `com.kdev.sookta`
-- Command run from non-cloud temp checkout:
-  `/private/tmp/fSookta-store-build`
+- Command run from repo root:
+  `/Users/kpc/Documents/GitHub/fSookta`
 - Output:
-  `/private/tmp/fSookta-store-build/build/app/outputs/bundle/release/app-release.aab`
-- Size: about `95MB`
-- Status: build passed, but the local upload keystore is not configured in this
-  checkout yet. Rebuild after creating `android/key.properties` before uploading
-  to Play Console.
+  `/Users/kpc/Documents/GitHub/fSookta/build/app/outputs/bundle/release/app-release.aab`
+- Size: about `109MB`
+- Status: `flutter analyze`, `flutter test`, and
+  `flutter build appbundle --release` passed on 2026-06-06. The AAB is signed
+  with the local upload key referenced by ignored `android/key.properties`.
 
 If Google Play asks for native debug symbols, upload:
 
@@ -61,9 +61,11 @@ build/app/outputs/native-debug-symbols/release/native-debug-symbols.zip
 
 - Complete App content, Data safety, privacy policy URL, target audience, ads
   declaration, app access, and content rating questionnaires.
-- Disclose camera/gallery access and local profile/history storage accurately.
-- Do not describe the current placeholder ML weights as a clinically validated
-  diagnostic model. Use the research-prototype wording already present in app copy.
+- Disclose camera/gallery access, local profile/history storage, Firebase
+  Crashlytics crash data, and Firebase Analytics product/app interaction data
+  accurately.
+- Do not describe the current ML assets as a clinically validated diagnostic
+  model. Use the research-prototype wording already present in app copy.
 - Use screenshots from a release/profile build across small and large Android
   phones.
 - Confirm the app targets the current Google Play target API requirement before

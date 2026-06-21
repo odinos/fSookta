@@ -35,16 +35,29 @@ enum AssessmentMethod {
   iso11228PushPull,
 }
 
+enum MotionPattern {
+  stableLowRisk,
+  intermittentWorstPosture,
+  repeatedRiskMovement,
+  staticHighRiskHold,
+}
+
 class ErgoInputData {
   const ErgoInputData({
     required this.jobType,
     this.gender = 'male',
     this.dailyIncome = 300,
+    this.toolId = '',
+    this.toolLabelTh = '',
+    this.toolLabelEn = '',
+    this.toolWeightKg = 0,
+    this.toolWeightBandCode = 0,
     this.loadWeight = 0,
     this.horizontalDist = 25,
     this.verticalHeight = 75,
     this.liftFrequency = 0.2,
     this.durationHours = 1,
+    this.workDaysPerWeek = 3,
     this.transportDistance = 0,
     this.initialForce = 0,
     this.sustainForce = 0,
@@ -53,11 +66,17 @@ class ErgoInputData {
   final JobType jobType;
   final String gender;
   final double dailyIncome;
+  final String toolId;
+  final String toolLabelTh;
+  final String toolLabelEn;
+  final double toolWeightKg;
+  final int toolWeightBandCode;
   final double loadWeight;
   final double horizontalDist;
   final double verticalHeight;
   final double liftFrequency;
   final double durationHours;
+  final double workDaysPerWeek;
   final double transportDistance;
   final double initialForce;
   final double sustainForce;
@@ -67,11 +86,17 @@ class ErgoInputData {
       'jobType': jobType.name,
       'gender': gender,
       'dailyIncome': dailyIncome,
+      'toolId': toolId,
+      'toolLabelTh': toolLabelTh,
+      'toolLabelEn': toolLabelEn,
+      'toolWeightKg': toolWeightKg,
+      'toolWeightBandCode': toolWeightBandCode,
       'loadWeight': loadWeight,
       'horizontalDist': horizontalDist,
       'verticalHeight': verticalHeight,
       'liftFrequency': liftFrequency,
       'durationHours': durationHours,
+      'workDaysPerWeek': workDaysPerWeek,
       'transportDistance': transportDistance,
       'initialForce': initialForce,
       'sustainForce': sustainForce,
@@ -83,11 +108,17 @@ class ErgoInputData {
       jobType: _jobTypeFromName(json['jobType'] as String?),
       gender: json['gender'] as String? ?? 'male',
       dailyIncome: _asDouble(json['dailyIncome'], 300),
+      toolId: json['toolId'] as String? ?? '',
+      toolLabelTh: json['toolLabelTh'] as String? ?? '',
+      toolLabelEn: json['toolLabelEn'] as String? ?? '',
+      toolWeightKg: _asDouble(json['toolWeightKg'], 0),
+      toolWeightBandCode: _asInt(json['toolWeightBandCode'], 0),
       loadWeight: _asDouble(json['loadWeight'], 0),
       horizontalDist: _asDouble(json['horizontalDist'], 25),
       verticalHeight: _asDouble(json['verticalHeight'], 75),
       liftFrequency: _asDouble(json['liftFrequency'], 0.2),
       durationHours: _asDouble(json['durationHours'], 1),
+      workDaysPerWeek: _asDouble(json['workDaysPerWeek'], 3),
       transportDistance: _asDouble(json['transportDistance'], 0),
       initialForce: _asDouble(json['initialForce'], 0),
       sustainForce: _asDouble(json['sustainForce'], 0),
@@ -200,6 +231,285 @@ class RebaInputData {
   }
 }
 
+class PoseRebaFrameAnalysis {
+  const PoseRebaFrameAnalysis({
+    required this.imageIndex,
+    required this.rebaInput,
+    required this.rebaScore,
+    required this.riskLevel,
+    this.timestampMs,
+    this.neckFlexionDeg,
+    this.trunkFlexionDeg,
+    this.upperArmFlexionDeg,
+    this.lowerArmAngleDeg,
+    this.kneeAngleDeg,
+    this.neckSideBending = false,
+    this.neckTwisting = false,
+    this.trunkSideBending = false,
+    this.trunkTwisting = false,
+    this.upperArmAbduction = false,
+    this.shoulderElevation = false,
+    this.jointFeatures = const [],
+  });
+
+  final int imageIndex;
+  final RebaInputData rebaInput;
+  final int rebaScore;
+  final RiskLevel riskLevel;
+  final int? timestampMs;
+  final double? neckFlexionDeg;
+  final double? trunkFlexionDeg;
+  final double? upperArmFlexionDeg;
+  final double? lowerArmAngleDeg;
+  final double? kneeAngleDeg;
+  final bool neckSideBending;
+  final bool neckTwisting;
+  final bool trunkSideBending;
+  final bool trunkTwisting;
+  final bool upperArmAbduction;
+  final bool shoulderElevation;
+  final List<double> jointFeatures;
+
+  Map<String, Object?> toJson() {
+    return {
+      'imageIndex': imageIndex,
+      'rebaInput': rebaInput.toJson(),
+      'rebaScore': rebaScore,
+      'riskLevel': riskLevel.name,
+      'timestampMs': timestampMs,
+      'neckFlexionDeg': neckFlexionDeg,
+      'trunkFlexionDeg': trunkFlexionDeg,
+      'upperArmFlexionDeg': upperArmFlexionDeg,
+      'lowerArmAngleDeg': lowerArmAngleDeg,
+      'kneeAngleDeg': kneeAngleDeg,
+      'neckSideBending': neckSideBending,
+      'neckTwisting': neckTwisting,
+      'trunkSideBending': trunkSideBending,
+      'trunkTwisting': trunkTwisting,
+      'upperArmAbduction': upperArmAbduction,
+      'shoulderElevation': shoulderElevation,
+      'jointFeatures': jointFeatures,
+    };
+  }
+
+  factory PoseRebaFrameAnalysis.fromJson(Map<String, Object?> json) {
+    return PoseRebaFrameAnalysis(
+      imageIndex: _asInt(json['imageIndex'], 1),
+      rebaInput: _inputFromJson(
+        json['rebaInput'],
+        RebaInputData.fromJson,
+        const RebaInputData(),
+      ),
+      rebaScore: _asInt(json['rebaScore'], 1),
+      riskLevel: _riskFromName(json['riskLevel'] as String?),
+      timestampMs: json['timestampMs'] is num
+          ? (json['timestampMs'] as num).toInt()
+          : null,
+      neckFlexionDeg: _nullableDouble(json['neckFlexionDeg']),
+      trunkFlexionDeg: _nullableDouble(json['trunkFlexionDeg']),
+      upperArmFlexionDeg: _nullableDouble(json['upperArmFlexionDeg']),
+      lowerArmAngleDeg: _nullableDouble(json['lowerArmAngleDeg']),
+      kneeAngleDeg: _nullableDouble(json['kneeAngleDeg']),
+      neckSideBending: _asBool(json['neckSideBending']),
+      neckTwisting: _asBool(json['neckTwisting']),
+      trunkSideBending: _asBool(json['trunkSideBending']),
+      trunkTwisting: _asBool(json['trunkTwisting']),
+      upperArmAbduction: _asBool(json['upperArmAbduction']),
+      shoulderElevation: _asBool(json['shoulderElevation']),
+      jointFeatures: (json['jointFeatures'] as List?)
+              ?.map((value) => _asDouble(value, 0))
+              .toList(growable: false) ??
+          const [],
+    );
+  }
+}
+
+class MotionAnalysisSummary {
+  const MotionAnalysisSummary({
+    required this.sourceKind,
+    required this.durationMs,
+    required this.sampledFrameCount,
+    required this.readableFrameCount,
+    required this.sampleRateFps,
+    required this.highRiskFrameCount,
+    required this.highRiskFrameRatio,
+    required this.deepTrunkFlexionFrameCount,
+    required this.deepTrunkFlexionRatio,
+    required this.estimatedHighRiskSeconds,
+    required this.estimatedDeepTrunkSeconds,
+    required this.movementChangeCount,
+    required this.pattern,
+    this.anySegmentRiskFrameCount = 0,
+    this.anySegmentRiskFrameRatio = 0,
+    this.estimatedSegmentRiskSeconds = 0,
+    this.neckRiskFrameCount = 0,
+    this.neckRiskFrameRatio = 0,
+    this.trunkRiskFrameCount = 0,
+    this.trunkRiskFrameRatio = 0,
+    this.upperArmRiskFrameCount = 0,
+    this.upperArmRiskFrameRatio = 0,
+    this.lowerArmRiskFrameCount = 0,
+    this.lowerArmRiskFrameRatio = 0,
+    this.wristRiskFrameCount = 0,
+    this.wristRiskFrameRatio = 0,
+    this.legRiskFrameCount = 0,
+    this.legRiskFrameRatio = 0,
+    this.dominantRiskBodyPart,
+    this.maxNeckFlexionDeg,
+    this.avgNeckFlexionDeg,
+    this.maxTrunkFlexionDeg,
+    this.avgTrunkFlexionDeg,
+    this.maxUpperArmFlexionDeg,
+    this.avgUpperArmFlexionDeg,
+  });
+
+  final String sourceKind;
+  final int durationMs;
+  final int sampledFrameCount;
+  final int readableFrameCount;
+  final double sampleRateFps;
+  final int highRiskFrameCount;
+  final double highRiskFrameRatio;
+  final int deepTrunkFlexionFrameCount;
+  final double deepTrunkFlexionRatio;
+  final double estimatedHighRiskSeconds;
+  final double estimatedDeepTrunkSeconds;
+  final int movementChangeCount;
+  final MotionPattern pattern;
+  final int anySegmentRiskFrameCount;
+  final double anySegmentRiskFrameRatio;
+  final double estimatedSegmentRiskSeconds;
+  final int neckRiskFrameCount;
+  final double neckRiskFrameRatio;
+  final int trunkRiskFrameCount;
+  final double trunkRiskFrameRatio;
+  final int upperArmRiskFrameCount;
+  final double upperArmRiskFrameRatio;
+  final int lowerArmRiskFrameCount;
+  final double lowerArmRiskFrameRatio;
+  final int wristRiskFrameCount;
+  final double wristRiskFrameRatio;
+  final int legRiskFrameCount;
+  final double legRiskFrameRatio;
+  final String? dominantRiskBodyPart;
+  final double? maxNeckFlexionDeg;
+  final double? avgNeckFlexionDeg;
+  final double? maxTrunkFlexionDeg;
+  final double? avgTrunkFlexionDeg;
+  final double? maxUpperArmFlexionDeg;
+  final double? avgUpperArmFlexionDeg;
+
+  bool get isVideo => sourceKind.startsWith('video_');
+
+  Map<String, Object?> toJson() {
+    return {
+      'sourceKind': sourceKind,
+      'durationMs': durationMs,
+      'sampledFrameCount': sampledFrameCount,
+      'readableFrameCount': readableFrameCount,
+      'sampleRateFps': sampleRateFps,
+      'highRiskFrameCount': highRiskFrameCount,
+      'highRiskFrameRatio': highRiskFrameRatio,
+      'deepTrunkFlexionFrameCount': deepTrunkFlexionFrameCount,
+      'deepTrunkFlexionRatio': deepTrunkFlexionRatio,
+      'estimatedHighRiskSeconds': estimatedHighRiskSeconds,
+      'estimatedDeepTrunkSeconds': estimatedDeepTrunkSeconds,
+      'movementChangeCount': movementChangeCount,
+      'pattern': pattern.name,
+      'anySegmentRiskFrameCount': anySegmentRiskFrameCount,
+      'anySegmentRiskFrameRatio': anySegmentRiskFrameRatio,
+      'estimatedSegmentRiskSeconds': estimatedSegmentRiskSeconds,
+      'neckRiskFrameCount': neckRiskFrameCount,
+      'neckRiskFrameRatio': neckRiskFrameRatio,
+      'trunkRiskFrameCount': trunkRiskFrameCount,
+      'trunkRiskFrameRatio': trunkRiskFrameRatio,
+      'upperArmRiskFrameCount': upperArmRiskFrameCount,
+      'upperArmRiskFrameRatio': upperArmRiskFrameRatio,
+      'lowerArmRiskFrameCount': lowerArmRiskFrameCount,
+      'lowerArmRiskFrameRatio': lowerArmRiskFrameRatio,
+      'wristRiskFrameCount': wristRiskFrameCount,
+      'wristRiskFrameRatio': wristRiskFrameRatio,
+      'legRiskFrameCount': legRiskFrameCount,
+      'legRiskFrameRatio': legRiskFrameRatio,
+      'dominantRiskBodyPart': dominantRiskBodyPart,
+      'maxNeckFlexionDeg': maxNeckFlexionDeg,
+      'avgNeckFlexionDeg': avgNeckFlexionDeg,
+      'maxTrunkFlexionDeg': maxTrunkFlexionDeg,
+      'avgTrunkFlexionDeg': avgTrunkFlexionDeg,
+      'maxUpperArmFlexionDeg': maxUpperArmFlexionDeg,
+      'avgUpperArmFlexionDeg': avgUpperArmFlexionDeg,
+    };
+  }
+
+  factory MotionAnalysisSummary.fromJson(Map<String, Object?> json) {
+    return MotionAnalysisSummary(
+      sourceKind: json['sourceKind'] as String? ?? 'photo_set',
+      durationMs: _asInt(json['durationMs'], 0),
+      sampledFrameCount: _asInt(json['sampledFrameCount'], 0),
+      readableFrameCount: _asInt(json['readableFrameCount'], 0),
+      sampleRateFps: _asDouble(json['sampleRateFps'], 0),
+      highRiskFrameCount: _asInt(json['highRiskFrameCount'], 0),
+      highRiskFrameRatio: _asDouble(json['highRiskFrameRatio'], 0),
+      deepTrunkFlexionFrameCount: _asInt(json['deepTrunkFlexionFrameCount'], 0),
+      deepTrunkFlexionRatio: _asDouble(json['deepTrunkFlexionRatio'], 0),
+      estimatedHighRiskSeconds: _asDouble(json['estimatedHighRiskSeconds'], 0),
+      estimatedDeepTrunkSeconds:
+          _asDouble(json['estimatedDeepTrunkSeconds'], 0),
+      movementChangeCount: _asInt(json['movementChangeCount'], 0),
+      pattern: _motionPatternFromName(json['pattern'] as String?),
+      anySegmentRiskFrameCount: _asInt(json['anySegmentRiskFrameCount'], 0),
+      anySegmentRiskFrameRatio: _asDouble(json['anySegmentRiskFrameRatio'], 0),
+      estimatedSegmentRiskSeconds:
+          _asDouble(json['estimatedSegmentRiskSeconds'], 0),
+      neckRiskFrameCount: _asInt(json['neckRiskFrameCount'], 0),
+      neckRiskFrameRatio: _asDouble(json['neckRiskFrameRatio'], 0),
+      trunkRiskFrameCount: _asInt(json['trunkRiskFrameCount'], 0),
+      trunkRiskFrameRatio: _asDouble(json['trunkRiskFrameRatio'], 0),
+      upperArmRiskFrameCount: _asInt(json['upperArmRiskFrameCount'], 0),
+      upperArmRiskFrameRatio: _asDouble(json['upperArmRiskFrameRatio'], 0),
+      lowerArmRiskFrameCount: _asInt(json['lowerArmRiskFrameCount'], 0),
+      lowerArmRiskFrameRatio: _asDouble(json['lowerArmRiskFrameRatio'], 0),
+      wristRiskFrameCount: _asInt(json['wristRiskFrameCount'], 0),
+      wristRiskFrameRatio: _asDouble(json['wristRiskFrameRatio'], 0),
+      legRiskFrameCount: _asInt(json['legRiskFrameCount'], 0),
+      legRiskFrameRatio: _asDouble(json['legRiskFrameRatio'], 0),
+      dominantRiskBodyPart: json['dominantRiskBodyPart'] as String?,
+      maxNeckFlexionDeg: _nullableDouble(json['maxNeckFlexionDeg']),
+      avgNeckFlexionDeg: _nullableDouble(json['avgNeckFlexionDeg']),
+      maxTrunkFlexionDeg: _nullableDouble(json['maxTrunkFlexionDeg']),
+      avgTrunkFlexionDeg: _nullableDouble(json['avgTrunkFlexionDeg']),
+      maxUpperArmFlexionDeg: _nullableDouble(json['maxUpperArmFlexionDeg']),
+      avgUpperArmFlexionDeg: _nullableDouble(json['avgUpperArmFlexionDeg']),
+    );
+  }
+}
+
+class RebaScoreBreakdown {
+  const RebaScoreBreakdown({
+    required this.adjustedTrunkScore,
+    required this.adjustedWristScore,
+    required this.tableAScore,
+    required this.scoreA,
+    required this.tableBScore,
+    required this.scoreB,
+    required this.scoreC,
+    required this.activityScore,
+    required this.finalScore,
+    required this.riskLevel,
+  });
+
+  final int adjustedTrunkScore;
+  final int adjustedWristScore;
+  final int tableAScore;
+  final int scoreA;
+  final int tableBScore;
+  final int scoreB;
+  final int scoreC;
+  final int activityScore;
+  final int finalScore;
+  final RiskLevel riskLevel;
+}
+
 class ErgoResult {
   const ErgoResult({
     required this.riskLevel,
@@ -260,6 +570,9 @@ class AssessmentBreakdown {
     required this.ergoInput,
     this.isoMethod,
     this.isoResult,
+    this.poseFrames = const [],
+    this.worstPoseImageIndex,
+    this.motionSummary,
   });
 
   final AssessmentMethod primaryMethod;
@@ -268,6 +581,9 @@ class AssessmentBreakdown {
   final ErgoInputData ergoInput;
   final AssessmentMethod? isoMethod;
   final ErgoResult? isoResult;
+  final List<PoseRebaFrameAnalysis> poseFrames;
+  final int? worstPoseImageIndex;
+  final MotionAnalysisSummary? motionSummary;
 
   Map<String, Object?> toJson() {
     return {
@@ -277,6 +593,9 @@ class AssessmentBreakdown {
       'ergoInput': ergoInput.toJson(),
       'isoMethod': isoMethod?.name,
       'isoResult': isoResult == null ? null : _resultToJson(isoResult!),
+      'poseFrames': poseFrames.map((frame) => frame.toJson()).toList(),
+      'worstPoseImageIndex': worstPoseImageIndex,
+      'motionSummary': motionSummary?.toJson(),
     };
   }
 
@@ -297,6 +616,21 @@ class AssessmentBreakdown {
       isoMethod: _nullableMethodFromName(json['isoMethod'] as String?),
       isoResult:
           json['isoResult'] is Map ? _resultFromJson(json['isoResult']) : null,
+      poseFrames: (json['poseFrames'] as List?)
+              ?.whereType<Map>()
+              .map((item) => PoseRebaFrameAnalysis.fromJson(
+                    Map<String, Object?>.from(item),
+                  ))
+              .toList() ??
+          const [],
+      worstPoseImageIndex: json['worstPoseImageIndex'] is num
+          ? (json['worstPoseImageIndex'] as num).toInt()
+          : null,
+      motionSummary: json['motionSummary'] is Map
+          ? MotionAnalysisSummary.fromJson(
+              Map<String, Object?>.from(json['motionSummary'] as Map),
+            )
+          : null,
     );
   }
 
@@ -308,6 +642,10 @@ class AssessmentBreakdown {
       'userScoreColor': result.userScoreColor,
       'limitValue': result.limitValue,
       'suggestionKey': result.suggestionKey,
+      'suggestionKeys': result.suggestionKeys,
+      'bodyPartRisks': result.bodyPartRisks.map(
+        (part, risk) => MapEntry(part.name, risk.name),
+      ),
       'economicLoss': result.economicLoss,
     };
   }
@@ -332,6 +670,10 @@ class AssessmentBreakdown {
       userScoreColor: _asInt(json['userScoreColor'], riskLevel.colorHex),
       limitValue: _asDouble(json['limitValue'], 0),
       suggestionKey: json['suggestionKey'] as String? ?? '',
+      suggestionKeys:
+          (json['suggestionKeys'] as List?)?.whereType<String>().toList() ??
+              const [],
+      bodyPartRisks: _bodyRiskMapFromJson(json['bodyPartRisks']),
       economicLoss: _asInt(json['economicLoss'], 0),
     );
   }
@@ -351,9 +693,20 @@ double _asDouble(Object? raw, double fallback) {
   return double.tryParse(raw?.toString() ?? '') ?? fallback;
 }
 
+double? _nullableDouble(Object? raw) {
+  if (raw is num) return raw.toDouble();
+  return double.tryParse(raw?.toString() ?? '');
+}
+
 int _asInt(Object? raw, int fallback) {
   if (raw is num) return raw.toInt();
   return int.tryParse(raw?.toString() ?? '') ?? fallback;
+}
+
+bool _asBool(Object? raw) {
+  if (raw is bool) return raw;
+  if (raw is String) return raw.toLowerCase() == 'true';
+  return false;
 }
 
 JobType _jobTypeFromName(String? name) {
@@ -370,6 +723,21 @@ RiskLevel _riskFromName(String? name) {
   );
 }
 
+Map<BodyPart, RiskLevel> _bodyRiskMapFromJson(Object? raw) {
+  if (raw is! Map) return const {};
+  final result = <BodyPart, RiskLevel>{};
+  for (final entry in raw.entries) {
+    final part = BodyPart.values.cast<BodyPart?>().firstWhere(
+          (value) => value?.name == entry.key,
+          orElse: () => null,
+        );
+    if (part != null) {
+      result[part] = _riskFromName(entry.value as String?);
+    }
+  }
+  return result;
+}
+
 AssessmentMethod _methodFromName(String? name) {
   return AssessmentMethod.values.firstWhere(
     (method) => method.name == name,
@@ -383,6 +751,13 @@ AssessmentMethod? _nullableMethodFromName(String? name) {
         (method) => method?.name == name,
         orElse: () => null,
       );
+}
+
+MotionPattern _motionPatternFromName(String? name) {
+  return MotionPattern.values.firstWhere(
+    (pattern) => pattern.name == name,
+    orElse: () => MotionPattern.stableLowRisk,
+  );
 }
 
 enum AiAlertLevel {

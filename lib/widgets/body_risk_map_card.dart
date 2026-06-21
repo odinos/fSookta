@@ -8,12 +8,14 @@ class BodyRiskMapCard extends StatelessWidget {
     required this.bodyRisks,
     required this.thai,
     this.title,
+    this.bodyRiskReasons = const {},
     super.key,
   });
 
   final Map<BodyPart, RiskLevel> bodyRisks;
   final bool thai;
   final String? title;
+  final Map<BodyPart, List<String>> bodyRiskReasons;
 
   @override
   Widget build(BuildContext context) {
@@ -62,20 +64,40 @@ class BodyRiskMapCard extends StatelessWidget {
               ...riskyParts.map(
                 (part) {
                   final risk = bodyRisks[part] ?? RiskLevel.low;
+                  final reasons = bodyRiskReasons[part] ?? const [];
                   return Padding(
                     padding: const EdgeInsets.symmetric(vertical: 4),
                     child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        CircleAvatar(
-                          radius: 6,
-                          backgroundColor: Color(risk.colorHex),
+                        Padding(
+                          padding: const EdgeInsets.only(top: 6),
+                          child: CircleAvatar(
+                            radius: 6,
+                            backgroundColor: Color(risk.colorHex),
+                          ),
                         ),
                         const SizedBox(width: 8),
                         Expanded(
-                          child: Text(
-                            '${bodyPartLabel(part, thai)}: '
-                            '${riskLevelText(risk, thai)}',
-                            style: const TextStyle(color: Colors.black87),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '${bodyPartLabel(part, thai)}: '
+                                '${riskLevelText(risk, thai)}',
+                                style: const TextStyle(color: Colors.black87),
+                              ),
+                              if (reasons.isNotEmpty) ...[
+                                const SizedBox(height: 2),
+                                Text(
+                                  '${thai ? 'สาเหตุ' : 'Reason'}: ${reasons.take(3).join(', ')}',
+                                  style: const TextStyle(
+                                    color: Colors.black54,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ],
+                            ],
                           ),
                         ),
                       ],

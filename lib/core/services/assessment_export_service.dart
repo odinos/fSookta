@@ -7,6 +7,7 @@ import '../models/assessment_session.dart';
 import '../models/economic_impact_models.dart';
 import '../models/evaluation_models.dart';
 import 'economic_impact_service.dart';
+import 'ergo_calculator.dart';
 
 class AssessmentExportService {
   const AssessmentExportService._();
@@ -88,9 +89,19 @@ class AssessmentExportService {
     EvaluationHistoryRecord? record,
     bool thai = true,
   }) {
+    final generatedAt = DateTime.now();
+    final impactComparison = EconomicImpactService.compareBeforeAfter(
+      beforeImpact: beforeImpact.totalCost,
+      beforeScore: bundle.before.userScore,
+      afterScore: bundle.after.userScore,
+    );
     final rows = <List<Object?>>[
       [thai ? 'หัวข้อ' : 'Field', thai ? 'ข้อมูล' : 'Value'],
       [thai ? 'เลขประเมิน' : 'Record ID', record?.id ?? '-'],
+      [
+        thai ? 'วันที่สร้างไฟล์' : 'File generated at',
+        generatedAt.toIso8601String()
+      ],
       [
         thai ? 'วันที่ประเมิน' : 'Assessment date',
         (record?.dateTime ?? DateTime.now()).toIso8601String(),
@@ -109,6 +120,8 @@ class AssessmentExportService {
       [thai ? 'เพศ' : 'Gender', profile.gender],
       [thai ? 'น้ำหนัก' : 'Weight', profile.weight],
       [thai ? 'ส่วนสูง' : 'Height', profile.height],
+      ['BMI', _bmiDisplay(profile, record, thai)],
+      [thai ? 'หมวด BMI' : 'BMI category', _bmiCategory(profile, record, thai)],
       [thai ? 'รายได้เฉลี่ยต่อปี' : 'Annual income', profile.incomePerYear],
       [],
       [thai ? 'ผลก่อนและหลัง' : 'Before and after'],
@@ -136,15 +149,21 @@ class AssessmentExportService {
       ..._assessmentBreakdownRows(bundle.breakdown, thai),
       [
         thai ? 'ผลกระทบก่อนปรับ (บาท)' : 'Before impact (THB)',
-        beforeImpact.totalCost,
+        impactComparison.beforeImpact,
       ],
       [
         thai ? 'ผลกระทบหลังปรับ (บาท)' : 'After impact (THB)',
-        afterImpact.totalCost,
+        impactComparison.afterImpact,
       ],
       [
         thai ? 'ผลกระทบที่ลดลง (บาท)' : 'Reduced impact (THB)',
-        (beforeImpact.totalCost - afterImpact.totalCost).clamp(0, 999999),
+        impactComparison.savedAmount,
+      ],
+      [
+        thai ? 'สูตรคำนวณผลกระทบหลังปรับ' : 'After-impact formula',
+        thai
+            ? 'ผลกระทบหลังปรับ = ผลกระทบก่อนปรับ × (1 - 0.28 × คะแนนที่ลดลง), คะแนนที่ลดลงในไฟล์นี้ ${impactComparison.effectiveScoreReduction} จุด'
+            : 'After impact = before impact × (1 - 0.28 × score reduction), score reduction in this file ${impactComparison.effectiveScoreReduction} point(s)',
       ],
       [],
       [thai ? 'รายละเอียดค่าใช้จ่าย' : 'Economic impact details'],
@@ -208,8 +227,12 @@ class AssessmentExportService {
     required UserProfile profile,
     bool thai = true,
   }) {
-    final estimatedAfterImpact =
-        (record.economicLoss - record.moneySaved).clamp(0, 999999);
+    final generatedAt = DateTime.now();
+    final impactComparison = EconomicImpactService.compareBeforeAfter(
+      beforeImpact: record.economicLoss,
+      beforeScore: record.scoreBefore,
+      afterScore: record.scoreAfter,
+    );
     final beforeImpact = EconomicImpactService.estimate(
       overallRisk: record.riskBefore,
       dailyIncome: _dailyIncome(profile),
@@ -218,6 +241,10 @@ class AssessmentExportService {
     final rows = <List<Object?>>[
       [thai ? 'หัวข้อ' : 'Field', thai ? 'ข้อมูล' : 'Value'],
       [thai ? 'เลขประเมิน' : 'Record ID', record.id],
+      [
+        thai ? 'วันที่สร้างไฟล์' : 'File generated at',
+        generatedAt.toIso8601String()
+      ],
       [
         thai ? 'วันที่ประเมิน' : 'Assessment date',
         record.dateTime.toIso8601String()
@@ -235,6 +262,8 @@ class AssessmentExportService {
       [thai ? 'เพศ' : 'Gender', profile.gender],
       [thai ? 'น้ำหนัก' : 'Weight', profile.weight],
       [thai ? 'ส่วนสูง' : 'Height', profile.height],
+      ['BMI', _bmiDisplay(profile, record, thai)],
+      [thai ? 'หมวด BMI' : 'BMI category', _bmiCategory(profile, record, thai)],
       [thai ? 'รายได้เฉลี่ยต่อปี' : 'Annual income', profile.incomePerYear],
       [],
       [thai ? 'ผลก่อนและหลัง' : 'Before and after'],
@@ -250,11 +279,17 @@ class AssessmentExportService {
         thai
             ? 'ผลกระทบหลังปรับโดยประมาณ (บาท)'
             : 'Estimated after impact (THB)',
-        estimatedAfterImpact,
+        impactComparison.afterImpact,
       ],
       [
         thai ? 'ผลกระทบที่ลดลง (บาท)' : 'Reduced impact (THB)',
-        record.moneySaved,
+        impactComparison.savedAmount,
+      ],
+      [
+        thai ? 'สูตรคำนวณผลกระทบหลังปรับ' : 'After-impact formula',
+        thai
+            ? 'ผลกระทบหลังปรับ = ผลกระทบก่อนปรับ × (1 - 0.28 × คะแนนที่ลดลง), คะแนนที่ลดลงในไฟล์นี้ ${impactComparison.effectiveScoreReduction} จุด'
+            : 'After impact = before impact × (1 - 0.28 × score reduction), score reduction in this file ${impactComparison.effectiveScoreReduction} point(s)',
       ],
       ..._worksheetRows(
         farmerId: profile.farmerId,
@@ -300,23 +335,35 @@ class AssessmentExportService {
     required Map<int, UserProfile> profilesByRecordId,
     bool thai = true,
   }) {
+    final generatedAt = DateTime.now().toIso8601String();
     final rows = <List<Object?>>[
       [
+        'Export Generated At',
         'Record ID',
         'Farmer ID',
         thai ? 'ชื่อผู้ใช้' : 'Name',
         thai ? 'บทบาท/หน้าที่' : 'Role',
         thai ? 'พื้นที่/สวน' : 'Location',
+        'Age',
+        'Gender',
+        'Weight (kg)',
+        'Height (cm)',
+        'BMI',
+        'BMI Category',
         'Date of data entry',
         'Activity Stage',
         'Specific Task',
         'Posture Description',
         'REBA Score',
         'ISO 11228 Risk Level',
+        'Tool Used',
+        'Tool Weight (kg)',
+        'Tool Weight Code',
         'Manual Handling Weight (kg)',
         'Manual Handling Distance (m)',
         'Frequency per hour',
         'Duration (minutes)',
+        'Work days per week',
         'MSD Symptom Location',
         'MSD Symptom Severity',
         'Medical Cost (THB)',
@@ -326,7 +373,10 @@ class AssessmentExportService {
         'After Score',
         'Before Risk',
         'After Risk',
+        'Before Impact (THB)',
+        'After Impact (THB)',
         'Estimated Saved (THB)',
+        'Economic Impact Formula',
         'User Feedback Notes',
       ],
       for (final record in records)
@@ -334,6 +384,7 @@ class AssessmentExportService {
           record: record,
           profile: profilesByRecordId[record.id] ?? const UserProfile(),
           thai: thai,
+          generatedAt: generatedAt,
         ),
     ];
     return '\uFEFF${rows.map(_csvRow).join('\n')}\n';
@@ -395,6 +446,15 @@ class AssessmentExportService {
       ['Posture Description', _postureDescription(breakdown, thai)],
       ['REBA Score', rebaScore ?? '-'],
       ['ISO 11228 Risk Level', isoRisk == null ? '-' : _risk(isoRisk, thai)],
+      [
+        'Tool Used',
+        ergoInput == null ? '-' : _toolLabel(ergoInput, thai),
+      ],
+      [
+        'Tool Weight (kg)',
+        ergoInput == null ? '-' : _toolWeight(ergoInput),
+      ],
+      ['Tool Weight Code', ergoInput?.toolWeightBandCode ?? '-'],
       ['Manual Handling Weight (kg)', ergoInput?.loadWeight ?? '-'],
       ['Manual Handling Distance (m)', ergoInput?.transportDistance ?? '-'],
       [
@@ -404,6 +464,10 @@ class AssessmentExportService {
       [
         'Duration (minutes)',
         ergoInput == null ? '-' : _num(ergoInput.durationHours * 60),
+      ],
+      [
+        thai ? 'Work days per week' : 'Work days per week',
+        ergoInput == null ? '-' : _num(ergoInput.workDaysPerWeek),
       ],
       ['MSD Symptom Location', riskLocation],
       ['MSD Symptom Severity', symptomSeverity],
@@ -422,11 +486,17 @@ class AssessmentExportService {
     required EvaluationHistoryRecord record,
     required UserProfile profile,
     required bool thai,
+    required String generatedAt,
   }) {
     final impact = EconomicImpactService.estimate(
       overallRisk: record.riskBefore,
       dailyIncome: _dailyIncome(profile),
       bodyPartRisks: record.bodyPartRisks,
+    );
+    final impactComparison = EconomicImpactService.compareBeforeAfter(
+      beforeImpact: record.economicLoss,
+      beforeScore: record.scoreBefore,
+      afterScore: record.scoreAfter,
     );
     final breakdown = record.assessmentBreakdown;
     final ergoInput = breakdown?.ergoInput;
@@ -435,6 +505,7 @@ class AssessmentExportService {
         impact.medicalVisitCost +
         impact.medicineAndSuppliesCost;
     return [
+      generatedAt,
       record.id,
       profile.farmerId.isEmpty ? (record.farmerId ?? '-') : profile.farmerId,
       profile.name.isEmpty ? (record.farmerName ?? '-') : profile.name,
@@ -442,6 +513,12 @@ class AssessmentExportService {
       profile.location.isEmpty
           ? (record.farmerLocation ?? '-')
           : profile.location,
+      profile.age.isEmpty ? (record.farmerAge ?? '-') : profile.age,
+      profile.gender.isEmpty ? (record.farmerGender ?? '-') : profile.gender,
+      profile.weight.isEmpty ? (record.farmerWeight ?? '-') : profile.weight,
+      profile.height.isEmpty ? (record.farmerHeight ?? '-') : profile.height,
+      _bmiDisplay(profile, record, thai),
+      _bmiCategory(profile, record, thai),
       _dateOnly(record.dateTime),
       record.activity?.stageLabel(thai: false) ?? '-',
       record.activityName,
@@ -450,10 +527,16 @@ class AssessmentExportService {
       breakdown?.isoResult == null
           ? '-'
           : _risk(breakdown!.isoResult!.riskLevel, thai),
+      ergoInput == null ? '-' : _toolLabel(ergoInput, thai),
+      ergoInput == null ? '-' : _toolWeight(ergoInput),
+      ergoInput?.toolWeightBandCode == 0
+          ? '-'
+          : ergoInput?.toolWeightBandCode ?? '-',
       ergoInput?.loadWeight ?? '-',
       ergoInput?.transportDistance ?? '-',
       ergoInput == null ? '-' : _num(ergoInput.liftFrequency * 60),
       ergoInput == null ? '-' : _num(ergoInput.durationHours * 60),
+      ergoInput == null ? '-' : _num(ergoInput.workDaysPerWeek),
       _bodyPartList(record.bodyPartRisks, thai),
       _risk(highestRisk, thai),
       medicalCost,
@@ -463,7 +546,10 @@ class AssessmentExportService {
       record.scoreAfter,
       _risk(record.riskBefore, thai),
       _risk(record.riskAfter, thai),
-      record.moneySaved,
+      impactComparison.beforeImpact,
+      impactComparison.afterImpact,
+      impactComparison.savedAmount,
+      'After impact = before impact × (1 - 0.28 × score reduction); score reduction ${impactComparison.effectiveScoreReduction}',
       record.selectedSuggestions.isEmpty
           ? '-'
           : record.selectedSuggestions.join(' | '),
@@ -518,6 +604,8 @@ class AssessmentExportService {
       ],
     ];
 
+    final rebaScoreBreakdown =
+        ErgoCalculator.calculateRebaScoreBreakdown(breakdown.rebaInput);
     final isoMethod = breakdown.isoMethod;
     final isoResult = breakdown.isoResult;
     if (isoMethod != null && isoResult != null) {
@@ -578,9 +666,194 @@ class AssessmentExportService {
         breakdown.rebaInput.activityScore
       ],
       [],
+      [thai ? 'ตารางคะแนน REBA' : 'REBA score tables'],
+      [thai ? 'รายการ' : 'Field', thai ? 'ค่า' : 'Value'],
+      ['Table A', rebaScoreBreakdown.tableAScore],
+      ['Score A', rebaScoreBreakdown.scoreA],
+      ['Table B', rebaScoreBreakdown.tableBScore],
+      ['Score B', rebaScoreBreakdown.scoreB],
+      ['Score C', rebaScoreBreakdown.scoreC],
+      [
+        thai ? 'Activity Score' : 'Activity Score',
+        rebaScoreBreakdown.activityScore,
+      ],
+      ['Final REBA', rebaScoreBreakdown.finalScore],
+      [
+        thai ? 'ระดับ REBA' : 'REBA risk level',
+        _risk(rebaScoreBreakdown.riskLevel, thai),
+      ],
+      [],
+      [thai ? 'เกณฑ์ REBA ที่ใช้' : 'REBA criteria used'],
+      [
+        thai ? 'ลำตัว' : 'Trunk',
+        thai
+            ? '0-5°=1, 5-20°=2, 20-60°=3, >60°=4'
+            : '0-5°=1, 5-20°=2, 20-60°=3, >60°=4',
+      ],
+      [
+        thai ? 'คอ' : 'Neck',
+        thai
+            ? '<=20°=1, >20°=2, เพิ่มเมื่อบิด/เอียง'
+            : '<=20°=1, >20°=2, plus twist/side-bend modifier',
+      ],
+      [
+        thai ? 'ต้นแขน' : 'Upper arm',
+        thai
+            ? '<=20°=1, 20-45°=2, 45-90°=3, >90°=4'
+            : '<=20°=1, 20-45°=2, 45-90°=3, >90°=4',
+      ],
+      [
+        thai ? 'ปลายแขน/ขา' : 'Lower arm/legs',
+        thai
+            ? 'ปลายแขน 60-100°=1 นอกช่วง=2; ขาไม่สมดุล/งอมาก=2'
+            : 'Lower arm 60-100°=1 outside=2; non-neutral legs=2',
+      ],
+      if (breakdown.motionSummary != null &&
+          breakdown.motionSummary!.isVideo) ...[
+        [],
+        [thai ? 'สรุปการเคลื่อนไหวจากวิดีโอ' : 'Video-derived motion summary'],
+        [thai ? 'รายการ' : 'Field', thai ? 'ค่า' : 'Value'],
+        [
+          thai ? 'แหล่งวิดีโอ' : 'Video source',
+          breakdown.motionSummary!.sourceKind,
+        ],
+        [
+          thai ? 'ความยาววิดีโอ (วินาที)' : 'Video duration (seconds)',
+          _num(breakdown.motionSummary!.durationMs / 1000),
+        ],
+        [
+          thai ? 'เฟรมที่สุ่ม' : 'Sampled frames',
+          breakdown.motionSummary!.sampledFrameCount,
+        ],
+        [
+          thai ? 'เฟรมที่อ่านท่าทางได้' : 'Readable frames',
+          breakdown.motionSummary!.readableFrameCount,
+        ],
+        [
+          thai ? 'อัตราเฟรมเสี่ยงสูง' : 'High-risk frame ratio',
+          _percent(breakdown.motionSummary!.highRiskFrameRatio),
+        ],
+        [
+          thai ? 'อัตราเฟรมที่มีส่วนร่างกายเสี่ยง' : 'Segment-risk frame ratio',
+          _percent(breakdown.motionSummary!.anySegmentRiskFrameRatio),
+        ],
+        [
+          thai ? 'ส่วนร่างกายเด่น' : 'Dominant body segment',
+          _bodySegment(breakdown.motionSummary!.dominantRiskBodyPart, thai),
+        ],
+        [
+          thai
+              ? 'เวลาช่วงเสี่ยงรายส่วนโดยประมาณ (วินาที)'
+              : 'Estimated segment-risk time (s)',
+          _num(breakdown.motionSummary!.estimatedSegmentRiskSeconds),
+        ],
+        [
+          thai
+              ? 'อัตราเฟรมก้มลำตัวลึก (metric เสริม)'
+              : 'Deep-trunk-flexion frame ratio (supporting metric)',
+          _percent(breakdown.motionSummary!.deepTrunkFlexionRatio),
+        ],
+        [
+          thai
+              ? 'เวลาช่วงเสี่ยงรวมโดยประมาณ (วินาที)'
+              : 'Estimated high-risk time (s)',
+          _num(breakdown.motionSummary!.estimatedHighRiskSeconds),
+        ],
+        [
+          thai
+              ? 'เวลาก้มลำตัวลึกโดยประมาณ (วินาที)'
+              : 'Estimated deep-trunk time (s)',
+          _num(breakdown.motionSummary!.estimatedDeepTrunkSeconds),
+        ],
+        [
+          thai ? 'จำนวนครั้งที่ท่าเปลี่ยนชัดเจน' : 'Clear posture changes',
+          breakdown.motionSummary!.movementChangeCount,
+        ],
+        [
+          thai ? 'รูปแบบการเคลื่อนไหว' : 'Motion pattern',
+          _motionPattern(breakdown.motionSummary!.pattern, thai),
+        ],
+        [
+          thai ? 'สัดส่วนคอเสี่ยง' : 'Neck-risk frame ratio',
+          _percent(breakdown.motionSummary!.neckRiskFrameRatio),
+        ],
+        [
+          thai ? 'สัดส่วนลำตัวเสี่ยง' : 'Trunk-risk frame ratio',
+          _percent(breakdown.motionSummary!.trunkRiskFrameRatio),
+        ],
+        [
+          thai ? 'สัดส่วนต้นแขนเสี่ยง' : 'Upper-arm-risk frame ratio',
+          _percent(breakdown.motionSummary!.upperArmRiskFrameRatio),
+        ],
+        [
+          thai ? 'สัดส่วนปลายแขนเสี่ยง' : 'Lower-arm-risk frame ratio',
+          _percent(breakdown.motionSummary!.lowerArmRiskFrameRatio),
+        ],
+        [
+          thai ? 'สัดส่วนข้อมือเสี่ยง' : 'Wrist-risk frame ratio',
+          _percent(breakdown.motionSummary!.wristRiskFrameRatio),
+        ],
+        [
+          thai ? 'สัดส่วนขา/เข่าเสี่ยง' : 'Leg-risk frame ratio',
+          _percent(breakdown.motionSummary!.legRiskFrameRatio),
+        ],
+        [
+          thai ? 'มุมลำตัวสูงสุด' : 'Max trunk flexion',
+          _angle(breakdown.motionSummary!.maxTrunkFlexionDeg),
+        ],
+        [
+          thai ? 'มุมลำตัวเฉลี่ย' : 'Avg trunk flexion',
+          _angle(breakdown.motionSummary!.avgTrunkFlexionDeg),
+        ],
+      ],
+      if (breakdown.poseFrames.isNotEmpty) ...[
+        [],
+        [thai ? 'ผลวิเคราะห์รายภาพ' : 'Per-photo posture analysis'],
+        [
+          thai ? 'ภาพ' : 'Photo',
+          'Neck flexion',
+          'Trunk flexion',
+          'Upper arm',
+          'Lower arm',
+          'Knee',
+          'Timestamp (ms)',
+          'REBA',
+          'Worst posture',
+        ],
+        ...breakdown.poseFrames.map(
+          (frame) => [
+            frame.imageIndex,
+            _angle(frame.neckFlexionDeg),
+            _angle(frame.trunkFlexionDeg),
+            _angle(frame.upperArmFlexionDeg),
+            _angle(frame.lowerArmAngleDeg),
+            _angle(frame.kneeAngleDeg),
+            frame.timestampMs ?? '-',
+            frame.rebaScore,
+            _yesNo(frame.imageIndex == breakdown.worstPoseImageIndex, thai),
+          ],
+        ),
+      ],
+      [],
       [thai ? 'ข้อมูลย่อย ISO11228' : 'ISO11228 component inputs'],
       [thai ? 'รายการ' : 'Field', thai ? 'ค่า' : 'Value'],
       [thai ? 'ประเภทงาน' : 'Job type', breakdown.ergoInput.jobType.name],
+      [
+        thai ? 'เครื่องมือ/น้ำหนักที่ใช้' : 'Tool / load used',
+        _toolLabel(breakdown.ergoInput, thai)
+      ],
+      [
+        thai
+            ? 'น้ำหนักเครื่องมือ/ภาระตามตัวเลือก (กก.)'
+            : 'Tool/load option kg',
+        _toolWeight(breakdown.ergoInput)
+      ],
+      [
+        thai ? 'รหัสช่วงน้ำหนัก' : 'Weight band code',
+        breakdown.ergoInput.toolWeightBandCode == 0
+            ? '-'
+            : breakdown.ergoInput.toolWeightBandCode,
+      ],
       [
         thai ? 'น้ำหนักที่ยก/ขน (กก.)' : 'Load weight (kg)',
         breakdown.ergoInput.loadWeight
@@ -600,6 +873,10 @@ class AssessmentExportService {
       [
         thai ? 'ระยะเวลาทำงาน (ชม.)' : 'Duration (hours)',
         breakdown.ergoInput.durationHours
+      ],
+      [
+        thai ? 'วันทำงานต่อสัปดาห์' : 'Work days per week',
+        breakdown.ergoInput.workDaysPerWeek,
       ],
       [
         thai ? 'ระยะทางขนย้าย (ม.)' : 'Transport distance (m)',
@@ -641,9 +918,121 @@ class AssessmentExportService {
     return value ? 'Yes' : 'No';
   }
 
+  static String _toolLabel(ErgoInputData input, bool thai) {
+    final label = thai ? input.toolLabelTh : input.toolLabelEn;
+    if (label.trim().isNotEmpty) return label;
+    if (input.toolLabelTh.trim().isNotEmpty) return input.toolLabelTh;
+    if (input.toolLabelEn.trim().isNotEmpty) return input.toolLabelEn;
+    return '-';
+  }
+
+  static Object _toolWeight(ErgoInputData input) {
+    final weight =
+        input.toolWeightKg > 0 ? input.toolWeightKg : input.loadWeight;
+    return _num(weight);
+  }
+
+  static String _bmiDisplay(
+    UserProfile profile,
+    EvaluationHistoryRecord? record,
+    bool thai,
+  ) {
+    final value = profile.bmi ?? record?.farmerBmi ?? _bmiFromRecord(record);
+    if (value == null) return '-';
+    return value.toStringAsFixed(1);
+  }
+
+  static String _bmiCategory(
+    UserProfile profile,
+    EvaluationHistoryRecord? record,
+    bool thai,
+  ) {
+    final key = profile.bmi == null
+        ? (record?.farmerBmiCategory ?? _bmiCategoryKey(_bmiFromRecord(record)))
+        : profile.bmiCategoryKey;
+    return switch (key) {
+      'underweight' => thai ? 'น้ำหนักต่ำกว่าเกณฑ์' : 'Underweight',
+      'normal' => thai ? 'น้ำหนักปกติ' : 'Normal weight',
+      'overweight' => thai ? 'น้ำหนักมากกว่าเกณฑ์' : 'Above Asian BMI range',
+      _ => '-',
+    };
+  }
+
+  static double? _bmiFromRecord(EvaluationHistoryRecord? record) {
+    if (record == null) return null;
+    final weight = _parseNumber(record.farmerWeight);
+    final height = _parseNumber(record.farmerHeight);
+    if (weight == null || height == null || weight <= 0 || height <= 0) {
+      return null;
+    }
+    final meters = height / 100;
+    return weight / (meters * meters);
+  }
+
+  static String _bmiCategoryKey(double? bmi) {
+    if (bmi == null) return 'unknown';
+    if (bmi < 18.5) return 'underweight';
+    if (bmi < 23) return 'normal';
+    return 'overweight';
+  }
+
+  static double? _parseNumber(String? raw) {
+    final value = raw?.trim().replaceAll(',', '.');
+    if (value == null || value.isEmpty) return null;
+    return double.tryParse(value);
+  }
+
   static Object _num(double value) {
     if (value == value.roundToDouble()) return value.round();
     return value.toStringAsFixed(2);
+  }
+
+  static Object _angle(double? value) {
+    if (value == null || value.isNaN) return '-';
+    return '${value.round()}°';
+  }
+
+  static String _percent(double ratio) => '${(ratio * 100).round()}%';
+
+  static String _motionPattern(MotionPattern pattern, bool thai) {
+    if (thai) {
+      return switch (pattern) {
+        MotionPattern.stableLowRisk => 'ท่าทางค่อนข้างคงที่และเสี่ยงต่ำ',
+        MotionPattern.intermittentWorstPosture => 'มีช่วงท่าเสี่ยงเป็นบางจุด',
+        MotionPattern.repeatedRiskMovement => 'มีการเคลื่อนไหวเสี่ยงซ้ำ',
+        MotionPattern.staticHighRiskHold => 'ค้างท่าเสี่ยงสูงหลายช่วง',
+      };
+    }
+    return switch (pattern) {
+      MotionPattern.stableLowRisk => 'stable lower-risk posture',
+      MotionPattern.intermittentWorstPosture => 'intermittent worst posture',
+      MotionPattern.repeatedRiskMovement => 'repeated risk movement',
+      MotionPattern.staticHighRiskHold => 'static high-risk hold',
+    };
+  }
+
+  static String _bodySegment(String? key, bool thai) {
+    if (key == null) return thai ? 'ไม่พบส่วนเด่น' : 'none';
+    if (thai) {
+      return switch (key) {
+        'neck' => 'คอ',
+        'trunk' => 'ลำตัว/หลัง',
+        'upper_arm' => 'ต้นแขน/ไหล่',
+        'lower_arm' => 'ปลายแขน',
+        'wrist' => 'ข้อมือ',
+        'legs' => 'ขา/เข่า',
+        _ => key,
+      };
+    }
+    return switch (key) {
+      'neck' => 'neck',
+      'trunk' => 'trunk/back',
+      'upper_arm' => 'upper arm/shoulder',
+      'lower_arm' => 'lower arm',
+      'wrist' => 'wrist',
+      'legs' => 'legs/knees',
+      _ => key,
+    };
   }
 
   static String _dateOnly(DateTime dateTime) {

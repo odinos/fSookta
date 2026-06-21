@@ -130,6 +130,42 @@ class SooktaStrings {
         'Reduce sack weight, use a cart, improve the path, and turn with the feet instead of twisting the waist.',
     'act_transport_ref_high':
         'Reduce sack weight, use a wagon or large-wheel cart, add non-slip flooring, rest 10-15 minutes every 30 minutes, and practice team lifting technique.',
+    'act_body_neck_medium':
+        'Raise trays or materials to waist height, change neck posture every 30 minutes, and avoid looking down continuously.',
+    'act_body_neck_high':
+        'Raise the work area, stretch the neck every 15-20 minutes, use reach tools, and avoid twisting or tilting the neck.',
+    'act_body_neck_very_high':
+        'Change the work method immediately: lift materials to waist level, use long-handled tools, and change posture every 10-15 minutes.',
+    'act_body_trunk_medium':
+        'Keep materials within 40 cm, raise work from the ground by 50-70 cm, and stand up to change posture every 20-30 minutes.',
+    'act_body_trunk_high':
+        'Avoid bending for more than 10-15 minutes, stretch every 15 minutes, face the load before lifting, and turn with the feet instead of twisting the waist.',
+    'act_body_trunk_very_high':
+        'Use carts or lifting aids, avoid lifting more than 20 kg alone, raise the work area to knee-to-waist height, and reduce unnecessary carries.',
+    'act_body_arms_medium':
+        'Keep materials within 40 cm reach, put tools down when not in use, rest shoulders every 30 minutes, and keep work below shoulder height.',
+    'act_body_arms_high':
+        'Do not keep arms above shoulder level for more than 2 minutes; rest 3-5 minutes every 15-20 minutes and use long-handled tools or a stable platform.',
+    'act_body_arms_very_high':
+        'Limit overhead work to short rounds, use lighter long-handled tools, and rotate to work below shoulder level.',
+    'act_body_wrists_medium':
+        'Use handles that fit the hand, relax the grip regularly, rest wrists every 30 minutes, and stretch fingers and wrists during breaks.',
+    'act_body_wrists_high':
+        'Rest hands and wrists every 15-20 minutes, rotate tasks every 20-30 minutes, use suitable handles, and reduce gripping force.',
+    'act_body_wrists_very_high':
+        'Rest wrists 3-5 minutes every 15 minutes, change to better-fitting tools, and use aids that reduce unnecessary gripping or squeezing force.',
+    'act_body_legs_medium':
+        'Stand or walk every 20 minutes, use a squat cushion or knee pad, and alternate between sitting, standing, and walking.',
+    'act_body_legs_high':
+        'Do not squat or kneel continuously for more than 15 minutes; walk 3-5 minutes every 15 minutes and use a low stool or knee pad.',
+    'act_body_legs_very_high':
+        'Avoid squatting or kneeling for more than 10 minutes, rest every 10-15 minutes, use floor-work aids, and reduce time working near the ground.',
+    'act_body_manual_medium':
+        'Split each bag or container to no more than 15 kg, keep the load close to the body, lift with both hands, and avoid lifting above shoulder height.',
+    'act_body_manual_high':
+        'Limit each load to no more than 10 kg, use a cart for distances over 10 m, ask for two-person lifting when over 20 kg, and avoid twisting while lifting.',
+    'act_body_manual_very_high':
+        'Use a cart, trolley, or lifting aid; avoid lifting more than 20 kg alone, team-lift 20-25 kg loads, and use lifting equipment above 25 kg.',
   };
 
   static const _th = <String, String>{
@@ -239,5 +275,41 @@ class SooktaStrings {
         'ลดน้ำหนักกระสอบ ใช้รถเข็น ปรับปรุงทางเดิน และเปลี่ยนทิศทางโดยหมุนเท้าแทนการบิดเอว',
     'act_transport_ref_high':
         'ลดน้ำหนักกระสอบ ใช้เกวียนหรือรถเข็นล้อใหญ่ ปูพื้นกันลื่น จัดพัก 10-15 นาทีทุก 30 นาที และฝึกเทคนิคการยกที่ถูกต้องร่วมกับเพื่อน',
+    'act_body_neck_medium':
+        'ยกถาดหรือวัสดุให้อยู่ระดับเอว เปลี่ยนท่าคอทุก 30 นาที และหลีกเลี่ยงการก้มมองพื้นต่อเนื่อง',
+    'act_body_neck_high':
+        'ปรับพื้นที่ทำงานให้สูงขึ้น ยืดเหยียดคอทุก 15-20 นาที ใช้อุปกรณ์ช่วยหยิบจับ และหลีกเลี่ยงการบิดหรือเอียงคอ',
+    'act_body_neck_very_high':
+        'ปรับวิธีทำงานทันที ยกวัสดุขึ้นระดับเอว ใช้เครื่องมือด้ามยาว และเปลี่ยนอิริยาบถทุก 10-15 นาที',
+    'act_body_trunk_medium':
+        'วางวัสดุให้อยู่ใกล้ตัวไม่เกิน 40 ซม. ยกงานจากพื้น 50-70 ซม. และลุกเปลี่ยนท่าทุก 20-30 นาที',
+    'act_body_trunk_high':
+        'หลีกเลี่ยงการก้มต่อเนื่องเกิน 10-15 นาที ยืดเหยียดทุก 15 นาที หันหน้าเข้าหาวัสดุก่อนยก และหมุนเท้าแทนการบิดเอว',
+    'act_body_trunk_very_high':
+        'ใช้รถเข็นหรืออุปกรณ์ช่วยยก หลีกเลี่ยงการยกเกิน 20 กก. คนเดียว ปรับงานให้อยู่ระดับเข่าถึงเอว และลดการขนย้ายที่ไม่จำเป็น',
+    'act_body_arms_medium':
+        'จัดวัสดุให้อยู่ในระยะเอื้อมไม่เกิน 40 ซม. วางอุปกรณ์เมื่อไม่ใช้ พักไหล่ทุก 30 นาที และให้งานอยู่ต่ำกว่าระดับไหล่',
+    'act_body_arms_high':
+        'ไม่ยกแขนเหนือไหล่ต่อเนื่องเกิน 2 นาที พักแขน 3-5 นาทีทุก 15-20 นาที และใช้เครื่องมือด้ามยาวหรือแท่นยืนที่มั่นคง',
+    'act_body_arms_very_high':
+        'จำกัดงานเหนือศีรษะเป็นรอบสั้น ใช้เครื่องมือด้ามยาวที่น้ำหนักเบา และสลับไปทำงานที่ใช้แขนต่ำกว่าระดับไหล่',
+    'act_body_wrists_medium':
+        'ใช้ด้ามจับที่พอดีมือ คลายมือเป็นระยะ พักข้อมือทุก 30 นาที และยืดเหยียดนิ้วมือกับข้อมือระหว่างพัก',
+    'act_body_wrists_high':
+        'พักมือและข้อมือทุก 15-20 นาที สลับงานทุก 20-30 นาที ใช้ด้ามจับที่เหมาะสม และลดแรงกำขณะจับอุปกรณ์',
+    'act_body_wrists_very_high':
+        'พักข้อมือ 3-5 นาทีทุก 15 นาที เปลี่ยนเครื่องมือให้พอดีกับมือ และใช้อุปกรณ์ช่วยลดแรงกำหรือแรงบีบที่ไม่จำเป็น',
+    'act_body_legs_medium':
+        'ลุกยืนหรือเดินทุก 20 นาที ใช้เบาะรองนั่งหรือแผ่นรองเข่า และสลับระหว่างนั่ง ยืน และเดิน',
+    'act_body_legs_high':
+        'ไม่นั่งยองหรือคุกเข่าต่อเนื่องเกิน 15 นาที ลุกเดิน 3-5 นาทีทุก 15 นาที และใช้เก้าอี้เตี้ยหรือแผ่นรองเข่า',
+    'act_body_legs_very_high':
+        'หลีกเลี่ยงการนั่งยองหรือคุกเข่าเกิน 10 นาที พักทุก 10-15 นาที ใช้อุปกรณ์ช่วยทำงานระดับพื้น และลดเวลาทำงานใกล้พื้น',
+    'act_body_manual_medium':
+        'แบ่งถุงหรือภาชนะให้หนักไม่เกิน 15 กก. ถือของให้ชิดลำตัว ใช้สองมือช่วยยก และหลีกเลี่ยงการยกเหนือระดับไหล่',
+    'act_body_manual_high':
+        'แบ่งน้ำหนักต่อครั้งไม่เกิน 10 กก. ใช้รถเข็นเมื่อขนไกลกว่า 10 เมตร ให้ 2 คนช่วยยกเมื่อหนักเกิน 20 กก. และหลีกเลี่ยงการบิดตัวขณะยก',
+    'act_body_manual_very_high':
+        'ใช้รถเข็น รถลาก หรืออุปกรณ์ช่วยยก หลีกเลี่ยงการยกเกิน 20 กก. คนเดียว ถ้าหนัก 20-25 กก. ให้ช่วยกันยก และถ้าเกิน 25 กก. ให้ใช้อุปกรณ์ช่วย',
   };
 }

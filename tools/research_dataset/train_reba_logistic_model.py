@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-"""Train the first offline ergonomic risk model from REBA-derived labels.
+"""Prepare REBA+ISO labels and optionally train the legacy Logistic model.
 
 The input dataset contains MoveNet Thunder joint features extracted from the
-research media. This script derives a repeatable REBA pseudo-label from the
-worksheet rules, then trains a small Logistic Regression model that the Flutter
-app can run offline from JSON weights.
+research media. This script derives repeatable REBA+ISO labels from worksheet
+rules, research-team labels, and optional calibration labels. The current app
+assessment model is XGBoost/ONNX; the Logistic Regression output path is kept
+only for legacy research traceability and unit tests when explicitly requested.
 
 This is not a clinical validation pipeline. It is a research bootstrap model
 whose labels are deterministic and traceable to the REBA worksheet.
@@ -102,6 +103,61 @@ ENGINEERED_FEATURE_NAMES = [
     "lower_body_visibility",
     "upper_body_visibility",
 ]
+REBA_TABLE_A = [
+    [
+        [1, 2, 3, 4],
+        [2, 3, 4, 5],
+        [2, 4, 5, 6],
+        [3, 5, 6, 7],
+        [4, 6, 7, 8],
+    ],
+    [
+        [1, 2, 3, 4],
+        [3, 4, 5, 6],
+        [4, 5, 6, 7],
+        [5, 6, 7, 8],
+        [6, 7, 8, 9],
+    ],
+    [
+        [3, 3, 5, 6],
+        [4, 5, 6, 7],
+        [5, 6, 7, 8],
+        [6, 7, 8, 9],
+        [7, 8, 9, 9],
+    ],
+]
+REBA_TABLE_B = [
+    [
+        [1, 2, 2],
+        [1, 2, 3],
+        [3, 4, 5],
+        [4, 5, 5],
+        [6, 7, 8],
+        [7, 8, 8],
+    ],
+    [
+        [1, 2, 3],
+        [2, 3, 4],
+        [4, 5, 5],
+        [5, 6, 7],
+        [7, 8, 8],
+        [8, 9, 9],
+    ],
+]
+REBA_TABLE_C = [
+    [1, 1, 1, 2, 3, 3, 4, 5, 6, 7, 7, 7],
+    [1, 2, 2, 3, 4, 4, 5, 6, 6, 7, 7, 8],
+    [2, 3, 3, 3, 4, 5, 6, 7, 7, 8, 8, 8],
+    [3, 4, 4, 4, 5, 6, 7, 8, 8, 9, 9, 9],
+    [4, 4, 4, 5, 6, 7, 8, 8, 9, 9, 9, 9],
+    [6, 6, 6, 7, 8, 8, 9, 9, 10, 10, 10, 10],
+    [7, 7, 7, 8, 9, 9, 9, 10, 10, 11, 11, 11],
+    [8, 8, 8, 9, 10, 10, 10, 10, 10, 11, 11, 11],
+    [9, 9, 9, 10, 10, 10, 11, 11, 11, 12, 12, 12],
+    [10, 10, 10, 11, 11, 11, 11, 12, 12, 12, 12, 12],
+    [11, 11, 11, 11, 12, 12, 12, 12, 12, 12, 12, 12],
+    [12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12],
+]
 
 
 @dataclass(frozen=True)
@@ -167,6 +223,28 @@ class Iso11228Label:
 
 
 @dataclass(frozen=True)
+class CalibrationLabel:
+    reba_score: float
+    reba_risk_level: str
+    iso_total_score: float | None
+    iso_risk_level: str | None
+    label_source: str
+    matched_session_id: str
+    match_type: str
+
+    @property
+    def combined_score(self) -> float:
+        if self.iso_total_score is None:
+            return self.reba_score
+        iso_equivalent = max(1.0, min(12.0, 1 + (self.iso_total_score / 18) * 11))
+        return max(self.reba_score, iso_equivalent)
+
+    @property
+    def target_probability(self) -> float:
+        return max(0.0, min(1.0, (self.combined_score - 1) / 11))
+
+
+@dataclass(frozen=True)
 class TrainingLabel:
     score: float
     risk_level: str
@@ -227,6 +305,23 @@ def parse_args() -> argparse.Namespace:
         ),
     )
     parser.add_argument(
+        "--calibration-labels",
+        default="data/research/expert_labels/calibration_reba_iso_labels_20260607.csv",
+        help=(
+            "Optional research calibration labels. These override older "
+            "REBA/ISO labels by exact session_id, or by activity when "
+            "session_id is blank/activity_level/*."
+        ),
+    )
+    parser.add_argument(
+        "--labels-only",
+        action="store_true",
+        help=(
+            "Write the REBA+ISO labeled dataset and metrics without training "
+            "or writing the legacy Logistic Regression asset."
+        ),
+    )
+    parser.add_argument(
         "--min-pose-score",
         type=float,
         default=0.2,
@@ -265,6 +360,12 @@ def load_expert_reba_labels(path: Path) -> list[dict[str, str]]:
 
 
 def load_iso11228_labels(path: Path) -> list[dict[str, str]]:
+    if not path.exists():
+        return []
+    return read_rows(path)
+
+
+def load_calibration_labels(path: Path) -> list[dict[str, str]]:
     if not path.exists():
         return []
     return read_rows(path)
@@ -346,38 +447,41 @@ def lower_arm_deviation(angle: float) -> float:
     return angle - 100
 
 
-def side_triplet(row: dict[str, str], names: tuple[str, str, str]) -> tuple[Point, Point, Point] | None:
-    right = tuple(point(row, f"right{name}") for name in names)
-    if all(right):
-        return right  # type: ignore[return-value]
-    left = tuple(point(row, f"left{name}") for name in names)
-    if all(left):
-        return left  # type: ignore[return-value]
-    return None
+def side_triplets(row: dict[str, str], names: tuple[str, str, str]) -> list[tuple[Point, Point, Point]]:
+    triplets: list[tuple[Point, Point, Point]] = []
+    for side in ("left", "right"):
+        candidate = tuple(point(row, f"{side}{name}") for name in names)
+        if all(candidate):
+            triplets.append(candidate)  # type: ignore[arg-type]
+    return triplets
+
+
+def clamp_int(value: int, minimum: int, maximum: int) -> int:
+    return max(minimum, min(value, maximum))
 
 
 def posture_score_a(trunk: int, neck: int, legs: int) -> int:
-    # The worksheet uses Table A after neck, trunk, and leg scoring. This
-    # compact implementation keeps the same directionality and score range for
-    # deterministic pseudo-label generation from images.
-    score = trunk + (1 if neck >= 2 else 0) + (1 if legs >= 2 else 0)
-    return min(max(score, 1), 9)
+    # REBA Table A combines the already adjusted trunk, neck, and leg posture
+    # scores before the force/load modifier is added.
+    neck_index = clamp_int(neck, 1, 3) - 1
+    trunk_index = clamp_int(trunk, 1, 5) - 1
+    leg_index = clamp_int(legs, 1, 4) - 1
+    return REBA_TABLE_A[neck_index][trunk_index][leg_index]
 
 
 def posture_score_b(upper: int, lower: int, wrist: int) -> int:
-    # Table B combines upper arm, lower arm, and wrist posture before coupling.
-    score = upper + (1 if lower >= 2 else 0) + (1 if wrist >= 2 else 0)
-    return min(max(score, 1), 9)
+    # REBA Table B combines upper arm, lower arm, and adjusted wrist posture
+    # scores before the coupling modifier is added.
+    lower_index = clamp_int(lower, 1, 2) - 1
+    upper_index = clamp_int(upper, 1, 6) - 1
+    wrist_index = clamp_int(wrist, 1, 3) - 1
+    return REBA_TABLE_B[lower_index][upper_index][wrist_index]
 
 
 def table_c_score(score_a: int, score_b: int) -> int:
-    # REBA Table C increases the final posture score as either side of the body
-    # becomes more severe. This monotonic approximation is stable for training
-    # and mirrors the app's current REBA calculator.
-    score = max(score_a, score_b)
-    if min(score_a, score_b) >= 6:
-        score += 1
-    return min(max(score, 1), 12)
+    score_a_index = clamp_int(score_a, 1, 12) - 1
+    score_b_index = clamp_int(score_b, 1, 12) - 1
+    return REBA_TABLE_C[score_a_index][score_b_index]
 
 
 def risk_level_for_reba(score: int) -> str:
@@ -407,6 +511,15 @@ def risk_level_from_thai(value: str) -> str:
     if normalized in {"สูงมาก", "veryhigh", "very_high", "critical"}:
         return "veryHigh"
     return "medium"
+
+
+def risk_level_from_any(value: str, score: float) -> str:
+    normalized = value.strip()
+    if normalized:
+        mapped = risk_level_from_thai(normalized)
+        if mapped != "medium" or normalized.lower() in {"ปานกลาง", "medium"}:
+            return mapped
+    return risk_level_for_reba_float(score)
 
 
 def risk_level_for_iso_total(score: float) -> str:
@@ -452,30 +565,33 @@ def derive_reba_label(row: dict[str, str]) -> RebaPseudoLabel:
         neck_score = 1 if vertical_angle(shoulders, head) <= 20 else 2
 
     leg_score = 1
-    leg = side_triplet(row, ("Hip", "Knee", "Ankle"))
-    if leg:
-        hip, knee, ankle = leg
-        leg_score = 2 if three_point_angle(hip, knee, ankle) < 150 else 1
+    leg_scores = [
+        2 if three_point_angle(hip, knee, ankle) < 150 else 1
+        for hip, knee, ankle in side_triplets(row, ("Hip", "Knee", "Ankle"))
+    ]
+    if leg_scores:
+        leg_score = max(leg_scores)
 
     upper_arm_score = 2
-    arm = side_triplet(row, ("Shoulder", "Elbow", "Wrist"))
-    if arm:
-        shoulder, elbow, wrist = arm
+    lower_arm_score = 2
+    wrist_score = 1
+    arm_scores: list[tuple[int, int]] = []
+    for shoulder, elbow, wrist in side_triplets(row, ("Shoulder", "Elbow", "Wrist")):
         upper_angle = vertical_angle(shoulder, elbow)
         if upper_angle <= 20:
-            upper_arm_score = 1
+            arm_upper = 1
         elif upper_angle <= 45:
-            upper_arm_score = 2
+            arm_upper = 2
         elif upper_angle <= 90:
-            upper_arm_score = 3
+            arm_upper = 3
         else:
-            upper_arm_score = 4
+            arm_upper = 4
         lower_angle = three_point_angle(shoulder, elbow, wrist)
-        lower_arm_score = 1 if 60 <= lower_angle <= 100 else 2
-        wrist_score = 1
-    else:
-        lower_arm_score = 2
-        wrist_score = 1
+        arm_lower = 1 if 60 <= lower_angle <= 100 else 2
+        arm_scores.append((arm_upper, arm_lower))
+    if arm_scores:
+        upper_arm_score = max(score[0] for score in arm_scores)
+        lower_arm_score = max(score[1] for score in arm_scores)
 
     load_score, coupling_score, activity_score = activity_defaults(row.get("activity", ""))
     score_a = posture_score_a(trunk_score, neck_score, leg_score) + load_score
@@ -590,6 +706,63 @@ def document_guided_iso_label(
     )
 
 
+def calibration_label_from_rows(
+    *,
+    activity: str,
+    session_id: str,
+    calibration_rows: list[dict[str, str]],
+) -> CalibrationLabel | None:
+    if not calibration_rows:
+        return None
+
+    def candidate(row: dict[str, str]) -> CalibrationLabel | None:
+        reba_score = numeric(row, "reba_score")
+        if reba_score <= 0:
+            return None
+        iso_score = numeric(row, "iso11228_total_score", -1)
+        row_session = str(row.get("session_id", "")).strip()
+        return CalibrationLabel(
+            reba_score=reba_score,
+            reba_risk_level=risk_level_from_any(
+                row.get("reba_risk_level", ""),
+                reba_score,
+            ),
+            iso_total_score=iso_score if iso_score > 0 else None,
+            iso_risk_level=(
+                risk_level_from_thai(row.get("iso_risk_level_th", ""))
+                if iso_score > 0
+                else None
+            ),
+            label_source=row.get("label_source")
+            or "research_team_calibration_pdf",
+            matched_session_id=row_session,
+            match_type=(
+                "calibration_exact"
+                if row_session == session_id
+                else "calibration_activity_level"
+            ),
+        )
+
+    exact = [
+        row
+        for row in calibration_rows
+        if row.get("activity") == activity
+        and str(row.get("session_id", "")).strip() == session_id
+    ]
+    if exact:
+        return candidate(exact[0])
+
+    activity_level = [
+        row
+        for row in calibration_rows
+        if row.get("activity") == activity
+        and str(row.get("session_id", "")).strip() in {"", "*", "activity_level"}
+    ]
+    if activity_level:
+        return candidate(activity_level[0])
+    return None
+
+
 def build_training_label(
     row: dict[str, str],
     pseudo: RebaPseudoLabel,
@@ -597,9 +770,40 @@ def build_training_label(
     exact_expert_labels: dict[tuple[str, str], ExpertRebaLabel],
     expert_labels: list[dict[str, str]],
     iso_labels: list[dict[str, str]],
+    calibration_labels: list[dict[str, str]],
 ) -> TrainingLabel:
     activity = row.get("activity", "")
     session_id = str(row.get("session_id", "")).strip()
+    calibration = calibration_label_from_rows(
+        activity=activity,
+        session_id=session_id,
+        calibration_rows=calibration_labels,
+    )
+    if calibration is not None:
+        combined_score = calibration.combined_score
+        return TrainingLabel(
+            score=combined_score,
+            risk_level=risk_level_for_reba_float(combined_score),
+            target_probability=calibration.target_probability,
+            label_source=calibration.label_source,
+            match_type=calibration.match_type,
+            matched_session_id=calibration.matched_session_id,
+            pseudo=pseudo,
+            reba_score=calibration.reba_score,
+            reba_risk_level=calibration.reba_risk_level,
+            iso_total_score=calibration.iso_total_score,
+            iso_risk_level=calibration.iso_risk_level,
+            iso_label_source=calibration.label_source
+            if calibration.iso_total_score is not None
+            else "",
+            iso_match_type=calibration.match_type
+            if calibration.iso_total_score is not None
+            else "",
+            iso_matched_session_id=calibration.matched_session_id
+            if calibration.iso_total_score is not None
+            else "",
+        )
+
     iso = iso_label_from_rows(
         activity=activity,
         session_id=session_id,
@@ -901,6 +1105,48 @@ def build_metrics(
     }
 
 
+def build_label_dataset_metrics(
+    labels: list[TrainingLabel],
+    *,
+    calibration_rows: list[dict[str, str]],
+) -> dict[str, Any]:
+    risks = [label.risk_level for label in labels]
+    return {
+        "preparedAt": date.today().isoformat(),
+        "labelSource": "research_team_reba_iso_labels_with_optional_calibration",
+        "featureSchemaId": FEATURE_SCHEMA_ID,
+        "inputFeatureCount": len(FEATURE_COLUMNS),
+        "sampleCount": len(labels),
+        "riskDistribution": dict(Counter(risks)),
+        "rebaScoreDistribution": dict(Counter(round(label.score, 2) for label in labels)),
+        "labelSourceDistribution": dict(Counter(label.label_source for label in labels)),
+        "labelMatchDistribution": dict(Counter(label.match_type for label in labels)),
+        "isoLabelSourceDistribution": dict(
+            Counter(label.iso_label_source for label in labels if label.iso_label_source)
+        ),
+        "isoLabelMatchDistribution": dict(
+            Counter(label.iso_match_type for label in labels if label.iso_match_type)
+        ),
+        "isoMatchedSampleCount": sum(1 for label in labels if label.iso_match_type),
+        "combinedLabelSampleCount": sum(
+            1 for label in labels if label.iso_match_type and label.score > label.reba_score
+        ),
+        "expertMatchedSampleCount": sum(
+            1 for label in labels if label.match_type.startswith("expert_")
+        ),
+        "calibrationLabelRowCount": len(calibration_rows),
+        "calibrationMatchedSampleCount": sum(
+            1 for label in labels if label.match_type.startswith("calibration_")
+        ),
+        "calibrationNote": (
+            "Calibration labels are used only when matching pose rows exist "
+            "for the same activity/session. The current downloaded raw pose "
+            "dataset may have zero samples for some calibrated activities."
+        ),
+        "logisticRegressionOutput": "skipped",
+    }
+
+
 def write_labeled_dataset(
     rows: list[dict[str, str]],
     labels: list[TrainingLabel],
@@ -980,6 +1226,7 @@ def main() -> None:
     rows = read_rows(Path(args.dataset))
     expert_rows = load_expert_reba_labels(Path(args.expert_labels))
     iso_rows = load_iso11228_labels(Path(args.iso_labels))
+    calibration_rows = load_calibration_labels(Path(args.calibration_labels))
     exact_expert_labels: dict[tuple[str, str], ExpertRebaLabel] = {}
     for row in expert_rows:
         activity = row.get("activity", "")
@@ -1010,11 +1257,27 @@ def main() -> None:
                 exact_expert_labels=exact_expert_labels,
                 expert_labels=expert_rows,
                 iso_labels=iso_rows,
+                calibration_labels=calibration_rows,
             )
         )
 
     if len(selected) < 10:
         raise SystemExit("Not enough valid pose rows to train a model.")
+
+    if args.labels_only:
+        metrics = build_label_dataset_metrics(
+            labels,
+            calibration_rows=calibration_rows,
+        )
+        metrics_output = Path(args.metrics_output)
+        metrics_output.parent.mkdir(parents=True, exist_ok=True)
+        metrics_output.write_text(
+            json.dumps(metrics, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        write_labeled_dataset(selected, labels, Path(args.labeled_output))
+        print(json.dumps(metrics, ensure_ascii=False, indent=2))
+        return
 
     x = np.array([feature_vector(row) for row in selected], dtype=np.float64)
     y = np.array([label.target_probability for label in labels], dtype=np.float64)

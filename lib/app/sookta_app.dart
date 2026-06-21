@@ -6,6 +6,7 @@ import '../screens/onboarding/language_selection_screen.dart';
 import '../screens/onboarding/setup_screen.dart';
 import '../screens/onboarding/splash_screen.dart';
 import '../screens/main/contact_screen.dart';
+import '../screens/main/daily_prediction_screen.dart';
 import '../screens/main/evaluation_form_screen.dart';
 import '../screens/main/evaluation_menu_screen.dart';
 import '../screens/main/farmer_manager_screen.dart';
@@ -15,6 +16,7 @@ import '../screens/main/history_detail_screen.dart';
 import '../screens/main/initial_risk_screen.dart';
 import '../screens/main/main_tabs_screen.dart';
 import '../screens/main/route_error_screen.dart';
+import '../screens/main/training_data_export_screen.dart';
 import '../core/models/assessment_session.dart';
 import '../core/services/firebase_telemetry_service.dart';
 import '../widgets/responsive_content.dart';
@@ -64,6 +66,9 @@ class _SooktaAppState extends State<SooktaApp> {
           ReferencesScreen.routeName: (_) => const ReferencesScreen(),
           TermsScreen.routeName: (_) => const TermsScreen(),
           ContactScreen.routeName: (_) => const ContactScreen(),
+          TrainingDataExportScreen.routeName: (_) =>
+              const TrainingDataExportScreen(),
+          DailyPredictionScreen.routeName: (_) => const DailyPredictionScreen(),
         },
         onGenerateRoute: _generateRoute,
         initialRoute: SplashScreen.routeName,

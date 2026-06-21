@@ -9,13 +9,17 @@ import '../../core/localization/sookta_strings.dart';
 import '../../core/models/assessment_session.dart';
 import '../../core/models/evaluation_models.dart';
 import '../../core/services/assessment_export_service.dart';
+import '../../core/services/daily_injury_prediction_service.dart';
 import '../../core/services/economic_impact_service.dart';
 import '../../core/services/firebase_telemetry_service.dart';
 import '../../core/theme/sookta_theme.dart';
+import '../../widgets/assessment_breakdown_card.dart';
 import '../../widgets/body_risk_map_card.dart';
+import '../../widgets/economic_impact_comparison_card.dart';
 import '../../widgets/research_disclaimer_card.dart';
 import '../../widgets/responsive_content.dart';
 import '../../widgets/tts_button.dart';
+import 'daily_prediction_screen.dart';
 import 'main_tabs_screen.dart';
 
 class FinalResultScreen extends StatefulWidget {
@@ -63,8 +67,43 @@ class _FinalResultScreenState extends State<FinalResultScreen> {
           afterScore: widget.bundle.after.userScore,
           suggestionCount: widget.bundle.selectedSuggestionKeys.length,
         ));
+        unawaited(_showDailyPredictionAlertIfNeeded(record));
       }
     });
+  }
+
+  Future<void> _showDailyPredictionAlertIfNeeded(
+    EvaluationHistoryRecord record,
+  ) async {
+    try {
+      final state = AppStateScope.of(context);
+      final profileId = record.farmerProfileId ?? state.profile.profileId;
+      final records =
+          profileId.isEmpty ? state.history : state.historyForFarmer(profileId);
+      if (records.length < 7 || records.length % 7 != 0) return;
+      final service = await DailyInjuryPredictionService.load();
+      final prediction = service.predictForRecords(records);
+      if (!mounted || !prediction.requiresCareAlert) return;
+      final thai = (state.language ?? AppLanguage.th) == AppLanguage.th;
+      final percent = (prediction.probability * 100).round();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            thai
+                ? 'ครบ ${records.length} transaction แล้ว: ระบบพบแนวโน้มควรติดตามอาการ ($percent%)'
+                : '${records.length} transactions reached: follow-up trend detected ($percent%).',
+          ),
+          action: SnackBarAction(
+            label: thai ? 'ดูผล' : 'View',
+            onPressed: () => Navigator.of(context).pushNamed(
+              DailyPredictionScreen.routeName,
+            ),
+          ),
+        ),
+      );
+    } catch (_) {
+      return;
+    }
   }
 
   @override
@@ -74,7 +113,12 @@ class _FinalResultScreenState extends State<FinalResultScreen> {
     final strings = _strings(context);
     final before = widget.bundle.before;
     final after = widget.bundle.after;
-    final saved = before.economicLoss - after.economicLoss;
+    final impactComparison = EconomicImpactService.compareBeforeAfter(
+      beforeImpact: before.economicLoss,
+      beforeScore: before.userScore,
+      afterScore: after.userScore,
+    );
+    final saved = impactComparison.savedAmount;
     final suggestions =
         widget.bundle.selectedSuggestionKeys.map(strings.get).toList();
 
@@ -124,8 +168,8 @@ class _FinalResultScreenState extends State<FinalResultScreen> {
                         final tts = SooktaTtsButton(
                           thai: thai,
                           text: thai
-                              ? 'ผลลัพธ์โดยประมาณหลังเลือกแนวทางปรับปรุง ก่อนปรับ ${before.userScore} หลังปรับ ${after.userScore}'
-                              : 'Estimated result after selected improvements. Before ${before.userScore}. After ${after.userScore}.',
+                              ? 'ผลลัพธ์โดยประมาณหลังเลือกแนวทางปรับปรุง ก่อนปรับ ${before.userScore} หลังปรับ ${after.userScore} ผลกระทบก่อนปรับ ${impactComparison.beforeImpact} บาทต่อปี หลังปรับประมาณ ${impactComparison.afterImpact} บาทต่อปี อาจประหยัดได้ ${impactComparison.savedAmount} บาทต่อปี'
+                              : 'Estimated result after selected improvements. Before score ${before.userScore}. After score ${after.userScore}. Before impact ${impactComparison.beforeImpact} baht per year. After impact about ${impactComparison.afterImpact} baht per year. Potential saving ${impactComparison.savedAmount} baht per year.',
                         );
                         if (compact) {
                           return Column(
@@ -157,32 +201,16 @@ class _FinalResultScreenState extends State<FinalResultScreen> {
               ),
             ),
             const SizedBox(height: 16),
+            EconomicImpactComparisonCard(
+              comparison: impactComparison,
+              thai: thai,
+            ),
+            const SizedBox(height: 16),
             _FarmerFinalSummaryCard(
               before: before,
               after: after,
               saved: saved,
               thai: thai,
-            ),
-            const SizedBox(height: 16),
-            Card(
-              child: ListTile(
-                leading: const Icon(Icons.savings_outlined,
-                    color: SooktaColors.darkGreen),
-                title: Text(
-                  thai
-                      ? 'ผลกระทบที่อาจลดลงโดยประมาณ'
-                      : 'Estimated Potential Impact Reduction',
-                ),
-                subtitle: Text(
-                  saved > 0
-                      ? (thai
-                          ? 'ประมาณ $saved บาท/ปี เพื่อการสื่อสารความเสี่ยง'
-                          : 'Estimated $saved THB/year for risk communication')
-                      : (thai
-                          ? 'ไม่พบผลกระทบด้านรายได้เพิ่มเติมจากแบบจำลองนี้'
-                          : 'No additional potential income impact in this model'),
-                ),
-              ),
             ),
             const SizedBox(height: 12),
             ResearchDisclaimerCard(thai: thai),
@@ -214,6 +242,15 @@ class _FinalResultScreenState extends State<FinalResultScreen> {
               bodyRisks: before.bodyPartRisks,
               thai: thai,
               title: thai ? 'จุดเสี่ยงที่พบ' : 'Risky Points',
+              bodyRiskReasons: assessmentBodyRiskReasons(
+                widget.bundle.breakdown,
+                thai,
+              ),
+            ),
+            const SizedBox(height: 16),
+            AssessmentMethodSummaryCard(
+              breakdown: widget.bundle.breakdown,
+              thai: thai,
             ),
             const SizedBox(height: 16),
             Card(
@@ -298,10 +335,10 @@ class _FinalResultScreenState extends State<FinalResultScreen> {
         dailyIncome: dailyIncome,
         bodyPartRisks: before.bodyPartRisks,
       );
-      final afterImpact = EconomicImpactService.estimate(
-        overallRisk: after.riskLevel,
-        dailyIncome: dailyIncome,
-        bodyPartRisks: after.bodyPartRisks,
+      final afterImpact = EconomicImpactService.estimateAfterBreakdown(
+        beforeImpact: beforeImpact,
+        beforeScore: before.userScore,
+        afterScore: after.userScore,
       );
       final file = await AssessmentExportService.exportExcelCsv(
         bundle: widget.bundle,
@@ -418,8 +455,8 @@ class _FarmerFinalSummaryCard extends StatelessWidget {
             Text(
               saved > 0
                   ? (thai
-                      ? 'ผลกระทบที่อาจลดลงประมาณ $saved บาท ใช้เป็นข้อมูลคุยกับเจ้าหน้าที่'
-                      : 'Potential impact may reduce by about $saved THB. Staff can review the export.')
+                      ? 'ผลกระทบก่อนปรับ ${before.economicLoss} บาท หลังปรับประมาณ ${after.economicLoss} บาท จึงอาจประหยัดได้ $saved บาท ใช้เป็นข้อมูลคุยกับเจ้าหน้าที่'
+                      : 'Estimated impact changes from ${before.economicLoss} THB to about ${after.economicLoss} THB, a potential saving of $saved THB. Staff can review the export.')
                   : (thai
                       ? 'ข้อมูลนี้ถูกบันทึกแล้ว เจ้าหน้าที่สามารถดูรายละเอียดจากไฟล์ส่งออก'
                       : 'This result is saved. Staff can review details from the export.'),
@@ -444,6 +481,11 @@ class _ScoreBlock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final textColor =
+        ThemeData.estimateBrightnessForColor(color) == Brightness.light
+            ? const Color(0xFF263238)
+            : Colors.white;
+
     return Column(
       children: [
         Text(label, style: const TextStyle(color: Colors.black54)),
@@ -457,8 +499,8 @@ class _ScoreBlock extends StatelessWidget {
               child: Text(
                 '$score',
                 maxLines: 1,
-                style: const TextStyle(
-                  color: Colors.white,
+                style: TextStyle(
+                  color: textColor,
                   fontSize: 26,
                   fontWeight: FontWeight.bold,
                 ),

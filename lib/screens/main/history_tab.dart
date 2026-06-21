@@ -7,6 +7,7 @@ import '../../app/sookta_app.dart';
 import '../../core/services/assessment_export_service.dart';
 import '../../core/theme/sookta_theme.dart';
 import '../../widgets/responsive_content.dart';
+import 'daily_prediction_screen.dart';
 import 'history_detail_screen.dart';
 
 class HistoryTab extends StatelessWidget {
@@ -70,19 +71,44 @@ class HistoryTab extends StatelessWidget {
                           ],
                         ),
                       ),
-                      IconButton.filled(
-                        style: IconButton.styleFrom(
-                          backgroundColor: Colors.white.withValues(alpha: 0.2),
-                        ),
-                        onPressed: history.isEmpty
-                            ? null
-                            : () => _exportAll(
-                                  context: context,
-                                  state: state,
-                                  thai: thai,
-                                ),
-                        icon: const Icon(Icons.download_outlined,
-                            color: Colors.white),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton.filled(
+                            tooltip:
+                                thai ? 'ทำนายจากประวัติ' : 'Daily prediction',
+                            style: IconButton.styleFrom(
+                              backgroundColor:
+                                  Colors.white.withValues(alpha: 0.2),
+                            ),
+                            onPressed: history.isEmpty
+                                ? null
+                                : () => Navigator.of(context).pushNamed(
+                                      DailyPredictionScreen.routeName,
+                                    ),
+                            icon: const Icon(
+                              Icons.monitor_heart_outlined,
+                              color: Colors.white,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          IconButton.filled(
+                            tooltip: thai ? 'ส่งออกทั้งหมด' : 'Export all',
+                            style: IconButton.styleFrom(
+                              backgroundColor:
+                                  Colors.white.withValues(alpha: 0.2),
+                            ),
+                            onPressed: history.isEmpty
+                                ? null
+                                : () => _exportAll(
+                                      context: context,
+                                      state: state,
+                                      thai: thai,
+                                    ),
+                            icon: const Icon(Icons.download_outlined,
+                                color: Colors.white),
+                          ),
+                        ],
                       ),
                     ],
                   ),

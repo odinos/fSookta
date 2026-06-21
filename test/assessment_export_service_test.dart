@@ -51,7 +51,59 @@ void main() {
             activityScore: 1,
           ),
           rebaResult: before,
-          ergoInput: ErgoInputData(jobType: JobType.reba),
+          ergoInput: ErgoInputData(
+            jobType: JobType.reba,
+            toolId: 'basket_mid_10_15kg',
+            toolLabelTh: 'ตะกร้ากลาง 10-15 กก.',
+            toolLabelEn: 'Medium basket 10-15 kg',
+            toolWeightKg: 12.5,
+            toolWeightBandCode: 3,
+            loadWeight: 12.5,
+          ),
+          poseFrames: [
+            PoseRebaFrameAnalysis(
+              imageIndex: 1,
+              timestampMs: 1200,
+              rebaInput: RebaInputData(trunkScore: 4, neckScore: 2),
+              rebaScore: 8,
+              riskLevel: RiskLevel.high,
+              trunkFlexionDeg: 66,
+            ),
+          ],
+          worstPoseImageIndex: 1,
+          motionSummary: MotionAnalysisSummary(
+            sourceKind: 'video_gallery',
+            durationMs: 9000,
+            sampledFrameCount: 8,
+            readableFrameCount: 8,
+            sampleRateFps: 0.89,
+            highRiskFrameCount: 5,
+            highRiskFrameRatio: 0.625,
+            deepTrunkFlexionFrameCount: 4,
+            deepTrunkFlexionRatio: 0.5,
+            estimatedHighRiskSeconds: 5.625,
+            estimatedDeepTrunkSeconds: 4.5,
+            movementChangeCount: 2,
+            pattern: MotionPattern.repeatedRiskMovement,
+            anySegmentRiskFrameCount: 6,
+            anySegmentRiskFrameRatio: 0.75,
+            estimatedSegmentRiskSeconds: 6.75,
+            neckRiskFrameCount: 2,
+            neckRiskFrameRatio: 0.25,
+            trunkRiskFrameCount: 6,
+            trunkRiskFrameRatio: 0.75,
+            upperArmRiskFrameCount: 3,
+            upperArmRiskFrameRatio: 0.375,
+            lowerArmRiskFrameCount: 1,
+            lowerArmRiskFrameRatio: 0.125,
+            wristRiskFrameCount: 1,
+            wristRiskFrameRatio: 0.125,
+            legRiskFrameCount: 2,
+            legRiskFrameRatio: 0.25,
+            dominantRiskBodyPart: 'trunk',
+            maxTrunkFlexionDeg: 66,
+            avgTrunkFlexionDeg: 44,
+          ),
         ),
       ),
       profile: const UserProfile(
@@ -59,6 +111,8 @@ void main() {
         name: 'สมหญิง',
         role: 'ชาวสวน',
         location: 'สวนตัวอย่าง',
+        weight: '62',
+        height: '158',
         incomePerYear: '120000',
       ),
       selectedSuggestions: const ['หลีกเลี่ยงการก้มหลังค้างนาน'],
@@ -91,9 +145,19 @@ void main() {
     expect(csv, contains('FARM-001'));
     expect(csv, contains('REBA Score'));
     expect(csv, contains('ISO 11228 Risk Level'));
+    expect(csv, contains('BMI'));
+    expect(csv, contains('น้ำหนักมากกว่าเกณฑ์'));
+    expect(csv, contains('Tool Used'));
+    expect(csv, contains('ตะกร้ากลาง 10-15 กก.'));
     expect(csv, contains('Productivity Loss (THB)'));
     expect(csv, contains('ค่าพบแพทย์/คลินิก'));
     expect(csv, contains('รายละเอียดการประเมิน REBA/ISO11228'));
+    expect(csv, contains('สรุปการเคลื่อนไหวจากวิดีโอ'));
+    expect(csv, contains('video_gallery'));
+    expect(csv, contains('ส่วนร่างกายเด่น'));
+    expect(csv, contains('ลำตัว/หลัง'));
+    expect(csv, contains('สัดส่วนต้นแขนเสี่ยง'));
+    expect(csv, contains('Timestamp (ms)'));
     expect(csv, contains('ข้อมูลย่อย REBA'));
     expect(csv, contains('ข้อมูลย่อย ISO11228'));
     expect(csv, contains('หลีกเลี่ยงการก้มหลังค้างนาน'));
@@ -127,6 +191,11 @@ void main() {
           ),
           ergoInput: ErgoInputData(
             jobType: JobType.pushPull,
+            toolId: 'machete_0_320kg',
+            toolLabelTh: 'มีด/พร้า (0.320 กก.)',
+            toolLabelEn: 'Machete (0.320 kg)',
+            toolWeightKg: 0.320,
+            toolWeightBandCode: 1,
             initialForce: 30,
             sustainForce: 12,
           ),
@@ -155,8 +224,10 @@ void main() {
     expect(csv, contains('Maintenance / Pruning'));
     expect(csv, contains('ผลกระทบหลังปรับโดยประมาณ'));
     expect(csv, contains('ISO11228-2'));
+    expect(csv, contains('มีด/พร้า (0.320 กก.)'));
     expect(csv, contains('แรงเริ่มต้นดัน/ลาก'));
-    expect(csv, contains('8000'));
+    expect(csv, contains('5280'));
+    expect(csv, contains('สูตรคำนวณผลกระทบหลังปรับ'));
   });
 
   test('builds all-farmer worksheet CSV for research staff', () {
@@ -167,6 +238,12 @@ void main() {
       farmerName: 'สมปอง',
       farmerRole: 'ผู้ช่วยเก็บเกี่ยว',
       farmerLocation: 'แปลงใต้',
+      farmerAge: '51',
+      farmerGender: 'Male',
+      farmerWeight: '70',
+      farmerHeight: '165',
+      farmerBmi: 25.7,
+      farmerBmiCategory: 'overweight',
       activity: SooktaActivity.transport,
       activityName: 'การขนย้ายผลผลิต',
       dateTime: DateTime(2026, 5, 24),
@@ -191,6 +268,11 @@ void main() {
         ),
         ergoInput: ErgoInputData(
           jobType: JobType.lifting,
+          toolId: 'basket_25_27kg',
+          toolLabelTh: 'ตะกร้าผลผลิต 25-27 กก.',
+          toolLabelEn: 'Produce basket 25-27 kg',
+          toolWeightKg: 26,
+          toolWeightBandCode: 6,
           loadWeight: 15,
           transportDistance: 8,
           liftFrequency: 2,
@@ -217,6 +299,8 @@ void main() {
           name: 'สมปอง',
           role: 'ผู้ช่วยเก็บเกี่ยว',
           location: 'แปลงใต้',
+          weight: '70',
+          height: '165',
         ),
       },
     );
@@ -224,6 +308,8 @@ void main() {
     expect(csv, contains('Record ID'));
     expect(csv, contains('FARM-009'));
     expect(csv, contains('การขนย้ายผลผลิต'));
+    expect(csv, contains('BMI Category'));
+    expect(csv, contains('ตะกร้าผลผลิต 25-27 กก.'));
     expect(csv, contains('Manual Handling Weight (kg)'));
     expect(csv, contains('ใช้รถเข็น'));
   });

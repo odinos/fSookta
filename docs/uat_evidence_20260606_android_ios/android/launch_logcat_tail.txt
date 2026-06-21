@@ -1,0 +1,200 @@
+06-06 18:15:48.776  3253  8209 W MagnificationConnectionManager: requestConnection duplicated request: connect=false, mConnectionState=DISCONNECTED
+06-06 18:15:48.782  2247  2339 I SurfaceFlinger: id=39662 createSurf, flag=84004, WindowToken{aa9091c type=2032 android.os.Binder@9c0f28f}#39662
+06-06 18:15:48.784  2182  2182 E ANDR-PERF-MPCTL: ANDR-PERF-MPCTL: internal_perf_lock_acq_verification() 385: Perflock Submit request limit reached.
+06-06 18:15:48.786  2247  2247 I SurfaceFlinger: [WindowToken{aa9091c type=2032 android.os.Binder@9c0f28f}#39662] attach to parent LayerHierarchy{RequestedLayerState{Leaf:26:31#33 parentId=32} 2 children}
+06-06 18:15:48.786  2247  2414 I SurfaceFlinger: Current= 60, Period= 60, Distance= 1
+06-06 18:15:48.802  2247  2414 I SurfaceFlinger: Current= 60, Period= 60, Distance= 60
+06-06 18:15:48.802  2247  2247 I SurfaceFlinger: RequestedLayer [WindowToken{aa9091c type=2032 android.os.Binder@9c0f28f}#39662] hidden!! flag  from(1) --> to(0)
+06-06 18:15:48.802  3253  8209 V AccessibilityManagerService: onUserStateChangedLocked for userId: 0, forceUpdate: false
+06-06 18:15:48.804  3253  8209 D SettingsProvider: PUT_ret(/secure/accessibility_enabled), callingPackage:android
+06-06 18:15:48.805  3253  8209 D MagnificationConnectionManager: requestConnection :false mConnectionState : 3
+06-06 18:15:48.805  3253  8209 W MagnificationConnectionManager: requestConnection duplicated request: connect=false, mConnectionState=DISCONNECTED
+06-06 18:15:48.811  5860 30512 I HoneySpace.GlobalSettingDataSourceImpl: Setting accessibility_enabled changed to 1
+06-06 18:15:48.817  3253  3253 I AccessibilityManagerService: semIsAccessibilityServiceEnabled()
+06-06 18:15:48.817  3253  3253 I AccessibilityManagerService: accessibilityService is null
+06-06 18:15:48.817  3253  3253 I AccessibilityManagerService: semIsAccessibilityServiceEnabled()
+06-06 18:15:48.817  3253  3253 I AccessibilityManagerService: accessibilityService is null
+06-06 18:15:48.817  3253  3253 D AS.AudioService: Accessibility volume enabled = false
+06-06 18:15:48.818  3253  3253 D BatterySaverPolicy: accessibility changed to true, updating policy.
+06-06 18:15:48.836 31421 31421 D SV[44931067 MainActivity]: skip updating surface, 5
+06-06 18:15:49.099  3253 19144 D BSOHChargingDataCollector:  BSOH Sys-servce ... 
+06-06 18:15:49.100  3253 19144 D BSOHChargingDataCollector: performBatteryWork++
+06-06 18:15:49.100  3253 19144 D BSOHChargingDataCollector: performBatteryWork battery com.android.server.bsoh.device.PrimeBattery@24144da
+06-06 18:15:49.100  3253 19144 D BSOHChargingDataCollector: primeBatt readVoltage from sysFsBattVolt,  path : /sys/class/power_supply/battery/batt_voltage_now
+06-06 18:15:49.112  3253 19144 D BSOHChargingDataCollector: 0 	 BattData addData data : BattData { voltage:3.967, current:0.092187, soc:0.71, temperature:29.8, status:2, timestamp:1780744549112, voltage_chg:null}
+06-06 18:15:49.112  3253 19144 D BSOHChargingDataCollector: performBatteryWork--
+06-06 18:15:49.564  5134 18429 D IpClient/wlan0: interfaceLinkStateChanged: ifindex 46 up
+06-06 18:15:49.945  3253  4718 D WifiStaIfaceHidlImpl: getCachedScanData is not implemented by HIDL
+06-06 18:15:49.953  2247  2414 I SurfaceFlinger: Current= 60, Period= 60, Distance= 1
+06-06 18:15:49.953  3253  8033 D SemWifiUsabilityStatsMonitor: onWifiUsabilityStats - seqNum 10996, isSameBssidAndFreq true
+06-06 18:15:49.954 32258 32258 D SemCscFeature: Encoded
+06-06 18:15:49.955  3253  4830 E SemWifiLinkQualityMonitor: Too old or invalid TMI: currentTime=1780744549955 lastDateWindow=1780733340000
+06-06 18:15:49.958  5608  5608 I EPDG-1 [WifiProfiler]: handleWifiRssiIntent, rssi=-44
+06-06 18:15:49.958  5608  5608 I EPDG-1 [WifiProfiler]: isProfiling, hash=126685139, started=true
+06-06 18:15:49.958  5608  5608 I EPDG-1 [LogMetrics]: set, type=WIFI_RSSI_LAST, value=-44
+06-06 18:15:49.959  5608  5608 I EPDG-1 [WifiProfiler]: isWifiRssiLessOrEqualsHandoverThreshold: received rssi is: -44 handover threshold is: -100
+06-06 18:15:49.959  5608  5608 I EPDG-1 [WifiProfiler]: isProfiling, hash=126685139, started=true
+06-06 18:15:49.960  5608  5608 I EPDG-1 [WifiProfiler]: Rssi : -44 highrange : -101 lowrange : -100 mIsRssiInHystersis : false
+06-06 18:15:49.960  5608  5608 I EPDG-1 [WifiProfiler]: Rssi : -44 highrange : -101 lowrange : -100 mIsRssiInHystersis : false
+06-06 18:15:49.960  5608  5608 I EPDG-1 [Subscription]: isEpdgAvailable, IwlanPsState=2/2
+06-06 18:15:49.960  5608  5608 I EPDG-1 [WifiProfiler]: getHandoverThresholdMet: value is: false
+06-06 18:15:49.961  5608  5608 I EPDG-0 [WifiProfiler]: handleWifiRssiIntent, rssi=-44
+06-06 18:15:49.961  5608  5608 I EPDG-0 [WifiProfiler]: isProfiling, hash=110496910, started=true
+06-06 18:15:49.961  5608  5608 I EPDG-0 [LogMetrics]: set, type=WIFI_RSSI_LAST, value=-44
+06-06 18:15:49.961  5608  5608 I EPDG-0 [WifiProfiler]: isWifiRssiLessOrEqualsHandoverThreshold: received rssi is: -44 handover threshold is: -100
+06-06 18:15:49.961  5608  5608 I EPDG-0 [WifiProfiler]: isProfiling, hash=110496910, started=true
+06-06 18:15:49.961  5608  5608 I EPDG-0 [WifiProfiler]: Rssi : -44 highrange : -101 lowrange : -100 mIsRssiInHystersis : false
+06-06 18:15:49.961  5608  5608 I EPDG-0 [WifiProfiler]: Rssi : -44 highrange : -101 lowrange : -100 mIsRssiInHystersis : false
+06-06 18:15:49.961  5608  5608 I EPDG-0 [Subscription]: isEpdgAvailable, IwlanPsState=2/2
+06-06 18:15:49.961  5608  5608 I EPDG-0 [WifiProfiler]: getHandoverThresholdMet: value is: false
+06-06 18:15:49.966 32258 32258 W AccessibilityNodeInfoDumper: Fetch time: 3ms
+06-06 18:15:49.969  2247  2414 I SurfaceFlinger: Current= 60, Period= 60, Distance= 60
+06-06 18:15:49.972  2182  2182 E ANDR-PERF-MPCTL: ANDR-PERF-MPCTL: internal_perf_lock_acq_verification() 385: Perflock Submit request limit reached.
+06-06 18:15:49.977  3253  8209 V AccessibilityManagerService: onUserStateChangedLocked for userId: 0, forceUpdate: false
+06-06 18:15:49.978  3253  8209 D SettingsProvider: PUT_ret(/secure/accessibility_enabled), callingPackage:android
+06-06 18:15:49.979  3253  8209 D MagnificationConnectionManager: requestConnection :false mConnectionState : 3
+06-06 18:15:49.979  3253  8209 W MagnificationConnectionManager: requestConnection duplicated request: connect=false, mConnectionState=DISCONNECTED
+06-06 18:15:49.979  3253  8209 D AccessibilityManagerService: restoreCurrentUserForTestAutomationIfNeededLocked(): ignoring because device doesn't support visible background users
+06-06 18:15:49.981  3253  8209 V WindowManager: Computed rotation=ROTATION_0 (0) for display id=0 based on lastOrientation=SCREEN_ORIENTATION_UNSPECIFIED (-1) and oldRotation=ROTATION_0 (0), caller=com.android.server.wm.WindowManagerService.updateRotationUnchecked:82 com.android.server.wm.WindowManagerService.freezeDisplayRotation:134 com.android.server.wm.WindowManagerService.freezeRotation:2 android.view.IWindowManager$Stub.onTransact:3767 com.android.server.wm.WindowManagerService.onTransact:1 android.os.Binder.execTransactInternal:1509 
+06-06 18:15:49.981 32258 32294 W libbinder.IPCThreadState: call to talkWithDriver in joinThreadPool returned error: -9 (Bad file descriptor), FD: -1
+06-06 18:15:49.981 32258 32282 W libbinder.IPCThreadState: call to talkWithDriver in joinThreadPool returned error: -9 (Bad file descriptor), FD: -1
+06-06 18:15:49.981 32258 32278 W libbinder.IPCThreadState: call to talkWithDriver in joinThreadPool returned error: -9 (Bad file descriptor), FD: -1
+06-06 18:15:49.981 32258 32258 D AndroidRuntime: Shutting down VM
+06-06 18:15:49.984  3253  3253 D BatterySaverPolicy: accessibility changed to false, updating policy.
+06-06 18:15:49.986 31421 31421 D SV[44931067 MainActivity]: skip updating surface, 5
+06-06 18:15:49.994  5860 30507 I HoneySpace.GlobalSettingDataSourceImpl: Setting accessibility_enabled changed to 0
+06-06 18:15:50.003  2247  2247 I SurfaceFlinger: [LayerHierarchy{RequestedLayerState{WindowToken{aa9091c type=2032 android.os.Binder@9c0f28f}#39662 z=1} no children}] reparent to OffscreenRoot
+06-06 18:15:50.003  2247  2247 I SurfaceFlinger: [LayerHierarchy{RequestedLayerState{WindowToken{aa9091c type=2032 android.os.Binder@9c0f28f}#39662 z=1} no children}] RelativeParent to null
+06-06 18:15:50.004  2247  2247 I SurfaceFlinger: id=39662 Removed WindowToken{aa9091c type=2032 android.os.Binder@9c0f28f}#39662 (154)
+06-06 18:15:50.019  2247  2247 I SurfaceFlinger: destroyed WindowToken{aa9091c type=2032 android.os.Binder@9c0f28f}#39662 form LifecycleManager
+06-06 18:15:50.019  2247  2247 I SurfaceFlinger: id=39662 onLayerDestroyed from LayerHierarchyBuilder(RequestedLayerState{WindowToken{aa9091c type=2032 android.os.Binder@9c0f28f}#39662 !handle z=1})
+06-06 18:15:50.020  2247  2247 I SurfaceFlinger: id=39662 Destroyed WindowToken{aa9091c type=2032 android.os.Binder@9c0f28f}#39662
+06-06 18:15:50.100  3253 19144 D BSOHChargingDataCollector:  BSOH Sys-servce ... 
+06-06 18:15:50.101  3253 19144 D BSOHChargingDataCollector: performBatteryWork++
+06-06 18:15:50.101  3253 19144 D BSOHChargingDataCollector: performBatteryWork battery com.android.server.bsoh.device.PrimeBattery@24144da
+06-06 18:15:50.101  3253 19144 D BSOHChargingDataCollector: primeBatt readVoltage from sysFsBattVolt,  path : /sys/class/power_supply/battery/batt_voltage_now
+06-06 18:15:50.114  3253 19144 D BSOHChargingDataCollector: 0 	 BattData addData data : BattData { voltage:3.971, current:0.1125, soc:0.71, temperature:29.8, status:2, timestamp:1780744550114, voltage_chg:null}
+06-06 18:15:50.114  3253 19144 D BSOHChargingDataCollector: performBatteryWork--
+06-06 18:15:50.139 31225 32129 I PlayCommon: [254] Preparing logs for uploading
+06-06 18:15:50.158 31225 32129 I PlayCommon: [254] Connecting to server for timestamp: https://play.googleapis.com/play/log/timestamp
+06-06 18:15:50.172  3253  4886 D NetdEventListenerService: DNS Requested by 181, 15010232(com.android.vending), SUCCESS, 6ms
+06-06 18:15:50.309  3253  8210 D EnterpriseUtils: getCallingOrCurrentUserId(): move: cxtInfo.mContainerId = 150
+06-06 18:15:50.309  3253  8210 D EnterpriseUtils: getCallingOrCurrentUserId(): move: cxtInfo.mContainerId = 150
+06-06 18:15:50.429 31225 32129 W PlayCommon: [254] No account for auth token provided
+06-06 18:15:50.430 31225 32129 I PlayCommon: [254] Connecting to server: https://play.googleapis.com/play/log?format=raw&proto_v2=true
+06-06 18:15:50.453  3253  4737 D InetDiagMessage: Destroyed 0 sockets, proto=IPPROTO_TCP, family=AF_INET, states=14
+06-06 18:15:50.456  3253  4737 D InetDiagMessage: Destroyed 0 sockets, proto=IPPROTO_TCP, family=AF_INET6, states=14
+06-06 18:15:50.456  3253  4737 D InetDiagMessage: Destroyed live tcp sockets for uids={10313} in 11ms
+06-06 18:15:50.460  3253  4737 D InetDiagMessage: Destroyed 0 sockets, proto=IPPROTO_TCP, family=AF_INET, states=14
+06-06 18:15:50.462  3253  4737 D InetDiagMessage: Destroyed 0 sockets, proto=IPPROTO_TCP, family=AF_INET6, states=14
+06-06 18:15:50.463  3253  4737 D InetDiagMessage: Destroyed live tcp sockets for uids={20313} in 6ms
+06-06 18:15:50.489 31225 32129 I PlayCommon: [254] Successfully uploaded logs.
+06-06 18:15:50.544  1165  1165 D io_stats: !@   8,0 r 80227878 1418126184 w 15138627 259048264 d 2025620 608096184 f 319819 1198224 iot 23132024 0 th 0 0 0 pt 0 inp 0 0 142001.095
+06-06 18:15:50.545  1165  1165 D io_stats: !@ Read_top(KB): sh(32258) 16368 kworker/u16:1(14625) 716 kworker/u16:3(31137) 660
+06-06 18:15:50.545  1165  1165 D io_stats: !@ Write_top(KB): kworker/u16:3(31137) 1420 system_server(3253) 256
+06-06 18:15:50.572  2111 20253 I sensors-hal: handle_sns_std_sensor_event:436, [SSC_LIGHT] P: 43(43),m:13,c:231,b:125,c0:41942,l:41,f(r):93,u(bl):96,j:37
+06-06 18:15:51.101  3253 19144 D BSOHChargingDataCollector:  BSOH Sys-servce ... 
+06-06 18:15:51.101  3253 19144 D BSOHChargingDataCollector: performBatteryWork++
+06-06 18:15:51.101  3253 19144 D BSOHChargingDataCollector: performBatteryWork battery com.android.server.bsoh.device.PrimeBattery@24144da
+06-06 18:15:51.102  3253 19144 D BSOHChargingDataCollector: primeBatt readVoltage from sysFsBattVolt,  path : /sys/class/power_supply/battery/batt_voltage_now
+06-06 18:15:51.109 18649 18825 I DuoLog  : [Platform - Application Stability and Performance]: SessionPrefetch prefetchState: missingCondition=NONE, featureFlag=true, isOnline=true
+06-06 18:15:51.112 18649 18825 I DuoLog  : [Platform - Application Stability and Performance]: SessionPrefetch State: STARTED remainingSessions=1, hasResourcesPending=true, readyCount=33, resultState=Default(numSessionsRemaining=1)
+06-06 18:15:51.115 18649 18830 I DuoLog  : [Platform - Application Stability and Performance]: SessionPrefetch doOnNext skipping: track=false
+06-06 18:15:51.115  3253 19144 D BSOHChargingDataCollector: 0 	 BattData addData data : BattData { voltage:3.974, current:0.163281, soc:0.71, temperature:29.8, status:2, timestamp:1780744551115, voltage_chg:null}
+06-06 18:15:51.115  3253 19144 D BSOHChargingDataCollector: performBatteryWork--
+06-06 18:15:51.116 18649 18830 I DuoLog  : [Platform - Application Stability and Performance]: SessionPrefetch concatMapCompletable: state=Default(numSessionsRemaining=1)
+06-06 18:15:51.116 18649 18830 I DuoLog  : [Platform - Application Stability and Performance]: SessionPrefetch prefetchCompletable called: state=Default(numSessionsRemaining=1)
+06-06 18:15:51.126 18649 18830 I DuoLog  : [Platform - Application Stability and Performance]: SessionPrefetch: noDesiredSessions=false, shouldPrefetchOptional=false, requiredBacklog=0, optionalBacklog=1638
+06-06 18:15:51.127 18649 18830 I DuoLog  : [Platform - Application Stability and Performance]: SessionPrefetch Queuing 1 sessions for download
+06-06 18:15:51.129 18649 18817 I DuoLog  : [Platform - Data Tooling]: Event blocklist initialized: [tour page 2, tour page 3, tour page 4, opened main menu, opened language menu, math_sg_asset_load_attempt, math_sg_asset_slow]
+06-06 18:15:51.739  3253  8210 D PowerManagerService: [api] setMasterBrightnessLimit : lowerLimit : -1  upperLimit : 612  mMasterBrightnessLimitPeriod : 200 (uid: 1000 pid: 8862)
+06-06 18:15:51.741  3253  3640 D PowerManagerService: [api] BrightnessLimitRunnable done
+06-06 18:15:52.102  3253 19144 D BSOHChargingDataCollector:  BSOH Sys-servce ... 
+06-06 18:15:52.103  3253 19144 D BSOHChargingDataCollector: performBatteryWork++
+06-06 18:15:52.103  3253 19144 D BSOHChargingDataCollector: performBatteryWork battery com.android.server.bsoh.device.PrimeBattery@24144da
+06-06 18:15:52.103  3253 19144 D BSOHChargingDataCollector: primeBatt readVoltage from sysFsBattVolt,  path : /sys/class/power_supply/battery/batt_voltage_now
+06-06 18:15:52.114  3253 19144 D BSOHChargingDataCollector: 0 	 BattData addData data : BattData { voltage:3.972, current:0.135156, soc:0.71, temperature:29.8, status:2, timestamp:1780744552114, voltage_chg:null}
+06-06 18:15:52.114  3253 19144 D BSOHChargingDataCollector: performBatteryWork--
+06-06 18:15:52.482 18649 18792 E QTagParser: Error reading from /proc/net/xt_qtaguid/stats. Please check if this file exists.
+06-06 18:15:52.546  1165  1165 D io_stats: !@   8,0 r 80227888 1418126368 w 15138629 259048940 d 2025620 608096184 f 319819 1198224 iot 23132056 0 th 0 0 0 pt 0 inp 0 0 142003.097
+06-06 18:15:52.970  3253  4718 D WifiStaIfaceHidlImpl: getCachedScanData is not implemented by HIDL
+06-06 18:15:52.981  5608  5608 I EPDG-1 [WifiProfiler]: handleWifiRssiIntent, rssi=-45
+06-06 18:15:52.981  5608  5608 I EPDG-1 [WifiProfiler]: isProfiling, hash=126685139, started=true
+06-06 18:15:52.982  3253  8033 D SemWifiUsabilityStatsMonitor: onWifiUsabilityStats - seqNum 10997, isSameBssidAndFreq true
+06-06 18:15:52.984  3253  4830 E SemWifiLinkQualityMonitor: Too old or invalid TMI: currentTime=1780744552984 lastDateWindow=1780733340000
+06-06 18:15:52.985  3253  4830 I SemWifiLinkQualityMonitor: Link stat: 626 / 37 / 2.06 (37) / 173 / -45.0 || 100.0 : 173.00 / 0.5 : 0.49 / B (B) || 84e291ac5745: 0.322 / 24.841 / N / V || N N / 0 0 / N 2.0 / N -1 0.000 0.000 / N / X 0 / 142003535 0 0 || 2026-06-06 15:09:00  / 0: 0 0 0 0 0 0 / 0: 0 0 0 0 0 0 / 0: 0 0 0 0 0 0
+06-06 18:15:52.986  5608  5608 I EPDG-1 [LogMetrics]: set, type=WIFI_RSSI_LAST, value=-45
+06-06 18:15:52.986  5608  5608 I EPDG-1 [WifiProfiler]: isWifiRssiLessOrEqualsHandoverThreshold: received rssi is: -45 handover threshold is: -100
+06-06 18:15:52.986  5608  5608 I EPDG-1 [WifiProfiler]: isProfiling, hash=126685139, started=true
+06-06 18:15:52.987  5608  5608 I EPDG-1 [WifiProfiler]: Rssi : -45 highrange : -101 lowrange : -100 mIsRssiInHystersis : false
+06-06 18:15:52.987  5608  5608 I EPDG-1 [WifiProfiler]: Rssi : -45 highrange : -101 lowrange : -100 mIsRssiInHystersis : false
+06-06 18:15:52.987  5608  5608 I EPDG-1 [Subscription]: isEpdgAvailable, IwlanPsState=2/2
+06-06 18:15:52.987  5608  5608 I EPDG-1 [WifiProfiler]: getHandoverThresholdMet: value is: false
+06-06 18:15:52.988  5608  5608 I EPDG-0 [WifiProfiler]: handleWifiRssiIntent, rssi=-45
+06-06 18:15:52.988  5608  5608 I EPDG-0 [WifiProfiler]: isProfiling, hash=110496910, started=true
+06-06 18:15:52.988  5608  5608 I EPDG-0 [LogMetrics]: set, type=WIFI_RSSI_LAST, value=-45
+06-06 18:15:52.988  5608  5608 I EPDG-0 [WifiProfiler]: isWifiRssiLessOrEqualsHandoverThreshold: received rssi is: -45 handover threshold is: -100
+06-06 18:15:52.988  5608  5608 I EPDG-0 [WifiProfiler]: isProfiling, hash=110496910, started=true
+06-06 18:15:52.989  5608  5608 I EPDG-0 [WifiProfiler]: Rssi : -45 highrange : -101 lowrange : -100 mIsRssiInHystersis : false
+06-06 18:15:52.989  5608  5608 I EPDG-0 [WifiProfiler]: Rssi : -45 highrange : -101 lowrange : -100 mIsRssiInHystersis : false
+06-06 18:15:52.989  5608  5608 I EPDG-0 [Subscription]: isEpdgAvailable, IwlanPsState=2/2
+06-06 18:15:52.989  5608  5608 I EPDG-0 [WifiProfiler]: getHandoverThresholdMet: value is: false
+06-06 18:15:53.103  3253 19144 D BSOHChargingDataCollector:  BSOH Sys-servce ... 
+06-06 18:15:53.103  3253 19144 D BSOHChargingDataCollector: performBatteryWork++
+06-06 18:15:53.103  3253 19144 D BSOHChargingDataCollector: performBatteryWork battery com.android.server.bsoh.device.PrimeBattery@24144da
+06-06 18:15:53.103  3253 19144 D BSOHChargingDataCollector: primeBatt readVoltage from sysFsBattVolt,  path : /sys/class/power_supply/battery/batt_voltage_now
+06-06 18:15:53.116  3253 19144 D BSOHChargingDataCollector: 0 	 BattData addData data : BattData { voltage:3.973, current:0.153125, soc:0.71, temperature:29.8, status:2, timestamp:1780744553116, voltage_chg:null}
+06-06 18:15:53.116  3253 19144 D BSOHChargingDataCollector: performBatteryWork--
+06-06 18:15:53.192 32271 30790 I NearbyMediums: Found Fast Ble Advertisements :
+06-06 18:15:53.192 32271 30790 I NearbyMediums: BleAdvertisement { version=2, socketVersion=2, isFast=true, serviceIdHash=null, data=[ 0x23 0x4d 0x46 0x58 0x46 0x11 0x32 0xe2 0xfc 0x56 0xec 0x64 0x4a 0x7c 0x8f 0x69 0xf9 0x34 0x94 0x66 0x3d 0xaf 0x6f ], deviceToken=[ 0x10 0x6b ], rxAdvertisement=null } : 4 times.
+06-06 18:15:53.192 32271 30790 I NearbyMediums: Total 4 fast advertisements from 1 unique advertisers.
+06-06 18:15:53.193 32271 30790 I NearbyMediums: Current Tracked Scanning Clients are : {NearbyConnections.EnvironmentMonitor, NearbySharing, NearbyConnections.TxAdvertisement}
+06-06 18:15:53.195 32271 32219 I NearbyConnections: Processing lost BlePeripheral BlePeripheral{advertisement=BleAdvertisement { version=2, socketVersion=2, isFast=true, serviceIdHash=null, data=[ 0x23 0x53 0x58 0x4a 0x4a 0x11 0x32 0x72 0xee 0x3b 0xa9 0x6a 0x33 0x88 0x4c 0xcd 0xe1 0xf5 0x2b 0xf4 0x29 0xcd 0xf2 ], deviceToken=[ 0x2c 0xf5 ], rxAdvertisement=[ 0xa0 0x17 0xeb 0xee 0xec 0x49 0x44 0xe8 0x17 0x7e 0x3e 0x4d 0x14 0x54 0x08 0xc4 0x52 0x3a 0x95 0x71 0x53 0x65 0xe5 0x48 0x3e 0x8d 0x53 0x70 0xd4 0x39 0xcf 0xce 0xe8 0x5d 0x84 0x15 0x05 0x00 0x00 0x00 0x84 0x15 0x06 0x00 0x00 0x00 0x84 0x15 0x04 0x00 0x00 0x00 0x83 0x15 0x01 0xff 0xff ] }, dctAdvertisement=null, address=null, psm=0, deviceToken=<ByteString@7f235da size=2 contents=",\365">, isSecondProfile=false, rxInstantConnectionAdv=[-96, 23, -21, -18, -20, 73, 68, -24, 23, 126, 62, 77, 20, 84, 8, -60, 82, 58, -107, 113, 83, 101, -27, 72, 62, -115, 83, 112, -44, 57, -49, -50, -24, 93, -124, 21, 5, 0, 0, 0, -124, 21, 6, 0, 0, 0, -124, 21, 4, 0, 0, 0, -125, 21, 1, -1, -1]}.
+06-06 18:15:53.196 32271 32219 I NearbyConnections: Lost BleEndpoint for BlePeripheral BlePeripheral{advertisement=BleAdvertisement { version=2, socketVersion=2, isFast=true, serviceIdHash=null, data=[ 0x23 0x53 0x58 0x4a 0x4a 0x11 0x32 0x72 0xee 0x3b 0xa9 0x6a 0x33 0x88 0x4c 0xcd 0xe1 0xf5 0x2b 0xf4 0x29 0xcd 0xf2 ], deviceToken=[ 0x2c 0xf5 ], rxAdvertisement=[ 0xa0 0x17 0xeb 0xee 0xec 0x49 0x44 0xe8 0x17 0x7e 0x3e 0x4d 0x14 0x54 0x08 0xc4 0x52 0x3a 0x95 0x71 0x53 0x65 0xe5 0x48 0x3e 0x8d 0x53 0x70 0xd4 0x39 0xcf 0xce 0xe8 0x5d 0x84 0x15 0x05 0x00 0x00 0x00 0x84 0x15 0x06 0x00 0x00 0x00 0x84 0x15 0x04 0x00 0x00 0x00 0x83 0x15 0x01 0xff 0xff ] }, dctAdvertisement=null, address=null, psm=0, deviceToken=<ByteString@7f235da size=2 contents=",\365">, isSecondProfile=false, rxInstantConnectionAdv=[-96, 23, -21, -18, -20, 73, 68, -24, 23, 126, 62, 77, 20, 84, 8, -60, 82, 58, -107, 113, 83, 101, -27, 72, 62, -115, 83, 112, -44, 57, -49, -50, -24, 93, -124, 21, 5, 0, 0, 0, -124, 21, 6, 0, 0, 0, -124, 21, 4, 0, 0, 0, -125, 21, 1, -1, -1]} (with EndpointId SXJJ and EndpointInfo [ 0x32 0x72 0xee 0x3b 0xa9 0x6a 0x33 0x88 0x4c 0xcd 0xe1 0xf5 0x2b 0xf4 0x29 0xcd 0xf2 ]).
+06-06 18:15:53.197 32271 32219 I NearbyConnections: Unable to record lost endpoint due to null currentDiscoveryPhase
+06-06 18:15:53.198 32271 32219 I NearbyConnections: ClientProxy(77525119) reporting onEndpointLost(SXJJ)
+06-06 18:15:53.199 32271 32219 I NearbyConnections: Processing lost BlePeripheral BlePeripheral{advertisement=BleAdvertisement { version=2, socketVersion=2, isFast=true, serviceIdHash=null, data=[ 0x23 0x51 0x48 0x39 0x49 0x11 0x34 0xb8 0x17 0xfa 0x92 0x99 0xd2 0xc3 0xfb 0x0d 0x0a 0xc2 0xd6 0x31 0x37 0xe2 0x9c ], deviceToken=[ 0x2a 0x91 ], rxAdvertisement=null }, dctAdvertisement=null, address=null, psm=0, deviceToken=<ByteString@28d50e8 size=2 contents="*\221">, isSecondProfile=false, rxInstantConnectionAdv=null}.
+06-06 18:15:53.201 32271 32219 I NearbyConnections: Lost BleEndpoint for BlePeripheral BlePeripheral{advertisement=BleAdvertisement { version=2, socketVersion=2, isFast=true, serviceIdHash=null, data=[ 0x23 0x51 0x48 0x39 0x49 0x11 0x34 0xb8 0x17 0xfa 0x92 0x99 0xd2 0xc3 0xfb 0x0d 0x0a 0xc2 0xd6 0x31 0x37 0xe2 0x9c ], deviceToken=[ 0x2a 0x91 ], rxAdvertisement=null }, dctAdvertisement=null, address=null, psm=0, deviceToken=<ByteString@28d50e8 size=2 contents="*\221">, isSecondProfile=false, rxInstantConnectionAdv=null} (with EndpointId QH9I and EndpointInfo [ 0x34 0xb8 0x17 0xfa 0x92 0x99 0xd2 0xc3 0xfb 0x0d 0x0a 0xc2 0xd6 0x31 0x37 0xe2 0x9c ]).
+06-06 18:15:53.201 32271 32219 I NearbyConnections: Unable to record lost endpoint due to null currentDiscoveryPhase
+06-06 18:15:53.202 32271 32219 I NearbyConnections: ClientProxy(77525119) reporting onEndpointLost(QH9I)
+06-06 18:15:53.204 32271 32304 I NearbySharing: NearbySharing Internal event EndpointLost(endpointId=SXJJ)
+06-06 18:15:53.205 32271 30790 I NearbySharing: NearbySharing Internal event EndpointLost(endpointId=QH9I)
+06-06 18:15:53.486 18649 18792 E QTagParser: Error reading from /proc/net/xt_qtaguid/stats. Please check if this file exists.
+06-06 18:15:53.613  2111 20253 I sensors-hal: handle_sns_std_sensor_event:436, [SSC_LIGHT] P: 47(47),m:13,c:231,b:125,c0:40831,l:39,f(r):93,u(bl):96,j:47
+06-06 18:15:53.640  2103  6223 I vendor.qti.bluetooth@1.1-ibs_handler: ProcessIbsCmd: Received IBS_WAKE_IND: 0xFD
+06-06 18:15:53.640  2103  6223 D vendor.qti.bluetooth@1.1-ibs_handler: SerialClockVote: vote for UART CLK ON
+06-06 18:15:53.641  2103  6223 D vendor.qti.bluetooth@1.1-wake_lock: Acquire wakelock is acquired 
+06-06 18:15:53.641  2103  6223 I vendor.qti.bluetooth@1.1-ibs_handler: ProcessIbsCmd: Writing IBS_WAKE_ACK
+06-06 18:15:53.647  2111  7759 I sensors-hal: handle_sns_client_event:190, auto_rotation_debug_2 mode,255, type,1,0 acc,-0.330,9.155,4.020, ar,0, ver,15, pedo,1,e,1,i,3
+06-06 18:15:53.652  5175  6267 I ScanController: onScanResult to scannerId: 8- eventType=0x10, addressType=1, address=XX:XX:XX:XX:16:33, primaryPhy=1, secondaryPhy=0, advertisingSid=0xff, txPower=127, rssi=-68, periodicAdvInt=0x0
+06-06 18:15:53.692  2103  6223 I vendor.qti.bluetooth@1.1-ibs_handler: ProcessIbsCmd: Received IBS_SLEEP_IND: 0xFE
+06-06 18:15:53.692  2103  6223 D vendor.qti.bluetooth@1.1-ibs_handler: SerialClockVote: vote for UART CLK OFF
+06-06 18:15:53.828  2103  6223 I vendor.qti.bluetooth@1.1-ibs_handler: ProcessIbsCmd: Received IBS_WAKE_IND: 0xFD
+06-06 18:15:53.828  2103  6223 D vendor.qti.bluetooth@1.1-ibs_handler: SerialClockVote: vote for UART CLK ON
+06-06 18:15:53.828  2103  6223 I vendor.qti.bluetooth@1.1-ibs_handler: ProcessIbsCmd: Writing IBS_WAKE_ACK
+06-06 18:15:53.832  5175  6267 I ScanController: onScanResult to scannerId: 8- eventType=0x0, addressType=1, address=XX:XX:XX:XX:6A:5C, primaryPhy=1, secondaryPhy=1, advertisingSid=0x1, txPower=127, rssi=-79, periodicAdvInt=0x0
+06-06 18:15:53.834 32271 30790 I NearbyConnections: Found BleAdvertisement [ 0x23 0x53 0x58 0x4a 0x4a 0x11 0x32 0x72 0xee 0x3b 0xa9 0x6a 0x33 0x88 0x4c 0xcd 0xe1 0xf5 0x2b 0xf4 0x29 0xcd 0xf2 ] (with EndpointId SXJJ and EndpointInfo [ 0x32 0x72 0xee 0x3b 0xa9 0x6a 0x33 0x88 0x4c 0xcd 0xe1 0xf5 0x2b 0xf4 0x29 0xcd 0xf2 ])
+06-06 18:15:53.835 32271 30790 I NearbyConnections: Unable to record discovered endpoint due to null currentDiscoveryPhase
+06-06 18:15:53.835 32271 30790 I NearbyConnections: ClientProxy(77525119 0p:com.google.android.gms.nearby.sharing) reporting onEndpointFound(SXJJ)
+06-06 18:15:53.835 32271 30790 I NearbyConnections: ClientProxy(77525119) reporting onEndpointDistanceChanged(SXJJ, UNKNOWN)
+06-06 18:15:53.837 32271 32304 I NearbySharing: NearbySharing Internal event EndpointDiscovered(endpointId=SXJJ)
+06-06 18:15:53.851  5175  6267 I ScanController: onScanResult to scannerId: 8- eventType=0x1b, addressType=1, address=XX:XX:XX:XX:FD:96, primaryPhy=1, secondaryPhy=0, advertisingSid=0xff, txPower=127, rssi=-84, periodicAdvInt=0x0
+06-06 18:15:53.853 32271 32304 I NearbyConnections: Found BleAdvertisement [ 0x23 0x51 0x48 0x39 0x49 0x11 0x34 0xb8 0x17 0xfa 0x92 0x99 0xd2 0xc3 0xfb 0x0d 0x0a 0xc2 0xd6 0x31 0x37 0xe2 0x9c ] (with EndpointId QH9I and EndpointInfo [ 0x34 0xb8 0x17 0xfa 0x92 0x99 0xd2 0xc3 0xfb 0x0d 0x0a 0xc2 0xd6 0x31 0x37 0xe2 0x9c ])
+06-06 18:15:53.853 32271 32304 I NearbyConnections: Unable to record discovered endpoint due to null currentDiscoveryPhase
+06-06 18:15:53.853 32271 32304 I NearbyConnections: ClientProxy(77525119 0p:com.google.android.gms.nearby.sharing) reporting onEndpointFound(QH9I)
+06-06 18:15:53.853 32271 32304 I NearbyConnections: ClientProxy(77525119) reporting onEndpointDistanceChanged(QH9I, UNKNOWN)
+06-06 18:15:53.854 32271 32307 I NearbySharing: NearbySharing Internal event EndpointDiscovered(endpointId=QH9I)
+06-06 18:15:53.889  2103  6223 I vendor.qti.bluetooth@1.1-ibs_handler: ProcessIbsCmd: Received IBS_SLEEP_IND: 0xFE
+06-06 18:15:53.889  2103  6223 D vendor.qti.bluetooth@1.1-ibs_handler: SerialClockVote: vote for UART CLK OFF
+06-06 18:15:53.897 18649 18867 V DuoLog  : [Platform - Application Stability and Performance]: zombie.duolingo.com returned a failure as expected. This indicates normal site conditions.
+06-06 18:15:53.897 18649 18792 E QTagParser: Error reading from /proc/net/xt_qtaguid/stats. Please check if this file exists.
+06-06 18:15:53.932 24051 31688 W .gms.persistent: Cleared Reference was only reachable from finalizer (only reported once)
+06-06 18:15:53.994 24051 31688 I .gms.persistent: Explicit concurrent mark compact GC freed 5363KB AllocSpace bytes, 1(20KB) LOS objects, 66% free, 12MB/38MB, paused 540us,2.653ms total 159.243ms
+06-06 18:15:54.042  2103  5587 D vendor.qti.bluetooth@1.1-wake_lock: Release wakelock is released 
+06-06 18:15:54.104  3253 19144 D BSOHChargingDataCollector:  BSOH Sys-servce ... 
+06-06 18:15:54.104  3253 19144 D BSOHChargingDataCollector: performBatteryWork++
+06-06 18:15:54.104  3253 19144 D BSOHChargingDataCollector: performBatteryWork battery com.android.server.bsoh.device.PrimeBattery@24144da
+06-06 18:15:54.105  3253 19144 D BSOHChargingDataCollector: primeBatt readVoltage from sysFsBattVolt,  path : /sys/class/power_supply/battery/batt_voltage_now
+06-06 18:15:54.117  3253 19144 D BSOHChargingDataCollector: 0 	 BattData addData data : BattData { voltage:3.958, current:-0.104687, soc:0.71, temperature:29.8, status:2, timestamp:1780744554117, voltage_chg:null}
+06-06 18:15:54.117  3253 19144 D BSOHChargingDataCollector: performBatteryWork--
+06-06 18:15:54.201 24188 24207 I gle.android.gms: Explicit concurrent mark compact GC freed 436KB AllocSpace bytes, 0(0B) LOS objects, 49% free, 8501KB/16MB, paused 397us,1.677ms total 104.090ms

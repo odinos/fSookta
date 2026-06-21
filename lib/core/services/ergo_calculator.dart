@@ -24,40 +24,142 @@ class ErgoCalculator {
   static const _minIsoMultiplier = 0.7;
   static const _minFrequencyMultiplier = 0.5;
   static const _thaiMinWage = 350.0;
+  static const _rebaTableA = <List<List<int>>>[
+    [
+      [1, 2, 3, 4],
+      [2, 3, 4, 5],
+      [2, 4, 5, 6],
+      [3, 5, 6, 7],
+      [4, 6, 7, 8],
+    ],
+    [
+      [1, 2, 3, 4],
+      [3, 4, 5, 6],
+      [4, 5, 6, 7],
+      [5, 6, 7, 8],
+      [6, 7, 8, 9],
+    ],
+    [
+      [3, 3, 5, 6],
+      [4, 5, 6, 7],
+      [5, 6, 7, 8],
+      [6, 7, 8, 9],
+      [7, 8, 9, 9],
+    ],
+  ];
+  static const _rebaTableB = <List<List<int>>>[
+    [
+      [1, 2, 2],
+      [1, 2, 3],
+      [3, 4, 5],
+      [4, 5, 5],
+      [6, 7, 8],
+      [7, 8, 8],
+    ],
+    [
+      [1, 2, 3],
+      [2, 3, 4],
+      [4, 5, 5],
+      [5, 6, 7],
+      [7, 8, 8],
+      [8, 9, 9],
+    ],
+  ];
+  static const _rebaTableC = <List<int>>[
+    [1, 1, 1, 2, 3, 3, 4, 5, 6, 7, 7, 7],
+    [1, 2, 2, 3, 4, 4, 5, 6, 6, 7, 7, 8],
+    [2, 3, 3, 3, 4, 5, 6, 7, 7, 8, 8, 8],
+    [3, 4, 4, 4, 5, 6, 7, 8, 8, 9, 9, 9],
+    [4, 4, 4, 5, 6, 7, 8, 8, 9, 9, 9, 9],
+    [6, 6, 6, 7, 8, 8, 9, 9, 10, 10, 10, 10],
+    [7, 7, 7, 8, 9, 9, 9, 10, 10, 11, 11, 11],
+    [8, 8, 8, 9, 10, 10, 10, 10, 10, 11, 11, 11],
+    [9, 9, 9, 10, 10, 10, 11, 11, 11, 12, 12, 12],
+    [10, 10, 10, 11, 11, 11, 11, 12, 12, 12, 12, 12],
+    [11, 11, 11, 11, 12, 12, 12, 12, 12, 12, 12, 12],
+    [12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12],
+  ];
 
   static RebaInputData calculateRebaInputFromPose(
     Person person,
     RebaInputData currentData,
   ) {
-    Point2D? point(PoseLandmark landmark) {
-      for (final keyPoint in person.keyPoints) {
-        if (keyPoint.bodyPart == landmark && keyPoint.score > 0.3) {
-          return keyPoint.coordinate;
-        }
-      }
-      return null;
-    }
+    return analyzeRebaPose(
+      person,
+      currentData,
+      imageIndex: 1,
+    ).rebaInput;
+  }
 
-    final ear = point(PoseLandmark.rightEar) ?? point(PoseLandmark.leftEar);
-    final shoulder =
-        point(PoseLandmark.rightShoulder) ?? point(PoseLandmark.leftShoulder);
-    final hip = point(PoseLandmark.rightHip) ?? point(PoseLandmark.leftHip);
-    final knee = point(PoseLandmark.rightKnee) ?? point(PoseLandmark.leftKnee);
-    final elbow =
-        point(PoseLandmark.rightElbow) ?? point(PoseLandmark.leftElbow);
-    final wrist =
-        point(PoseLandmark.rightWrist) ?? point(PoseLandmark.leftWrist);
-    final ankle =
-        point(PoseLandmark.rightAnkle) ?? point(PoseLandmark.leftAnkle);
+  static PoseRebaFrameAnalysis analyzeRebaPose(
+    Person person,
+    RebaInputData currentData, {
+    required int imageIndex,
+    int? timestampMs,
+    List<double> jointFeatures = const [],
+  }) {
+    final nose = _point(person, PoseLandmark.nose);
+    final leftEar = _point(person, PoseLandmark.leftEar);
+    final rightEar = _point(person, PoseLandmark.rightEar);
+    final leftShoulder = _point(person, PoseLandmark.leftShoulder);
+    final rightShoulder = _point(person, PoseLandmark.rightShoulder);
+    final leftHip = _point(person, PoseLandmark.leftHip);
+    final rightHip = _point(person, PoseLandmark.rightHip);
+    final leftElbow = _point(person, PoseLandmark.leftElbow);
+    final rightElbow = _point(person, PoseLandmark.rightElbow);
+    final leftWrist = _point(person, PoseLandmark.leftWrist);
+    final rightWrist = _point(person, PoseLandmark.rightWrist);
+    final leftKnee = _point(person, PoseLandmark.leftKnee);
+    final rightKnee = _point(person, PoseLandmark.rightKnee);
+    final leftAnkle = _point(person, PoseLandmark.leftAnkle);
+    final rightAnkle = _point(person, PoseLandmark.rightAnkle);
+
+    final head = _midpoint([nose, leftEar, rightEar]);
+    final shoulders = _midpoint([leftShoulder, rightShoulder]);
+    final hips = _midpoint([leftHip, rightHip]);
+
+    final shoulderTilt = _horizontalTilt(leftShoulder, rightShoulder);
+    final hipTilt = _horizontalTilt(leftHip, rightHip);
+    final bothEarsVisible = leftEar != null && rightEar != null;
+    final neckSideBending =
+        bothEarsVisible && shoulderTilt != null && shoulderTilt > 12;
+    final neckTwisting = _oneSideDominant(leftEar, rightEar, person);
+    final trunkSideBending = shoulderTilt != null &&
+        hipTilt != null &&
+        (shoulderTilt - hipTilt).abs() > 12;
+    final trunkTwisting = shoulders != null &&
+        hips != null &&
+        _torsoReferenceWidth(
+              leftShoulder,
+              rightShoulder,
+              leftHip,
+              rightHip,
+            ) >
+            0 &&
+        ((shoulders.x - hips.x).abs() /
+                _torsoReferenceWidth(
+                  leftShoulder,
+                  rightShoulder,
+                  leftHip,
+                  rightHip,
+                )) >
+            0.22;
 
     var newTrunk = currentData.trunkScore;
     var newNeck = currentData.neckScore;
     var newUpperArm = currentData.upperArmScore;
     var newLowerArm = currentData.lowerArmScore;
     var newLeg = currentData.legScore;
+    var trunkAngle = _maxAngle([
+      if (hips != null && shoulders != null) _verticalAngle(hips, shoulders),
+      if (leftHip != null && leftShoulder != null)
+        _verticalAngle(leftHip, leftShoulder),
+      if (rightHip != null && rightShoulder != null)
+        _verticalAngle(rightHip, rightShoulder),
+    ]);
 
-    if (shoulder != null && hip != null) {
-      final angle = _verticalAngle(hip, shoulder);
+    if (trunkAngle != null) {
+      final angle = trunkAngle;
       newTrunk = switch (angle) {
         <= 5 => 1,
         <= 20 => 2,
@@ -66,39 +168,136 @@ class ErgoCalculator {
       };
     }
 
-    if (ear != null && shoulder != null) {
-      final angle = _verticalAngle(shoulder, ear);
-      newNeck = angle <= 20 ? 1 : 2;
+    double? neckAngle;
+    if (head != null && shoulders != null) {
+      neckAngle = _verticalAngle(shoulders, head);
+      newNeck = neckAngle <= 20 ? 1 : 2;
     }
 
-    if (shoulder != null && elbow != null) {
-      final angle = _verticalAngle(shoulder, elbow);
-      newUpperArm = switch (angle) {
-        <= 20 => 1,
-        <= 45 => 2,
-        <= 90 => 3,
-        _ => 4,
-      };
+    final upperArmAngles = <double>[
+      if (leftShoulder != null && leftElbow != null)
+        _verticalAngle(leftShoulder, leftElbow),
+      if (rightShoulder != null && rightElbow != null)
+        _verticalAngle(rightShoulder, rightElbow),
+    ];
+    final upperArmScores = upperArmAngles.map(_upperArmScore).toList();
+    if (upperArmScores.isNotEmpty) {
+      newUpperArm = upperArmScores.reduce(math.max);
     }
 
-    if (shoulder != null && elbow != null && wrist != null) {
-      final angle = _threePointAngle(shoulder, elbow, wrist);
-      newLowerArm = angle >= 60 && angle <= 100 ? 1 : 2;
+    final lowerArmAngles = <double>[
+      if (leftShoulder != null && leftElbow != null && leftWrist != null)
+        _threePointAngle(leftShoulder, leftElbow, leftWrist),
+      if (rightShoulder != null && rightElbow != null && rightWrist != null)
+        _threePointAngle(rightShoulder, rightElbow, rightWrist),
+    ];
+    final lowerArmScores = lowerArmAngles.map(_lowerArmScore).toList();
+    if (lowerArmScores.isNotEmpty) {
+      newLowerArm = lowerArmScores.reduce(math.max);
     }
 
-    if (hip != null && knee != null && ankle != null) {
-      final kneeAngle = _threePointAngle(hip, knee, ankle);
-      newLeg = kneeAngle < 150 ? 2 : 1;
+    final kneeAngles = <double>[
+      if (leftHip != null && leftKnee != null && leftAnkle != null)
+        _threePointAngle(leftHip, leftKnee, leftAnkle),
+      if (rightHip != null && rightKnee != null && rightAnkle != null)
+        _threePointAngle(rightHip, rightKnee, rightAnkle),
+    ];
+    final legScores = kneeAngles.map(_legScore).toList();
+    if (legScores.isNotEmpty) {
+      newLeg = legScores.reduce(math.max);
     }
 
-    return currentData.copyWith(
+    final upperArmAbduction = _upperArmAbduction(
+      leftShoulder,
+      leftElbow,
+      rightShoulder,
+      rightElbow,
+    );
+    final shoulderElevation = _shoulderElevation(
+      leftShoulder,
+      leftElbow,
+      rightShoulder,
+      rightElbow,
+    );
+    if (neckSideBending || neckTwisting) {
+      newNeck = math.min(3, newNeck + 1);
+    }
+    if (upperArmAbduction) {
+      newUpperArm = math.min(6, newUpperArm + 1);
+    }
+    if (shoulderElevation) {
+      newUpperArm = math.min(6, newUpperArm + 1);
+    }
+
+    final inferred = currentData.copyWith(
       trunkScore: newTrunk,
       neckScore: newNeck,
       upperArmScore: newUpperArm,
       lowerArmScore: newLowerArm,
       legScore: newLeg,
+      trunkTwist: currentData.trunkTwist || trunkTwisting,
+      trunkSideFlex: currentData.trunkSideFlex || trunkSideBending,
+    );
+    final breakdown = calculateRebaScoreBreakdown(inferred);
+    return PoseRebaFrameAnalysis(
+      imageIndex: imageIndex,
+      rebaInput: inferred,
+      rebaScore: breakdown.finalScore,
+      riskLevel: breakdown.riskLevel,
+      timestampMs: timestampMs,
+      neckFlexionDeg: neckAngle,
+      trunkFlexionDeg: trunkAngle,
+      upperArmFlexionDeg:
+          upperArmAngles.isEmpty ? null : upperArmAngles.reduce(math.max),
+      lowerArmAngleDeg:
+          lowerArmAngles.isEmpty ? null : lowerArmAngles.reduce(math.min),
+      kneeAngleDeg: kneeAngles.isEmpty ? null : kneeAngles.reduce(math.min),
+      neckSideBending: neckSideBending,
+      neckTwisting: neckTwisting,
+      trunkSideBending: trunkSideBending,
+      trunkTwisting: trunkTwisting,
+      upperArmAbduction: upperArmAbduction,
+      shoulderElevation: shoulderElevation,
+      jointFeatures: jointFeatures,
     );
   }
+
+  static Point2D? _point(Person person, PoseLandmark landmark) {
+    for (final keyPoint in person.keyPoints) {
+      if (keyPoint.bodyPart == landmark && keyPoint.score > 0.3) {
+        return keyPoint.coordinate;
+      }
+    }
+    return null;
+  }
+
+  static Point2D? _midpoint(List<Point2D?> points) {
+    final visible = points.whereType<Point2D>().toList(growable: false);
+    if (visible.isEmpty) return null;
+    final x = visible.map((point) => point.x).reduce((a, b) => a + b);
+    final y = visible.map((point) => point.y).reduce((a, b) => a + b);
+    return Point2D(x / visible.length, y / visible.length);
+  }
+
+  static double? _maxAngle(List<double> values) {
+    if (values.isEmpty) return null;
+    return values.reduce(math.max);
+  }
+
+  static int _upperArmScore(double angle) {
+    return switch (angle) {
+      <= 20 => 1,
+      <= 45 => 2,
+      <= 90 => 3,
+      _ => 4,
+    };
+  }
+
+  static int _lowerArmScore(double angle) {
+    return angle >= 60 && angle <= 100 ? 1 : 2;
+  }
+
+  static int _legScore(double kneeAngle) => kneeAngle < 150 ? 2 : 1;
 
   static ErgoResult calculateLiftingRisk(ErgoInputData data) {
     final isFemale = data.gender.toLowerCase() == 'female';
@@ -208,29 +407,12 @@ class ErgoCalculator {
   }
 
   static ErgoResult calculateRebaRisk(RebaInputData input) {
-    final adjustedTrunkScore = input.adjustedTrunkScore;
-    final adjustedWristScore = input.adjustedWristScore;
-    final scoreTableA = _rebaTableAScore(
-      adjustedTrunkScore,
-      input.neckScore,
-      input.legScore,
-    );
-    final scoreA = scoreTableA + input.loadScore;
-    final scoreTableB = _rebaTableBScore(
-      input.upperArmScore,
-      input.lowerArmScore,
-      adjustedWristScore,
-    );
-    final scoreB = scoreTableB + input.couplingScore;
-    final scoreC = _rebaTableCScore(scoreA, scoreB);
-    final finalScore = _applyRebaSafetyFloors(
-      scoreC + input.activityScore,
-      input,
-      adjustedTrunkScore: adjustedTrunkScore,
-      adjustedWristScore: adjustedWristScore,
-    );
+    final breakdown = calculateRebaScoreBreakdown(input);
+    final adjustedTrunkScore = breakdown.adjustedTrunkScore;
+    final adjustedWristScore = breakdown.adjustedWristScore;
+    final finalScore = breakdown.finalScore;
     final userScore = _mapRebaToUserScore(finalScore);
-    final risk = _mapRebaToRiskLevel(finalScore);
+    final risk = breakdown.riskLevel;
 
     final suggestionKeys = <String>[
       if (input.loadScore >= 1) 'act_reduce_load_tool',
@@ -284,6 +466,42 @@ class ErgoCalculator {
       ),
       suggestionKeys: suggestionKeys,
       bodyPartRisks: bodyPartRisks,
+    );
+  }
+
+  static RebaScoreBreakdown calculateRebaScoreBreakdown(RebaInputData input) {
+    final adjustedTrunkScore = input.adjustedTrunkScore;
+    final adjustedWristScore = input.adjustedWristScore;
+    final tableAScore = _rebaTableAScore(
+      adjustedTrunkScore,
+      input.neckScore,
+      input.legScore,
+    );
+    final scoreA = tableAScore + input.loadScore;
+    final tableBScore = _rebaTableBScore(
+      input.upperArmScore,
+      input.lowerArmScore,
+      adjustedWristScore,
+    );
+    final scoreB = tableBScore + input.couplingScore;
+    final scoreC = _rebaTableCScore(scoreA, scoreB);
+    final finalScore = _applyRebaSafetyFloors(
+      scoreC + input.activityScore,
+      input,
+      adjustedTrunkScore: adjustedTrunkScore,
+      adjustedWristScore: adjustedWristScore,
+    );
+    return RebaScoreBreakdown(
+      adjustedTrunkScore: adjustedTrunkScore,
+      adjustedWristScore: adjustedWristScore,
+      tableAScore: tableAScore,
+      scoreA: scoreA,
+      tableBScore: tableBScore,
+      scoreB: scoreB,
+      scoreC: scoreC,
+      activityScore: input.activityScore,
+      finalScore: finalScore,
+      riskLevel: _mapRebaToRiskLevel(finalScore),
     );
   }
 
@@ -421,7 +639,7 @@ class ErgoCalculator {
       calibrated = math.max(calibrated, 8);
     }
 
-    return calibrated.clamp(1, 12).toInt();
+    return calibrated.clamp(1, 15).toInt();
   }
 
   static int _colorForScore(int score) {
@@ -448,31 +666,105 @@ class ErgoCalculator {
   }
 
   static int _rebaTableAScore(int trunk, int neck, int leg) {
-    var score = trunk + (neck >= 2 ? 1 : 0) + (leg >= 2 ? 1 : 0);
-    if (trunk >= 4 && neck >= 3) score += 1;
-    return math.min(score, 9);
+    final neckIndex = _clampInt(neck, 1, 3) - 1;
+    final trunkIndex = _clampInt(trunk, 1, 5) - 1;
+    final legIndex = _clampInt(leg, 1, 4) - 1;
+    return _rebaTableA[neckIndex][trunkIndex][legIndex];
   }
 
   static int _rebaTableBScore(int upper, int lower, int wrist) {
-    var score = upper;
-    if (lower >= 2) score += 1;
-    if (wrist >= 2) score += 1;
-    if (upper >= 4 && wrist >= 3) score += 1;
-    return math.min(score, 9);
+    final lowerIndex = _clampInt(lower, 1, 2) - 1;
+    final upperIndex = _clampInt(upper, 1, 6) - 1;
+    final wristIndex = _clampInt(wrist, 1, 3) - 1;
+    return _rebaTableB[lowerIndex][upperIndex][wristIndex];
   }
 
   static int _rebaTableCScore(int scoreA, int scoreB) {
-    final maxScore = math.max(scoreA, scoreB);
-    final minScore = math.min(scoreA, scoreB);
-    var score = maxScore;
-    if (minScore >= 6) score += 1;
-    return math.min(score, 12);
+    final scoreAIndex = _clampInt(scoreA, 1, 12) - 1;
+    final scoreBIndex = _clampInt(scoreB, 1, 12) - 1;
+    return _rebaTableC[scoreAIndex][scoreBIndex];
+  }
+
+  static int _clampInt(int value, int min, int max) {
+    if (value < min) return min;
+    if (value > max) return max;
+    return value;
   }
 
   static double _verticalAngle(Point2D p1, Point2D p2) {
     final dx = p2.x - p1.x;
     final dy = p1.y - p2.y;
     return math.atan2(dx.abs(), dy.abs()) * 180 / math.pi;
+  }
+
+  static double? _horizontalTilt(Point2D? p1, Point2D? p2) {
+    if (p1 == null || p2 == null) return null;
+    final dx = (p2.x - p1.x).abs();
+    final dy = (p2.y - p1.y).abs();
+    if (dx == 0) return 90;
+    return math.atan2(dy, dx) * 180 / math.pi;
+  }
+
+  static double _torsoReferenceWidth(
+    Point2D? leftShoulder,
+    Point2D? rightShoulder,
+    Point2D? leftHip,
+    Point2D? rightHip,
+  ) {
+    final widths = <double>[
+      if (leftShoulder != null && rightShoulder != null)
+        (rightShoulder.x - leftShoulder.x).abs(),
+      if (leftHip != null && rightHip != null) (rightHip.x - leftHip.x).abs(),
+    ].where((width) => width > 0).toList(growable: false);
+    if (widths.isEmpty) return 0;
+    return widths.reduce(math.max);
+  }
+
+  static bool _oneSideDominant(
+    Point2D? left,
+    Point2D? right,
+    Person person,
+  ) {
+    double score(PoseLandmark landmark) {
+      for (final keyPoint in person.keyPoints) {
+        if (keyPoint.bodyPart == landmark) return keyPoint.score;
+      }
+      return 0;
+    }
+
+    if (left == null || right == null) return false;
+    return (score(PoseLandmark.leftEar) - score(PoseLandmark.rightEar)).abs() >
+        0.35;
+  }
+
+  static bool _upperArmAbduction(
+    Point2D? leftShoulder,
+    Point2D? leftElbow,
+    Point2D? rightShoulder,
+    Point2D? rightElbow,
+  ) {
+    final left = leftShoulder != null &&
+        leftElbow != null &&
+        (leftElbow.x - leftShoulder.x).abs() > 0.09;
+    final right = rightShoulder != null &&
+        rightElbow != null &&
+        (rightElbow.x - rightShoulder.x).abs() > 0.09;
+    return left || right;
+  }
+
+  static bool _shoulderElevation(
+    Point2D? leftShoulder,
+    Point2D? leftElbow,
+    Point2D? rightShoulder,
+    Point2D? rightElbow,
+  ) {
+    final left = leftShoulder != null &&
+        leftElbow != null &&
+        leftElbow.y < leftShoulder.y;
+    final right = rightShoulder != null &&
+        rightElbow != null &&
+        rightElbow.y < rightShoulder.y;
+    return left || right;
   }
 
   static double _threePointAngle(Point2D p1, Point2D p2, Point2D p3) {

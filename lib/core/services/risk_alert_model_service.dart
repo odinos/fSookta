@@ -6,6 +6,10 @@ import 'package:flutter/services.dart';
 
 import '../models/evaluation_models.dart';
 
+@Deprecated(
+  'Legacy prototype ensemble. Posture assessment now uses XGBoostOnnxPredictor, '
+  'and Logistic Regression is reserved for DailyInjuryPredictionService.',
+)
 class RiskAlertModelService {
   RiskAlertModelService._(this._model);
 
@@ -115,7 +119,7 @@ class RiskAlertModelService {
       'reba_wrist_twist': rebaInput.wristTwist ? 1 : 0,
       'reba_load_norm': _norm(rebaInput.loadScore.toDouble(), 0, 2),
       'reba_coupling_norm': _norm(rebaInput.couplingScore.toDouble(), 0, 2),
-      'reba_activity_norm': _norm(rebaInput.activityScore.toDouble(), 0, 2),
+      'reba_activity_norm': _norm(rebaInput.activityScore.toDouble(), 0, 3),
     };
   }
 
