@@ -41,6 +41,36 @@ void main() {
     expect(prediction.requiresCareAlert, isTrue);
     expect(prediction.chartScores, List<int>.filled(7, 9));
   });
+
+  test('daily prediction exposes separate REBA and ISO11228 features',
+      () async {
+    final service = await DailyInjuryPredictionService.load();
+
+    final prediction = service.predictForRecords([
+      for (var day = 1; day <= 7; day++)
+        _record(
+          day,
+          score: 8,
+          afterScore: 6,
+          risk: RiskLevel.high,
+          bodyPartRisks: const {BodyPart.trunk: RiskLevel.high},
+          assessmentBreakdown: _breakdownWithIso(
+            rebaScore: 8,
+            isoScore: day.isEven ? 6 : 4,
+          ),
+        ),
+    ]);
+
+    expect(prediction.hasEnoughData, isTrue);
+    expect(prediction.featureValues, contains('avg_reba_score_before_norm'));
+    expect(prediction.featureValues, contains('avg_iso_score_before_norm'));
+    expect(prediction.featureValues, contains('recent_iso_score_slope_norm'));
+    expect(prediction.featureValues, contains('carrying_exposure_norm'));
+    expect(
+        prediction.featureValues['avg_reba_score_before_norm'], greaterThan(0));
+    expect(
+        prediction.featureValues['avg_iso_score_before_norm'], greaterThan(0));
+  });
 }
 
 EvaluationHistoryRecord _record(
@@ -50,6 +80,7 @@ EvaluationHistoryRecord _record(
   RiskLevel risk = RiskLevel.medium,
   Map<BodyPart, RiskLevel> bodyPartRisks = const {},
   int economicLoss = 0,
+  AssessmentBreakdown? assessmentBreakdown,
 }) {
   return EvaluationHistoryRecord(
     id: day,
@@ -66,5 +97,48 @@ EvaluationHistoryRecord _record(
     moneySaved: 0,
     selectedSuggestions: const [],
     bodyPartRisks: bodyPartRisks,
+    assessmentBreakdown: assessmentBreakdown,
+  );
+}
+
+AssessmentBreakdown _breakdownWithIso({
+  required int rebaScore,
+  required int isoScore,
+}) {
+  return AssessmentBreakdown(
+    primaryMethod: AssessmentMethod.rebaIsoCombined,
+    rebaInput: const RebaInputData(
+      trunkScore: 4,
+      neckScore: 2,
+      upperArmScore: 2,
+      activityScore: 1,
+    ),
+    rebaResult: ErgoResult(
+      riskLevel: RiskLevel.high,
+      techScore: rebaScore.toDouble(),
+      userScore: rebaScore,
+      userScoreColor: 0xFFF44336,
+      limitValue: 15,
+      suggestionKey: 'sugg_reba_high',
+      bodyPartRisks: const {BodyPart.trunk: RiskLevel.high},
+    ),
+    ergoInput: const ErgoInputData(
+      jobType: JobType.lifting,
+      toolWeightKg: 17.5,
+      loadWeight: 17.5,
+      liftFrequency: 1.5,
+      durationHours: 2,
+      transportDistance: 8,
+    ),
+    isoMethod: AssessmentMethod.iso11228Lifting,
+    isoResult: ErgoResult(
+      riskLevel: RiskLevel.high,
+      techScore: isoScore.toDouble(),
+      userScore: isoScore,
+      userScoreColor: 0xFFF44336,
+      limitValue: 12,
+      suggestionKey: 'sugg_improve',
+      bodyPartRisks: const {BodyPart.trunk: RiskLevel.high},
+    ),
   );
 }

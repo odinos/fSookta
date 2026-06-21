@@ -25,18 +25,32 @@ class TrainingDataExportService {
   const TrainingDataExportService._();
 
   static const dailyFeatureColumns = [
-    'avg_score_before_norm',
-    'max_score_before_norm',
-    'avg_score_after_norm',
+    'avg_reba_score_before_norm',
+    'max_reba_score_before_norm',
+    'avg_app_score_after_norm',
+    'avg_iso_score_before_norm',
+    'max_iso_score_before_norm',
     'high_or_above_days_norm',
     'very_high_days_norm',
     'no_improvement_days_norm',
     'trunk_high_days_norm',
-    'neck_or_upper_limb_high_days_norm',
+    'neck_high_days_norm',
+    'upper_limb_high_days_norm',
     'iso_days_norm',
+    'load_weight_norm',
+    'max_load_weight_norm',
+    'high_tool_load_days_norm',
+    'frequency_of_lifting_norm',
+    'carrying_exposure_norm',
+    'push_pull_exposure_norm',
     'avg_economic_loss_norm',
     'repeated_same_activity_norm',
-    'recent_score_slope_norm',
+    'recent_reba_score_slope_norm',
+    'recent_iso_score_slope_norm',
+    'avg_age_norm',
+    'male_ratio_norm',
+    'avg_bmi_norm',
+    'overweight_bmi_days_norm',
   ];
 
   static const _landmarks = [
@@ -136,8 +150,10 @@ class TrainingDataExportService {
     required Map<int, UserProfile> profilesByRecordId,
     bool thai = true,
   }) {
+    final exportGeneratedAt = DateTime.now().toIso8601String();
     final headers = [
       'row_type',
+      'export_generated_at',
       'window_id',
       'farmer_id',
       'participant_code',
@@ -148,10 +164,10 @@ class TrainingDataExportService {
       'activity_summary',
       'assessment_methods',
       ...dailyFeatureColumns,
+      'msd_symptom_present',
       'requires_medical_treatment_within_7_days',
       'medical_visit_within_7_days',
       'treatment_required_within_7_days',
-      'msd_symptom_present',
       'msd_symptom_location',
       'msd_symptom_severity',
       'lost_workdays_7d',
@@ -180,6 +196,7 @@ class TrainingDataExportService {
         final windowId = _windowId(profile, window);
         rows.add([
           'app_export_unlabeled',
+          exportGeneratedAt,
           windowId,
           _farmerId(profile, lastRecord),
           _farmerId(profile, lastRecord),
@@ -223,8 +240,10 @@ class TrainingDataExportService {
     required List<EvaluationHistoryRecord> records,
     required Map<int, UserProfile> profilesByRecordId,
   }) {
+    final exportGeneratedAt = DateTime.now().toIso8601String();
     final featureColumns = xGBoostFeatureColumns;
     final headers = [
+      'export_generated_at',
       'activity_id',
       'activity',
       'session_id',
@@ -266,6 +285,11 @@ class TrainingDataExportService {
       'farmer_id',
       'assessment_date',
       'job_type',
+      'tool_id',
+      'tool_used_th',
+      'tool_used_en',
+      'tool_weight_kg',
+      'tool_weight_band_code',
       'primary_method',
       'iso_method',
       'combined_score_app',
@@ -311,6 +335,7 @@ class TrainingDataExportService {
       for (final frame in breakdown.poseFrames) {
         if (frame.jointFeatures.length != featureColumns.length) continue;
         rows.add([
+          exportGeneratedAt,
           record.activity?.name ?? record.activityName,
           record.activityName,
           'app-record-${record.id}',
@@ -352,6 +377,11 @@ class TrainingDataExportService {
           _farmerId(profile, record),
           record.dateTime.toIso8601String(),
           breakdown.ergoInput.jobType.name,
+          breakdown.ergoInput.toolId,
+          breakdown.ergoInput.toolLabelTh,
+          breakdown.ergoInput.toolLabelEn,
+          breakdown.ergoInput.toolWeightKg,
+          breakdown.ergoInput.toolWeightBandCode,
           breakdown.primaryMethod.name,
           breakdown.isoMethod?.name ?? '',
           record.scoreBefore,
@@ -412,6 +442,10 @@ class TrainingDataExportService {
       name: record.farmerName ?? '',
       role: record.farmerRole ?? '',
       location: record.farmerLocation ?? '',
+      age: record.farmerAge ?? '',
+      gender: record.farmerGender ?? 'Male',
+      weight: record.farmerWeight ?? '',
+      height: record.farmerHeight ?? '',
     );
   }
 

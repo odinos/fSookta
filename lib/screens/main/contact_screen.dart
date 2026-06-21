@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../app/build_info.dart';
 import '../../app/app_state.dart';
 import '../../app/sookta_app.dart';
 import '../../core/theme/sookta_theme.dart';
@@ -68,7 +69,7 @@ class ContactScreen extends StatelessWidget {
               child: ListTile(
                 leading: const Icon(Icons.info_outline),
                 title: Text(thai ? 'เวอร์ชัน' : 'Version'),
-                subtitle: const Text('0.1.0+1'),
+                subtitle: const Text(SooktaBuildInfo.label),
               ),
             ),
           ],

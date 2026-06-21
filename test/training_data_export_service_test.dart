@@ -26,8 +26,14 @@ void main() {
     );
 
     expect(TrainingDataExportService.dailyLogisticWindowCount(records), 1);
+    expect(csv, contains('export_generated_at'));
+    expect(csv, contains('msd_symptom_present'));
     expect(csv, contains('requires_medical_treatment_within_7_days'));
-    expect(csv, contains('avg_score_before_norm'));
+    expect(csv, contains('avg_reba_score_before_norm'));
+    expect(csv, contains('avg_iso_score_before_norm'));
+    expect(csv, contains('avg_bmi_norm'));
+    expect(csv, contains('load_weight_norm'));
+    expect(csv, contains('frequency_of_lifting_norm'));
     expect(csv, contains('FARM-001_2026-06-01_2026-06-07_1-7'));
     expect(csv, contains('app_export_pending_research_follow_up'));
   });
@@ -58,6 +64,8 @@ void main() {
     expect(csv, contains('nose_x'));
     expect(csv, contains('rightAnkle_score'));
     expect(csv, contains('training_reba_score'));
+    expect(csv, contains('tool_used_en'));
+    expect(csv, contains('Seedling bucket (5-10 kg)'));
     expect(csv, contains('app_history_record:10/image:1'));
     expect(csv, contains('app_pseudo_label_pending_research_review'));
     expect(csv, contains('video_motion_pattern'));
@@ -79,6 +87,12 @@ EvaluationHistoryRecord _record({
     id: id,
     farmerProfileId: 'profile-a',
     farmerId: 'FARM-001',
+    farmerAge: '45',
+    farmerGender: 'Female',
+    farmerWeight: '62',
+    farmerHeight: '158',
+    farmerBmi: 24.8,
+    farmerBmiCategory: 'overweight',
     activity: SooktaActivity.transplanting,
     activityName: 'Transplanting',
     dateTime: dateTime,
@@ -112,7 +126,15 @@ EvaluationHistoryRecord _record({
         limitValue: 15,
         suggestionKey: 'sugg_reba_high',
       ),
-      ergoInput: const ErgoInputData(jobType: JobType.reba),
+      ergoInput: const ErgoInputData(
+        jobType: JobType.reba,
+        toolId: 'seedling_bucket_5_10kg',
+        toolLabelTh: 'ถังกล้า (5-10 กก.)',
+        toolLabelEn: 'Seedling bucket (5-10 kg)',
+        toolWeightKg: 7.5,
+        toolWeightBandCode: 2,
+        loadWeight: 7.5,
+      ),
       poseFrames: poseFrame == null ? const [] : [poseFrame],
       worstPoseImageIndex: poseFrame?.imageIndex,
       motionSummary: poseFrame == null

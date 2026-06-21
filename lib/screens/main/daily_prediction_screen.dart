@@ -21,7 +21,9 @@ class DailyPredictionScreen extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(thai ? 'ทำนายจากประวัติ 7 วัน' : '7-Day Prediction'),
+        title: Text(
+          thai ? 'ทำนายจากประวัติ 7 รายการ' : '7-Transaction Prediction',
+        ),
       ),
       body: SafeArea(
         child: FutureBuilder<DailyInjuryPredictionService>(
@@ -57,6 +59,9 @@ class DailyPredictionScreen extends StatelessWidget {
                 if (prediction.chartScores.isNotEmpty)
                   _TrendCard(prediction: prediction, thai: thai),
                 const SizedBox(height: 12),
+                if (prediction.hasEnoughData)
+                  _FeatureSnapshotCard(prediction: prediction, thai: thai),
+                if (prediction.hasEnoughData) const SizedBox(height: 12),
                 _ModelNote(prediction: prediction, thai: thai),
               ],
             );
@@ -124,8 +129,8 @@ class _SummaryCard extends StatelessWidget {
             if (!prediction.hasEnoughData) ...[
               Text(
                 thai
-                    ? 'ต้องมีผลประเมินครบ ${prediction.requiredTransactions} วันก่อน ระบบจึงจะทำนายแนวโน้มได้'
-                    : 'At least ${prediction.requiredTransactions} daily records are required before prediction.',
+                    ? 'ต้องมีผลประเมินครบ ${prediction.requiredTransactions} transaction ก่อน ระบบจึงจะทำนายแนวโน้มได้'
+                    : 'At least ${prediction.requiredTransactions} assessment transactions are required before prediction.',
                 style: const TextStyle(fontSize: 16),
               ),
               const SizedBox(height: 8),
@@ -138,8 +143,8 @@ class _SummaryCard extends StatelessWidget {
             ] else ...[
               Text(
                 thai
-                    ? 'ความน่าจะเป็นที่ควรติดตาม/ส่งต่อ: $percent%'
-                    : 'Follow-up probability: $percent%',
+                    ? 'ความน่าจะเป็นที่ควรติดตามอาการ/ข้อมูลการรักษา: $percent%'
+                    : 'Symptom/treatment follow-up probability: $percent%',
                 style: TextStyle(
                   color: color,
                   fontSize: 24,
@@ -173,8 +178,8 @@ class _SummaryCard extends StatelessWidget {
           ? 'ควรเฝ้าดูแนวโน้มคะแนนและทบทวนคำแนะนำที่ทำได้จริง'
           : 'Watch the trend and review practical recommendations.',
       DailyInjuryPredictionLevel.low => thai
-          ? 'ยังไม่พบแนวโน้มที่ต้องแจ้งเตือนจาก 7 วันล่าสุด'
-          : 'No alert-level trend was detected in the latest 7 records.',
+          ? 'ยังไม่พบแนวโน้มที่ต้องแจ้งเตือนจาก 7 transaction ล่าสุด'
+          : 'No alert-level trend was detected in the latest 7 transactions.',
       DailyInjuryPredictionLevel.insufficient => '',
     };
   }
@@ -205,7 +210,9 @@ class _TrendCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              thai ? 'กราฟคะแนนก่อนปรับ 7 วันล่าสุด' : 'Latest 7 Before Scores',
+              thai
+                  ? 'กราฟคะแนนก่อนปรับ 7 transaction ล่าสุด'
+                  : 'Latest 7 Before Scores',
               style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 16),
@@ -230,6 +237,98 @@ class _TrendCard extends StatelessWidget {
   }
 }
 
+class _FeatureSnapshotCard extends StatelessWidget {
+  const _FeatureSnapshotCard({
+    required this.prediction,
+    required this.thai,
+  });
+
+  final DailyInjuryPrediction prediction;
+  final bool thai;
+
+  @override
+  Widget build(BuildContext context) {
+    final features = prediction.featureValues;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              thai
+                  ? 'ข้อมูลที่ส่งเข้า Logistic Regression'
+                  : 'Inputs Sent to Logistic Regression',
+              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              thai
+                  ? 'ระบบแยกคะแนนท่าทาง REBA และภาระงาน ISO11228 ก่อนนำ 7 transaction ล่าสุดไปทำนายแนวโน้ม'
+                  : 'The app separates REBA posture scores from ISO11228 manual-handling exposure before predicting from the latest 7 transactions.',
+              style: TextStyle(
+                color: Colors.black.withValues(alpha: 0.64),
+                height: 1.35,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                _FeatureChip(
+                  label: thai ? 'REBA เฉลี่ย' : 'Avg REBA',
+                  value: _pct(features['avg_reba_score_before_norm']),
+                ),
+                _FeatureChip(
+                  label: thai ? 'ISO เฉลี่ย' : 'Avg ISO',
+                  value: _pct(features['avg_iso_score_before_norm']),
+                ),
+                _FeatureChip(
+                  label: thai ? 'น้ำหนัก/แรง' : 'Load/force',
+                  value: _pct(features['load_weight_norm']),
+                ),
+                _FeatureChip(
+                  label: thai ? 'ความถี่การยก' : 'Lift frequency',
+                  value: _pct(features['frequency_of_lifting_norm']),
+                ),
+                _FeatureChip(
+                  label: thai ? 'แนวโน้ม REBA' : 'REBA slope',
+                  value: _pct(features['recent_reba_score_slope_norm']),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  static String _pct(double? value) => '${((value ?? 0) * 100).round()}%';
+}
+
+class _FeatureChip extends StatelessWidget {
+  const _FeatureChip({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+      decoration: BoxDecoration(
+        color: SooktaColors.leafGreen.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Text(
+        '$label: $value',
+        style: const TextStyle(fontWeight: FontWeight.w600),
+      ),
+    );
+  }
+}
+
 class _ModelNote extends StatelessWidget {
   const _ModelNote({required this.prediction, required this.thai});
 
@@ -244,8 +343,8 @@ class _ModelNote extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         child: Text(
           thai
-              ? 'หมายเหตุ: หน้านี้ใช้ Logistic Regression แยกจากโมเดล REBA/ISO โดยใช้ประวัติ 7 รายการล่าสุดเท่านั้น ไม่ใช่การวินิจฉัยโรค และควรปรับ coefficients เมื่อทีมวิจัยให้ label การรักษาจริง'
-              : 'Note: This screen uses a separate Logistic Regression model from REBA/ISO scoring and only reads the latest 7 records. It is not a medical diagnosis; coefficients should be retrained once the research team supplies treatment labels.',
+              ? 'หมายเหตุ: หน้านี้ใช้ Logistic Regression แยกจากการคำนวณ REBA/ISO โดยอ่าน REBA และ ISO11228 เป็นคนละมิติจาก 7 transaction ล่าสุด ใช้เพื่อสื่อสารความเสี่ยงและติดตามงานวิจัย ไม่ใช่การวินิจฉัยโรค ไม่ใช่การยืนยันว่าบาดเจ็บหรือต้องรักษา และควรปรับ coefficients เมื่อทีมวิจัยให้ label อาการ MSD จริง'
+              : 'Note: This screen uses Logistic Regression separately from REBA/ISO scoring. It reads REBA and ISO11228 as separate dimensions from the latest 7 transactions for risk communication and research follow-up. It is not a medical diagnosis or confirmation of injury/treatment. Coefficients should be retrained once real MSD symptom labels are supplied.',
           style: const TextStyle(fontSize: 13, height: 1.35),
         ),
       ),

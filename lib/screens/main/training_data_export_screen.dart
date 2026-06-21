@@ -51,8 +51,8 @@ class _TrainingDataExportScreenState extends State<TrainingDataExportScreen> {
                   ? 'Logistic Regression: ประวัติครบ 7 transaction'
                   : 'Logistic Regression: 7-transaction windows',
               description: thai
-                  ? 'ไฟล์นี้รวม feature จากผลประเมิน 7 ครั้งล่าสุดของชาวสวนแต่ละคน ทีมวิจัยเติม outcome label ภายหลัง เช่น ต้องรักษาหรือไม่ แล้วนำไป train โมเดลทำนายรายวัน'
-                  : 'This file groups each farmer into 7-assessment windows. Researchers fill outcome labels later, such as whether treatment was required, then use it to train the daily prediction model.',
+                  ? 'ไฟล์นี้รวม feature จากผลประเมิน 7 transaction ของชาวสวนแต่ละคน รวมอายุ เพศ BMI เครื่องมือ/น้ำหนัก คะแนนความเสี่ยง และผลกระทบทางเศรษฐกิจ ทีมวิจัยเติม outcome label ภายหลัง แล้วนำไป train โมเดลติดตามแนวโน้มรายวัน'
+                  : 'This file groups each farmer into 7-assessment windows and includes age, sex, BMI, tool/load, risk scores, and economic-impact features. Researchers fill outcome labels later, then use it to train the daily follow-up model.',
               rowCount: dailyRows,
               rowLabel: thai ? 'windows พร้อมส่งออก' : 'windows ready',
             ),

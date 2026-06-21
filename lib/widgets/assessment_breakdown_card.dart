@@ -4,6 +4,106 @@ import '../core/models/evaluation_models.dart';
 import '../core/services/ergo_calculator.dart';
 import '../core/theme/sookta_theme.dart';
 
+class AssessmentMethodSummaryCard extends StatelessWidget {
+  const AssessmentMethodSummaryCard({
+    required this.breakdown,
+    required this.thai,
+    super.key,
+  });
+
+  final AssessmentBreakdown? breakdown;
+  final bool thai;
+
+  @override
+  Widget build(BuildContext context) {
+    final data = breakdown;
+    if (data == null) {
+      return Card(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Text(
+            thai
+                ? 'รายการนี้ยังไม่มีข้อมูล REBA/ISO แยกมิติ'
+                : 'This record has no separate REBA/ISO details.',
+            style: const TextStyle(color: Colors.black54),
+          ),
+        ),
+      );
+    }
+    final reba = ErgoCalculator.calculateRebaScoreBreakdown(data.rebaInput);
+    final iso = data.isoResult;
+    return Card(
+      color: const Color(0xFFF4FBF5),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                const Icon(
+                  Icons.schema_outlined,
+                  color: SooktaColors.darkGreen,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    thai ? 'วิธีประเมินที่ใช้' : 'Assessment Methods Used',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            _MethodPillRow(
+              title: 'REBA',
+              subtitle: thai
+                  ? 'ใช้กับทุกกิจกรรม เพื่อประเมินท่าทาง คอ ลำตัว ขา แขน และข้อมือ'
+                  : 'Used for every activity to assess neck, trunk, legs, arms, and wrists.',
+              score: reba.finalScore.toString(),
+              risk: _riskLabel(reba.riskLevel, thai),
+              color: Color(reba.riskLevel.colorHex),
+            ),
+            const SizedBox(height: 8),
+            if (iso == null)
+              _MethodPillRow(
+                title: 'ISO 11228',
+                subtitle: thai
+                    ? 'ไม่ได้ใช้ในรอบนี้ เพราะกิจกรรมนี้ไม่มีมิติงานยก/ขนย้าย หรือดัน/ลากที่ต้องประเมินร่วม'
+                    : 'Not used in this run because this activity did not require lifting/carrying or push/pull assessment.',
+                score: '-',
+                risk: thai ? 'ไม่ใช้' : 'Not used',
+                color: Colors.grey,
+              )
+            else
+              _MethodPillRow(
+                title: _isoTitle(data.isoMethod, thai),
+                subtitle: thai
+                    ? 'ใช้ร่วมกับ REBA เพราะกิจกรรมนี้มีมิติงานยก/ขนย้าย หรือดัน/ลาก'
+                    : 'Used with REBA because this task includes lifting/carrying or push/pull demand.',
+                score: iso.userScore.toString(),
+                risk: _riskLabel(iso.riskLevel, thai),
+                color: Color(iso.riskLevel.colorHex),
+              ),
+            if (iso != null) ...[
+              const SizedBox(height: 10),
+              Text(
+                thai
+                    ? 'ผลรวมใช้ระดับที่เสี่ยงกว่าระหว่าง REBA และ ISO 11228 เพื่อไม่ให้ความเสี่ยงจากงานจริงถูกประเมินต่ำเกินไป'
+                    : 'The combined result keeps the higher-risk dimension between REBA and ISO 11228 so real-task risk is not understated.',
+                style: const TextStyle(fontSize: 12, color: Colors.black54),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class AssessmentBreakdownCard extends StatelessWidget {
   const AssessmentBreakdownCard({
     required this.breakdown,
@@ -197,6 +297,10 @@ class AssessmentBreakdownCard extends StatelessWidget {
                   : '${_num(data.ergoInput.workDaysPerWeek)} days/week',
             ),
             _DetailRow(
+              label: thai ? 'เครื่องมือ/น้ำหนักที่เลือก' : 'Selected tool/load',
+              value: _toolLabel(data.ergoInput, thai),
+            ),
+            _DetailRow(
               label: thai ? 'น้ำหนัก/แรง' : 'Load/force',
               value: thai
                   ? '${_num(data.ergoInput.loadWeight)} กก. • Load Score +${data.rebaInput.loadScore}'
@@ -233,9 +337,72 @@ class AssessmentBreakdownCard extends StatelessWidget {
             ? 'ลำตัวมีการบิดหรือเอียง จึงเพิ่มคะแนนลำตัวเป็น ${input.adjustedTrunkScore}'
             : 'Trunk twist or side bending was detected, so adjusted trunk score is ${input.adjustedTrunkScore}',
       thai
-          ? 'Activity Score = +${input.activityScore} จากระยะเวลา/ความถี่/การค้างท่าที่ตั้งไว้ในแบบประเมิน'
-          : 'Activity Score = +${input.activityScore}, based on duration, frequency, and static posture settings.',
+          ? _activityScoreReason(data, true)
+          : _activityScoreReason(data, false),
     ];
+  }
+}
+
+class _MethodPillRow extends StatelessWidget {
+  const _MethodPillRow({
+    required this.title,
+    required this.subtitle,
+    required this.score,
+    required this.risk,
+    required this.color,
+  });
+
+  final String title;
+  final String subtitle;
+  final String score;
+  final String risk;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withValues(alpha: 0.20)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            CircleAvatar(
+              radius: 22,
+              backgroundColor: color,
+              foregroundColor: Colors.white,
+              child: Text(
+                score,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '$title • $risk',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(fontSize: 12, height: 1.3),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
@@ -303,6 +470,58 @@ Map<BodyPart, List<String>> assessmentBodyRiskReasons(
       thai ? 'Leg Score = ${input.legScore}' : 'Leg Score = ${input.legScore}',
     ],
   };
+}
+
+String _riskLabel(RiskLevel level, bool thai) {
+  if (thai) return level.label;
+  return switch (level) {
+    RiskLevel.low => 'Low risk',
+    RiskLevel.medium => 'Medium risk',
+    RiskLevel.high => 'High risk',
+    RiskLevel.veryHigh => 'Very high risk',
+  };
+}
+
+String _isoTitle(AssessmentMethod? method, bool thai) {
+  return switch (method) {
+    AssessmentMethod.iso11228Lifting => thai ? 'ISO 11228-1' : 'ISO 11228-1',
+    AssessmentMethod.iso11228PushPull => thai ? 'ISO 11228-2' : 'ISO 11228-2',
+    _ => 'ISO 11228',
+  };
+}
+
+String _activityScoreReason(AssessmentBreakdown data, bool thai) {
+  final score = data.rebaInput.activityScore;
+  final frequency = data.ergoInput.liftFrequency;
+  final duration = data.ergoInput.durationHours;
+  if (score <= 0) {
+    return thai
+        ? 'Activity Score = +0 เพราะค่าที่ตั้งไว้ยังไม่เข้าเกณฑ์งานซ้ำเร็ว ค้างท่านาน หรือทำงานต่อเนื่องมาก'
+        : 'Activity Score = +0 because the settings do not indicate fast repetition, long static holding, or prolonged continuous work.';
+  }
+  final reasons = <String>[];
+  if (frequency > 4) {
+    reasons.add(thai ? 'ทำซ้ำมากกว่า 4 ครั้ง/นาที' : '>4 repetitions/min');
+  }
+  if (frequency >= 12) {
+    reasons.add(
+      thai ? 'ทำซ้ำเร็วมาก/เปลี่ยนท่าบ่อย' : 'rapid repetition/posture changes',
+    );
+  }
+  if (duration >= 4) {
+    reasons.add(
+        thai ? 'ทำงานต่อเนื่องนานกว่า 2 ชั่วโมง' : 'prolonged continuous work');
+  }
+  if (reasons.isEmpty) {
+    reasons.add(
+      thai
+          ? 'มีการค้างท่าหรือทำซ้ำตามค่าที่ตั้งไว้ในแบบประเมิน'
+          : 'static or repeated work was set in the assessment form',
+    );
+  }
+  return thai
+      ? 'Activity Score = +$score จาก ${reasons.join(', ')}'
+      : 'Activity Score = +$score from ${reasons.join(', ')}.';
 }
 
 PoseRebaFrameAnalysis? _worstFrame(AssessmentBreakdown data) {
@@ -395,6 +614,14 @@ String _deg(double? value) {
 String _num(double value) {
   if (value == value.roundToDouble()) return value.round().toString();
   return value.toStringAsFixed(1);
+}
+
+String _toolLabel(ErgoInputData input, bool thai) {
+  final label = thai ? input.toolLabelTh : input.toolLabelEn;
+  if (label.trim().isNotEmpty) return label;
+  if (input.toolLabelTh.trim().isNotEmpty) return input.toolLabelTh;
+  if (input.toolLabelEn.trim().isNotEmpty) return input.toolLabelEn;
+  return thai ? 'ไม่ได้ระบุ' : 'Not specified';
 }
 
 String _percent(double ratio) => '${(ratio * 100).round()}%';

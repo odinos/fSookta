@@ -25,6 +25,11 @@ private enum SooktaTensorFlowLiteLoader {
   private static let frameworkPath = "TensorFlowLiteC.framework/TensorFlowLiteC"
 
   static func preload() {
+    if dlsym(UnsafeMutableRawPointer(bitPattern: -2), "TfLiteInterpreterOptionsCreate") != nil {
+      NSLog("Sookta TensorFlowLiteC symbols are available in process.")
+      return
+    }
+
     var candidates: [String] = []
     if let frameworkDirectory = Bundle.main.privateFrameworksURL {
       candidates.append(

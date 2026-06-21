@@ -24,7 +24,8 @@ class _SooktaTtsButtonState extends State<SooktaTtsButton> {
   // Keep the rate close to the engine's natural voice. Very slow speech can make
   // some Thai/Android voices sound stretched or robotic.
   static const _thaiRate = 0.43;
-  static const _englishRate = 0.46;
+  static const _englishRate = 0.50;
+  static const _iosEnglishPitch = 1.03;
 
   late final FlutterTts _tts;
   late Future<void> _configured;
@@ -62,7 +63,8 @@ class _SooktaTtsButtonState extends State<SooktaTtsButton> {
     final languageResult = await _configureVoice();
     _debug('volume=$volumeResult voiceOrLanguage=$languageResult');
     await _tts.setSpeechRate(widget.thai ? _thaiRate : _englishRate);
-    await _tts.setPitch(1.0);
+    await _tts
+        .setPitch(Platform.isIOS && !widget.thai ? _iosEnglishPitch : 1.0);
     await _tts.awaitSpeakCompletion(true);
     _tts.setStartHandler(() {
       _debug('start speaking');
@@ -130,24 +132,56 @@ class _SooktaTtsButtonState extends State<SooktaTtsButton> {
     final quality = voice['quality']?.toString().toLowerCase() ?? '';
     final locale = voice['locale']?.toString().toLowerCase() ?? '';
     final name = voice['name']?.toString().toLowerCase() ?? '';
+    final identifier = voice['identifier']?.toString().toLowerCase() ?? '';
     final networkRequired =
         voice['network_required']?.toString().toLowerCase() == '1' ||
             voice['networkConnectionRequired']?.toString().toLowerCase() ==
                 'true';
     final features = voice['features']?.toString().toLowerCase() ?? '';
+    final searchable = '$name $identifier $quality $features';
     var rank = _qualityRank(quality) * 100;
     if (locale == desiredLocale) rank += 80;
-    if (name.contains('premium')) rank += 35;
-    if (name.contains('enhanced')) rank += 28;
-    if (name.contains('siri')) rank += 18;
-    if (name.contains('neural')) rank += 16;
-    if (name.contains('wavenet')) rank += 14;
-    if (name.contains('natural')) rank += 12;
+    if (!widget.thai && desiredLocale == 'en-us') {
+      rank += _iosEnglishHumanVoicePreference(searchable);
+    }
+    if (searchable.contains('premium')) rank += 55;
+    if (searchable.contains('enhanced')) rank += 44;
+    if (searchable.contains('siri')) rank += 42;
+    if (searchable.contains('neural')) rank += 28;
+    if (searchable.contains('wavenet')) rank += 22;
+    if (searchable.contains('natural')) rank += 18;
     if (features.contains('embedded')) rank += 8;
     if (networkRequired) rank -= 12;
-    if (name.contains('compact')) rank -= 30;
+    if (searchable.contains('compact')) rank -= 45;
+    if (name.contains('kathy')) rank -= 18;
     if (quality.contains('low')) rank -= 40;
     return rank;
+  }
+
+  int _iosEnglishHumanVoicePreference(String searchable) {
+    // iOS does not expose the exact Siri assistant voice to third-party apps,
+    // but AVSpeechSynthesizer can use installed Apple enhanced/premium voices.
+    // Prefer the smoother US English voices first, then fall back gracefully.
+    const preferredNames = <String, int>{
+      'siri_female_en-us': 120,
+      'siri_male_en-us': 118,
+      'samantha': 100,
+      'ava': 96,
+      'allison': 88,
+      'susan': 82,
+      'joelle': 76,
+      'noelle': 74,
+      'nathan': 70,
+      'evan': 68,
+      'zoe': 64,
+      'tom': 58,
+      'fred': 12,
+      'kathy': 0,
+    };
+    for (final entry in preferredNames.entries) {
+      if (searchable.contains(entry.key)) return entry.value;
+    }
+    return 0;
   }
 
   int _qualityRank(String quality) {

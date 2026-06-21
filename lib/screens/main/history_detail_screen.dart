@@ -5,9 +5,11 @@ import '../../app/app_state.dart';
 import '../../app/sookta_app.dart';
 import '../../core/models/evaluation_models.dart';
 import '../../core/services/assessment_export_service.dart';
+import '../../core/services/economic_impact_service.dart';
 import '../../core/theme/sookta_theme.dart';
 import '../../widgets/assessment_breakdown_card.dart';
 import '../../widgets/body_risk_map_card.dart';
+import '../../widgets/economic_impact_comparison_card.dart';
 import '../../widgets/research_disclaimer_card.dart';
 import '../../widgets/responsive_content.dart';
 import '../../widgets/tts_button.dart';
@@ -85,11 +87,17 @@ class HistoryDetailScreen extends StatelessWidget {
                                 score: record.scoreAfter,
                                 risk: record.riskAfter,
                               );
+                              final impactComparison =
+                                  EconomicImpactService.compareBeforeAfter(
+                                beforeImpact: record.economicLoss,
+                                beforeScore: record.scoreBefore,
+                                afterScore: record.scoreAfter,
+                              );
                               final tts = SooktaTtsButton(
                                 thai: thai,
                                 text: thai
-                                    ? '${record.activityName} คะแนนก่อนปรับ ${record.scoreBefore} คะแนนหลังปรับ ${record.scoreAfter} ผลกระทบด้านรายได้อาจลดลง ${record.moneySaved} บาทต่อปี'
-                                    : '${record.activityName}. Before score ${record.scoreBefore}. After score ${record.scoreAfter}. Potential income impact may be reduced by ${record.moneySaved} baht per year.',
+                                    ? '${record.activityName} คะแนนก่อนปรับ ${record.scoreBefore} คะแนนหลังปรับ ${record.scoreAfter} ผลกระทบก่อนปรับ ${impactComparison.beforeImpact} บาทต่อปี หลังปรับประมาณ ${impactComparison.afterImpact} บาทต่อปี อาจประหยัดได้ ${impactComparison.savedAmount} บาทต่อปี'
+                                    : '${record.activityName}. Before score ${record.scoreBefore}. After score ${record.scoreAfter}. Before impact ${impactComparison.beforeImpact} baht per year. After impact about ${impactComparison.afterImpact} baht per year. Potential saving ${impactComparison.savedAmount} baht per year.',
                               );
                               if (compact) {
                                 return Column(
@@ -121,21 +129,22 @@ class HistoryDetailScreen extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  Card(
-                    child: ListTile(
-                      leading: const Icon(Icons.savings_outlined,
-                          color: SooktaColors.darkGreen),
-                      title: Text(
-                        thai
-                            ? 'ผลกระทบโดยประมาณเพื่อสื่อสารความเสี่ยง'
-                            : 'Estimated Impact for Risk Communication',
-                      ),
-                      subtitle: Text(
-                        thai
-                            ? 'ก่อนปรับ ${record.economicLoss} บาท/ปี | อาจลดลง ${record.moneySaved} บาท/ปี'
-                            : 'Before ${record.economicLoss} THB/year | Potentially reduced ${record.moneySaved} THB/year',
-                      ),
-                    ),
+                  Builder(
+                    builder: (context) {
+                      final impactComparison =
+                          EconomicImpactService.compareBeforeAfter(
+                        beforeImpact: record.economicLoss,
+                        beforeScore: record.scoreBefore,
+                        afterScore: record.scoreAfter,
+                      );
+                      return EconomicImpactComparisonCard(
+                        comparison: impactComparison,
+                        thai: thai,
+                        title: thai
+                            ? 'เปรียบเทียบผลกระทบย้อนหลัง'
+                            : 'Saved Impact Comparison',
+                      );
+                    },
                   ),
                   const SizedBox(height: 12),
                   ResearchDisclaimerCard(thai: thai),
@@ -187,7 +196,7 @@ class HistoryDetailScreen extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  AssessmentBreakdownCard(
+                  AssessmentMethodSummaryCard(
                     breakdown: record.assessmentBreakdown,
                     thai: thai,
                   ),

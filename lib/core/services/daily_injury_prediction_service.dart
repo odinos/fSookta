@@ -133,6 +133,8 @@ class DailyInjuryPredictionService {
     final count = window.length;
     final beforeScores =
         window.map((record) => record.scoreBefore.toDouble()).toList();
+    final rebaScores = window.map(_rebaScoreBefore).toList();
+    final isoScores = window.map(_isoScoreBefore).whereType<double>().toList();
     final afterScores =
         window.map((record) => record.scoreAfter.toDouble()).toList();
     final highOrAboveDays = window
@@ -145,17 +147,17 @@ class DailyInjuryPredictionService {
         .where((record) => record.scoreAfter >= record.scoreBefore)
         .length;
     final trunkHighDays = window
-        .where(
-          (record) =>
-              (record.bodyPartRisks[BodyPart.trunk]?.index ?? -1) >=
-              RiskLevel.high.index,
-        )
+        .where((record) =>
+            _bodyRiskIndex(record, BodyPart.trunk) >= RiskLevel.high.index)
         .length;
-    final neckOrUpperLimbHighDays = window.where((record) {
-      final neck = record.bodyPartRisks[BodyPart.neck]?.index ?? -1;
-      final arms = record.bodyPartRisks[BodyPart.arms]?.index ?? -1;
-      final wrists = record.bodyPartRisks[BodyPart.wrists]?.index ?? -1;
-      return math.max(neck, math.max(arms, wrists)) >= RiskLevel.high.index;
+    final neckHighDays = window
+        .where((record) =>
+            _bodyRiskIndex(record, BodyPart.neck) >= RiskLevel.high.index)
+        .length;
+    final upperLimbHighDays = window.where((record) {
+      final arms = _bodyRiskIndex(record, BodyPart.arms);
+      final wrists = _bodyRiskIndex(record, BodyPart.wrists);
+      return math.max(arms, wrists) >= RiskLevel.high.index;
     }).length;
     final isoDays = window
         .where((record) => record.assessmentBreakdown?.isoResult != null)
@@ -168,29 +170,179 @@ class DailyInjuryPredictionService {
     final repeatedActivityDays = activityCounts.values.isEmpty
         ? 0
         : activityCounts.values.reduce(math.max);
-    final recentSlope =
-        beforeScores.isEmpty ? 0 : beforeScores.last - beforeScores.first;
+    final recentRebaSlope = _recentSlope(rebaScores);
+    final recentIsoSlope = _recentSlope(isoScores);
     final avgEconomicLoss =
         window.map((record) => record.economicLoss).fold<double>(
                   0,
                   (sum, value) => sum + value,
                 ) /
             count;
+    final ages = window
+        .map((record) => _parseDouble(record.farmerAge))
+        .whereType<double>()
+        .toList();
+    final genders = window
+        .map(
+          (record) => (record.farmerGender ??
+                  record.assessmentBreakdown?.ergoInput.gender ??
+                  '')
+              .toLowerCase(),
+        )
+        .toList();
+    final maleDays = genders
+        .where((value) => value.startsWith('male') || value.startsWith('ชาย'))
+        .length;
+    final bmis = window.map(_bmiForRecord).whereType<double>().toList();
+    final overweightBmiDays =
+        window.where((record) => (_bmiForRecord(record) ?? 0) >= 23).length;
+    final toolWeightList =
+        window.map(_toolLoadKg).where((value) => value > 0).toList();
+    final highToolLoadDays =
+        window.where((record) => _toolLoadKg(record) >= 15).length;
+    final liftFrequencyPerHour = window
+        .map((record) =>
+            (record.assessmentBreakdown?.ergoInput.liftFrequency ?? 0) * 60)
+        .toList();
+    final carryingExposures = window.map(_carryingExposureNorm).toList();
+    final pushPullExposures = window.map(_pushPullExposureNorm).toList();
+
+    final avgScoreBefore = _norm(_avg(beforeScores), 1, 9);
+    final maxScoreBefore = _norm(beforeScores.reduce(math.max), 1, 9);
+    final avgScoreAfter = _norm(_avg(afterScores), 1, 9);
+    final avgRebaScore = _norm(_avg(rebaScores), 1, 9);
+    final maxRebaScore = _norm(rebaScores.reduce(math.max), 1, 9);
+    final avgIsoScore = isoScores.isEmpty ? 0.0 : _norm(_avg(isoScores), 1, 9);
+    final maxIsoScore =
+        isoScores.isEmpty ? 0.0 : _norm(isoScores.reduce(math.max), 1, 9);
+    final avgToolLoad =
+        toolWeightList.isEmpty ? 0.0 : _bounded(_avg(toolWeightList) / 50);
+    final maxToolLoad = toolWeightList.isEmpty
+        ? 0.0
+        : _bounded(toolWeightList.reduce(math.max) / 50);
+    final avgLiftFrequencyPerHour = _bounded(_avg(liftFrequencyPerHour) / 720);
 
     return {
-      'avg_score_before_norm': _norm(_avg(beforeScores), 1, 9),
-      'max_score_before_norm': _norm(beforeScores.reduce(math.max), 1, 9),
-      'avg_score_after_norm': _norm(_avg(afterScores), 1, 9),
+      'avg_reba_score_before_norm': avgRebaScore,
+      'max_reba_score_before_norm': maxRebaScore,
+      'avg_app_score_after_norm': avgScoreAfter,
+      'avg_iso_score_before_norm': avgIsoScore,
+      'max_iso_score_before_norm': maxIsoScore,
       'high_or_above_days_norm': highOrAboveDays / count,
       'very_high_days_norm': veryHighDays / count,
       'no_improvement_days_norm': noImprovementDays / count,
       'trunk_high_days_norm': trunkHighDays / count,
-      'neck_or_upper_limb_high_days_norm': neckOrUpperLimbHighDays / count,
+      'neck_high_days_norm': neckHighDays / count,
+      'upper_limb_high_days_norm': upperLimbHighDays / count,
       'iso_days_norm': isoDays / count,
+      'load_weight_norm': avgToolLoad,
+      'max_load_weight_norm': maxToolLoad,
+      'high_tool_load_days_norm': highToolLoadDays / count,
+      'frequency_of_lifting_norm': avgLiftFrequencyPerHour,
+      'carrying_exposure_norm': _avg(carryingExposures),
+      'push_pull_exposure_norm': _avg(pushPullExposures),
       'avg_economic_loss_norm': _bounded(avgEconomicLoss / 40000),
       'repeated_same_activity_norm': repeatedActivityDays / count,
-      'recent_score_slope_norm': _bounded((recentSlope + 8) / 16),
+      'recent_reba_score_slope_norm': _bounded((recentRebaSlope + 8) / 16),
+      'recent_iso_score_slope_norm':
+          isoScores.length < 2 ? 0 : _bounded((recentIsoSlope + 8) / 16),
+      'avg_age_norm': ages.isEmpty ? 0 : _bounded(_avg(ages) / 80),
+      'male_ratio_norm': maleDays / count,
+      'avg_bmi_norm': bmis.isEmpty ? 0 : _norm(_avg(bmis), 15, 35),
+      'overweight_bmi_days_norm': overweightBmiDays / count,
+      // Backward-compatible aliases for older local test fixtures and
+      // previously exported templates. New model assets use the explicit
+      // REBA/ISO feature names above.
+      'avg_score_before_norm': avgScoreBefore,
+      'max_score_before_norm': maxScoreBefore,
+      'avg_score_after_norm': avgScoreAfter,
+      'neck_or_upper_limb_high_days_norm':
+          math.max(neckHighDays, upperLimbHighDays) / count,
+      'recent_score_slope_norm':
+          _bounded((_recentSlope(beforeScores) + 8) / 16),
+      'avg_tool_load_kg_norm': avgToolLoad,
+      'max_tool_load_kg_norm': maxToolLoad,
+      'avg_lift_frequency_per_hour_norm': avgLiftFrequencyPerHour,
     };
+  }
+
+  static double _rebaScoreBefore(EvaluationHistoryRecord record) {
+    return (record.assessmentBreakdown?.rebaResult.userScore ??
+            record.scoreBefore)
+        .toDouble();
+  }
+
+  static double? _isoScoreBefore(EvaluationHistoryRecord record) {
+    return record.assessmentBreakdown?.isoResult?.userScore.toDouble();
+  }
+
+  static int _bodyRiskIndex(
+    EvaluationHistoryRecord record,
+    BodyPart bodyPart,
+  ) {
+    final rebaRisks = record.assessmentBreakdown?.rebaResult.bodyPartRisks;
+    final rebaRisk =
+        rebaRisks == null || rebaRisks.isEmpty ? null : rebaRisks[bodyPart];
+    return (rebaRisk ?? record.bodyPartRisks[bodyPart])?.index ?? -1;
+  }
+
+  static double _recentSlope(List<double> scores) {
+    if (scores.length < 2) return 0;
+    return scores.last - scores.first;
+  }
+
+  static double _carryingExposureNorm(EvaluationHistoryRecord record) {
+    final input = record.assessmentBreakdown?.ergoInput;
+    if (input == null || input.jobType != JobType.lifting) return 0;
+    final load = _bounded(_toolLoadKg(record) / 50);
+    final duration = _bounded(input.durationHours / 8);
+    final frequency = _bounded((input.liftFrequency * 60) / 720);
+    final distance = _bounded(input.transportDistance / 20);
+    // Exposure feature for research fitting: load dominates, with duration,
+    // repetition, and carrying distance as additional ISO11228-1 context.
+    return _bounded(
+      (load * 0.45) +
+          (duration * 0.25) +
+          (frequency * 0.20) +
+          (distance * 0.10),
+    );
+  }
+
+  static double _pushPullExposureNorm(EvaluationHistoryRecord record) {
+    final input = record.assessmentBreakdown?.ergoInput;
+    if (input == null || input.jobType != JobType.pushPull) return 0;
+    final forceRatio =
+        math.max(input.initialForce / 25, input.sustainForce / 15);
+    final duration = _bounded(input.durationHours / 8);
+    final distance = _bounded(input.transportDistance / 20);
+    return _bounded(
+        (forceRatio * 0.60) + (duration * 0.25) + (distance * 0.15));
+  }
+
+  static double? _parseDouble(String? raw) {
+    final value = raw?.trim().replaceAll(',', '.');
+    if (value == null || value.isEmpty) return null;
+    return double.tryParse(value);
+  }
+
+  static double? _bmiForRecord(EvaluationHistoryRecord record) {
+    if (record.farmerBmi != null && record.farmerBmi! > 0) {
+      return record.farmerBmi;
+    }
+    final weight = _parseDouble(record.farmerWeight);
+    final height = _parseDouble(record.farmerHeight);
+    if (weight == null || height == null || weight <= 0 || height <= 0) {
+      return null;
+    }
+    final meters = height / 100;
+    return weight / (meters * meters);
+  }
+
+  static double _toolLoadKg(EvaluationHistoryRecord record) {
+    final input = record.assessmentBreakdown?.ergoInput;
+    if (input == null) return 0;
+    if (input.toolWeightKg > 0) return input.toolWeightKg;
+    return input.loadWeight;
   }
 
   static double _avg(List<double> values) =>

@@ -120,7 +120,9 @@ class ErgoCalculator {
 
     final shoulderTilt = _horizontalTilt(leftShoulder, rightShoulder);
     final hipTilt = _horizontalTilt(leftHip, rightHip);
-    final neckSideBending = shoulderTilt != null && shoulderTilt > 12;
+    final bothEarsVisible = leftEar != null && rightEar != null;
+    final neckSideBending =
+        bothEarsVisible && shoulderTilt != null && shoulderTilt > 12;
     final neckTwisting = _oneSideDominant(leftEar, rightEar, person);
     final trunkSideBending = shoulderTilt != null &&
         hipTilt != null &&
@@ -217,6 +219,15 @@ class ErgoCalculator {
       rightShoulder,
       rightElbow,
     );
+    if (neckSideBending || neckTwisting) {
+      newNeck = math.min(3, newNeck + 1);
+    }
+    if (upperArmAbduction) {
+      newUpperArm = math.min(6, newUpperArm + 1);
+    }
+    if (shoulderElevation) {
+      newUpperArm = math.min(6, newUpperArm + 1);
+    }
 
     final inferred = currentData.copyWith(
       trunkScore: newTrunk,
@@ -721,10 +732,7 @@ class ErgoCalculator {
       return 0;
     }
 
-    if (left == null || right == null) {
-      return score(PoseLandmark.leftEar) > 0.3 ||
-          score(PoseLandmark.rightEar) > 0.3;
-    }
+    if (left == null || right == null) return false;
     return (score(PoseLandmark.leftEar) - score(PoseLandmark.rightEar)).abs() >
         0.35;
   }

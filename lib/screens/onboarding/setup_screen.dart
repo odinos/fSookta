@@ -39,6 +39,8 @@ class _SetupScreenState extends State<SetupScreen> {
     super.initState();
     nameController.addListener(_refresh);
     ageController.addListener(_refresh);
+    weightController.addListener(_refresh);
+    heightController.addListener(_refresh);
   }
 
   @override
@@ -84,6 +86,10 @@ class _SetupScreenState extends State<SetupScreen> {
   Widget build(BuildContext context) {
     final state = AppStateScope.of(context);
     final text = AppText(state.language ?? AppLanguage.th);
+    final bmiProfile = UserProfile(
+      weight: weightController.text,
+      height: heightController.text,
+    );
 
     final title = widget.editMode ? text.editProfile : text.addProfile;
 
@@ -255,6 +261,8 @@ class _SetupScreenState extends State<SetupScreen> {
                   ? '${text.height}. กรอกส่วนสูงเป็นตัวเลข ใช้สำหรับข้อมูลรายงาน'
                   : '${text.height}. Enter height as a number for report data.',
             ),
+            const SizedBox(height: 8),
+            _BmiPreview(profile: bmiProfile, thai: text.isThai),
             const SizedBox(height: 12),
             _SooktaTextField(
               controller: incomeController,
@@ -307,6 +315,45 @@ class _SetupScreenState extends State<SetupScreen> {
       return;
     }
     Navigator.of(context).pushNamed(AvatarSelectionScreen.routeName);
+  }
+}
+
+class _BmiPreview extends StatelessWidget {
+  const _BmiPreview({
+    required this.profile,
+    required this.thai,
+  });
+
+  final UserProfile profile;
+  final bool thai;
+
+  @override
+  Widget build(BuildContext context) {
+    final hasBmi = profile.bmi != null;
+    return Card(
+      color: const Color(0xFFF4FBF5),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Row(
+          children: [
+            const Icon(Icons.monitor_weight_outlined, color: Color(0xFF5C9A81)),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                hasBmi
+                    ? (thai
+                        ? 'BMI: ${profile.bmiDisplay(thai: true)}'
+                        : 'BMI: ${profile.bmiDisplay(thai: false)}')
+                    : (thai
+                        ? 'BMI จะแสดงเมื่อกรอกน้ำหนักและส่วนสูง'
+                        : 'BMI appears after weight and height are entered'),
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 

@@ -42,7 +42,7 @@
     "The XGBoost ONNX model was retrained on 2026-06-07 after extracting the full ISO11228 Pirawan.xlsx workbook into 34 ISO labels and adding the calibration PDF as an optional label source. The current downloaded raw pose dataset has no transplanting/fertilizing pose rows, so calibrationMatchedSampleCount is 0 until those media rows are downloaded/extracted.",
     "The full ISO workbook raises the current matched pose dataset to high/veryHigh labels only; collect more low/medium posture media before treating holdout accuracy as final validation.",
     "The ONNX model accepts the canonical 51 raw MoveNet features so the current Flutter ONNX predictor can run it without a separate preprocessing layer.",
-    "Daily seven-transaction injury/treatment follow-up prediction uses assets/ml/daily_injury_logistic_model.json and remains separate from REBA/ISO posture scoring.",
+    "Daily seven-transaction MSD symptom follow-up prediction uses assets/ml/daily_injury_logistic_model.json and remains separate from REBA/ISO posture scoring. The 2026-06-14 schema exports explicit REBA features, explicit ISO11228/manual-handling features, age, sex, Asian BMI, tool/load, activity, economic-impact features, and msd_symptom_present as the primary research outcome label for future fitting.",
     "It is suitable for research-prototype risk communication and repeated data collection, not for clinical diagnosis or a validated injury prediction claim."
   ]
 }

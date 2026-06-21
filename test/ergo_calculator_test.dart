@@ -233,6 +233,22 @@ void main() {
           ]));
     });
 
+    test('push/pull dropdown mapped values drive ISO11228-2 calculation', () {
+      const input = ErgoInputData(
+        jobType: JobType.pushPull,
+        initialForce: 25,
+        sustainForce: 15,
+        transportDistance: 20,
+      );
+
+      final result = ErgoCalculator.calculatePushPullRisk(input);
+
+      expect(result.techScore, 1.0);
+      expect(result.riskLevel, RiskLevel.medium);
+      expect(result.userScore, 5);
+      expect(result.suggestionKeys, contains('act_iso_reduce_push_distance'));
+    });
+
     test('Notion ISO lifting multiplier floor keeps RWL in expected range', () {
       const input = ErgoInputData(
         jobType: JobType.lifting,

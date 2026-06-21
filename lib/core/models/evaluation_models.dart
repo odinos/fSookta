@@ -47,6 +47,11 @@ class ErgoInputData {
     required this.jobType,
     this.gender = 'male',
     this.dailyIncome = 300,
+    this.toolId = '',
+    this.toolLabelTh = '',
+    this.toolLabelEn = '',
+    this.toolWeightKg = 0,
+    this.toolWeightBandCode = 0,
     this.loadWeight = 0,
     this.horizontalDist = 25,
     this.verticalHeight = 75,
@@ -61,6 +66,11 @@ class ErgoInputData {
   final JobType jobType;
   final String gender;
   final double dailyIncome;
+  final String toolId;
+  final String toolLabelTh;
+  final String toolLabelEn;
+  final double toolWeightKg;
+  final int toolWeightBandCode;
   final double loadWeight;
   final double horizontalDist;
   final double verticalHeight;
@@ -76,6 +86,11 @@ class ErgoInputData {
       'jobType': jobType.name,
       'gender': gender,
       'dailyIncome': dailyIncome,
+      'toolId': toolId,
+      'toolLabelTh': toolLabelTh,
+      'toolLabelEn': toolLabelEn,
+      'toolWeightKg': toolWeightKg,
+      'toolWeightBandCode': toolWeightBandCode,
       'loadWeight': loadWeight,
       'horizontalDist': horizontalDist,
       'verticalHeight': verticalHeight,
@@ -93,6 +108,11 @@ class ErgoInputData {
       jobType: _jobTypeFromName(json['jobType'] as String?),
       gender: json['gender'] as String? ?? 'male',
       dailyIncome: _asDouble(json['dailyIncome'], 300),
+      toolId: json['toolId'] as String? ?? '',
+      toolLabelTh: json['toolLabelTh'] as String? ?? '',
+      toolLabelEn: json['toolLabelEn'] as String? ?? '',
+      toolWeightKg: _asDouble(json['toolWeightKg'], 0),
+      toolWeightBandCode: _asInt(json['toolWeightBandCode'], 0),
       loadWeight: _asDouble(json['loadWeight'], 0),
       horizontalDist: _asDouble(json['horizontalDist'], 25),
       verticalHeight: _asDouble(json['verticalHeight'], 75),
@@ -622,6 +642,10 @@ class AssessmentBreakdown {
       'userScoreColor': result.userScoreColor,
       'limitValue': result.limitValue,
       'suggestionKey': result.suggestionKey,
+      'suggestionKeys': result.suggestionKeys,
+      'bodyPartRisks': result.bodyPartRisks.map(
+        (part, risk) => MapEntry(part.name, risk.name),
+      ),
       'economicLoss': result.economicLoss,
     };
   }
@@ -646,6 +670,10 @@ class AssessmentBreakdown {
       userScoreColor: _asInt(json['userScoreColor'], riskLevel.colorHex),
       limitValue: _asDouble(json['limitValue'], 0),
       suggestionKey: json['suggestionKey'] as String? ?? '',
+      suggestionKeys:
+          (json['suggestionKeys'] as List?)?.whereType<String>().toList() ??
+              const [],
+      bodyPartRisks: _bodyRiskMapFromJson(json['bodyPartRisks']),
       economicLoss: _asInt(json['economicLoss'], 0),
     );
   }
@@ -693,6 +721,21 @@ RiskLevel _riskFromName(String? name) {
     (risk) => risk.name == name,
     orElse: () => RiskLevel.low,
   );
+}
+
+Map<BodyPart, RiskLevel> _bodyRiskMapFromJson(Object? raw) {
+  if (raw is! Map) return const {};
+  final result = <BodyPart, RiskLevel>{};
+  for (final entry in raw.entries) {
+    final part = BodyPart.values.cast<BodyPart?>().firstWhere(
+          (value) => value?.name == entry.key,
+          orElse: () => null,
+        );
+    if (part != null) {
+      result[part] = _riskFromName(entry.value as String?);
+    }
+  }
+  return result;
 }
 
 AssessmentMethod _methodFromName(String? name) {

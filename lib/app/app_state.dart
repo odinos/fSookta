@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/models/assessment_session.dart';
 import '../core/models/evaluation_models.dart';
+import '../core/services/economic_impact_service.dart';
 
 enum AppLanguage { th, en }
 
@@ -35,6 +36,41 @@ class UserProfile {
   final String height;
   final String incomePerYear;
   final String? avatarAsset;
+
+  double? get weightKg => _parseProfileNumber(weight);
+
+  double? get heightCm => _parseProfileNumber(height);
+
+  double? get bmi {
+    final kg = weightKg;
+    final cm = heightCm;
+    if (kg == null || cm == null || kg <= 0 || cm <= 0) return null;
+    final meters = cm / 100;
+    return kg / (meters * meters);
+  }
+
+  String get bmiCategoryKey {
+    final value = bmi;
+    if (value == null) return 'unknown';
+    if (value < 18.5) return 'underweight';
+    if (value < 23) return 'normal';
+    return 'overweight';
+  }
+
+  String bmiCategoryLabel({required bool thai}) {
+    return switch (bmiCategoryKey) {
+      'underweight' => thai ? 'น้ำหนักต่ำกว่าเกณฑ์' : 'Underweight',
+      'normal' => thai ? 'น้ำหนักปกติ' : 'Normal weight',
+      'overweight' => thai ? 'น้ำหนักมากกว่าเกณฑ์' : 'Above Asian BMI range',
+      _ => thai ? 'ยังไม่มีข้อมูล BMI' : 'BMI unavailable',
+    };
+  }
+
+  String bmiDisplay({required bool thai}) {
+    final value = bmi;
+    if (value == null) return '-';
+    return '${value.toStringAsFixed(1)} (${bmiCategoryLabel(thai: thai)})';
+  }
 
   UserProfile copyWith({
     String? profileId,
@@ -95,6 +131,12 @@ class UserProfile {
       avatarAsset: json['avatarAsset'] as String?,
     );
   }
+}
+
+double? _parseProfileNumber(String raw) {
+  final normalized = raw.trim().replaceAll(',', '.');
+  if (normalized.isEmpty) return null;
+  return double.tryParse(normalized);
 }
 
 class SooktaAppState extends ChangeNotifier {
@@ -312,6 +354,10 @@ class SooktaAppState extends ChangeNotifier {
       name: record.farmerName ?? '',
       role: record.farmerRole ?? '',
       location: record.farmerLocation ?? '',
+      age: record.farmerAge ?? '',
+      gender: record.farmerGender ?? 'Male',
+      weight: record.farmerWeight ?? '',
+      height: record.farmerHeight ?? '',
     );
   }
 
@@ -331,6 +377,11 @@ class SooktaAppState extends ChangeNotifier {
     SooktaActivity? activity,
     AssessmentBreakdown? assessmentBreakdown,
   }) {
+    final impactComparison = EconomicImpactService.compareBeforeAfter(
+      beforeImpact: before.economicLoss,
+      beforeScore: before.userScore,
+      afterScore: after.userScore,
+    );
     final record = EvaluationHistoryRecord(
       id: _nextHistoryId++,
       farmerProfileId: _profile.profileId,
@@ -338,6 +389,12 @@ class SooktaAppState extends ChangeNotifier {
       farmerName: _profile.name,
       farmerRole: _profile.role,
       farmerLocation: _profile.location,
+      farmerAge: _profile.age,
+      farmerGender: _profile.gender,
+      farmerWeight: _profile.weight,
+      farmerHeight: _profile.height,
+      farmerBmi: _profile.bmi,
+      farmerBmiCategory: _profile.bmiCategoryKey,
       activity: activity,
       activityName: activityName,
       dateTime: DateTime.now(),
@@ -346,8 +403,7 @@ class SooktaAppState extends ChangeNotifier {
       riskBefore: before.riskLevel,
       riskAfter: after.riskLevel,
       economicLoss: before.economicLoss,
-      moneySaved:
-          (before.economicLoss - after.economicLoss).clamp(0, 999999).toInt(),
+      moneySaved: impactComparison.savedAmount,
       selectedSuggestions: selectedSuggestions,
       bodyPartRisks: before.bodyPartRisks,
       aiRiskPercent: before.aiRiskAlert == null
@@ -421,6 +477,12 @@ class EvaluationHistoryRecord {
     this.farmerName,
     this.farmerRole,
     this.farmerLocation,
+    this.farmerAge,
+    this.farmerGender,
+    this.farmerWeight,
+    this.farmerHeight,
+    this.farmerBmi,
+    this.farmerBmiCategory,
     this.activity,
     required this.activityName,
     required this.dateTime,
@@ -444,6 +506,12 @@ class EvaluationHistoryRecord {
   final String? farmerName;
   final String? farmerRole;
   final String? farmerLocation;
+  final String? farmerAge;
+  final String? farmerGender;
+  final String? farmerWeight;
+  final String? farmerHeight;
+  final double? farmerBmi;
+  final String? farmerBmiCategory;
   final SooktaActivity? activity;
   final String activityName;
   final DateTime dateTime;
@@ -468,6 +536,12 @@ class EvaluationHistoryRecord {
       'farmerName': farmerName,
       'farmerRole': farmerRole,
       'farmerLocation': farmerLocation,
+      'farmerAge': farmerAge,
+      'farmerGender': farmerGender,
+      'farmerWeight': farmerWeight,
+      'farmerHeight': farmerHeight,
+      'farmerBmi': farmerBmi,
+      'farmerBmiCategory': farmerBmiCategory,
       'activity': activity?.name,
       'activityName': activityName,
       'dateTime': dateTime.toIso8601String(),
@@ -496,6 +570,14 @@ class EvaluationHistoryRecord {
       farmerName: json['farmerName'] as String?,
       farmerRole: json['farmerRole'] as String?,
       farmerLocation: json['farmerLocation'] as String?,
+      farmerAge: json['farmerAge'] as String?,
+      farmerGender: json['farmerGender'] as String?,
+      farmerWeight: json['farmerWeight'] as String?,
+      farmerHeight: json['farmerHeight'] as String?,
+      farmerBmi: json['farmerBmi'] is num
+          ? (json['farmerBmi'] as num).toDouble()
+          : double.tryParse(json['farmerBmi']?.toString() ?? ''),
+      farmerBmiCategory: json['farmerBmiCategory'] as String?,
       activity: _activityFromName(json['activity'] as String?),
       activityName: json['activityName'] as String? ?? '',
       dateTime: DateTime.tryParse(json['dateTime'] as String? ?? '') ??

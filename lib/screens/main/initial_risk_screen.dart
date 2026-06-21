@@ -12,6 +12,7 @@ import '../../core/services/economic_impact_service.dart';
 import '../../core/services/risk_recommendation_service.dart';
 import '../../core/theme/sookta_theme.dart';
 import '../../widgets/assessment_breakdown_card.dart';
+import '../../widgets/economic_impact_comparison_card.dart';
 import '../../widgets/research_disclaimer_card.dart';
 import '../../widgets/responsive_content.dart';
 import '../../widgets/tts_button.dart';
@@ -104,7 +105,7 @@ class _InitialRiskScreenState extends State<InitialRiskScreen> {
               thai: thai,
             ),
             const SizedBox(height: 16),
-            AssessmentBreakdownCard(
+            AssessmentMethodSummaryCard(
               breakdown: widget.payload.breakdown,
               thai: thai,
             ),
@@ -189,6 +190,21 @@ class _InitialRiskScreenState extends State<InitialRiskScreen> {
                       : 'Score reduced by selected actions'),
               thai: thai,
             ),
+            if (selectedKeys.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              EconomicImpactComparisonCard(
+                comparison: EconomicImpactService.compareBeforeAfter(
+                  beforeImpact: before.economicLoss,
+                  beforeScore: before.userScore,
+                  afterScore: after.userScore,
+                ),
+                thai: thai,
+                title: thai
+                    ? 'เงินที่อาจลดการสูญเสียได้'
+                    : 'Potential Lost Income Reduction',
+                compact: true,
+              ),
+            ],
             const SizedBox(height: 24),
             FilledButton.icon(
               onPressed: () {
@@ -243,12 +259,15 @@ class _InitialRiskScreenState extends State<InitialRiskScreen> {
     );
     final score = (before.userScore - reduction).clamp(1, 9).toInt();
     final risk = _riskFromUserScore(score);
-    final lossFactor =
-        selectedKeys.isEmpty ? 1.0 : math.max(0.0, 1 - (0.28 * reduction));
     final affectedParts = <BodyPart>{};
     for (final key in selectedKeys) {
       affectedParts.addAll(_actionFor(key).bodyParts);
     }
+    final afterImpact = EconomicImpactService.estimateAfterImpact(
+      beforeImpact: before.economicLoss,
+      beforeScore: before.userScore,
+      afterScore: score,
+    );
     return ErgoResult(
       riskLevel: risk,
       techScore: math.max(1.0, before.techScore - reduction),
@@ -256,7 +275,7 @@ class _InitialRiskScreenState extends State<InitialRiskScreen> {
       userScoreColor: _scoreColor(score),
       limitValue: before.limitValue,
       suggestionKey: before.suggestionKey,
-      economicLoss: (before.economicLoss * lossFactor).round(),
+      economicLoss: afterImpact,
       suggestionKeys: before.suggestionKeys,
       bodyPartRisks: before.bodyPartRisks.map(
         (part, level) => MapEntry(
@@ -560,6 +579,11 @@ class _FarmerGuideCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final improved = selectedCount > 0 && after.userScore < before.userScore;
+    final impactComparison = EconomicImpactService.compareBeforeAfter(
+      beforeImpact: before.economicLoss,
+      beforeScore: before.userScore,
+      afterScore: after.userScore,
+    );
     return Card(
       color: const Color(0xFFF4FBF5),
       child: Padding(
@@ -588,8 +612,8 @@ class _FarmerGuideCard extends StatelessWidget {
                 SooktaTtsButton(
                   thai: thai,
                   text: thai
-                      ? 'อ่านตรงนี้ก่อน คะแนนตอนนี้คือ ${before.userScore} ${before.riskLevel.label}. ${improved ? 'ถ้าทำตามที่เลือก คะแนนจะลดเหลือ ${after.userScore} ให้เจ้าหน้าที่ช่วยดูต่อได้' : 'เลือกวิธีที่ทำได้จริงด้านล่าง ไม่ต้องกรอกข้อมูลเพิ่ม'}'
-                      : 'Read this first. Current score is ${before.userScore}, ${_riskLabel(before.riskLevel)}. ${improved ? 'With selected actions, the score may drop to ${after.userScore}. Staff can review the export.' : 'Choose practical actions below. No extra form is needed.'}',
+                      ? 'อ่านตรงนี้ก่อน คะแนนตอนนี้คือ ${before.userScore} ${before.riskLevel.label}. ${improved ? 'ถ้าทำตามที่เลือก คะแนนจะลดเหลือ ${after.userScore} ผลกระทบก่อนปรับ ${impactComparison.beforeImpact} บาทต่อปี หลังปรับประมาณ ${impactComparison.afterImpact} บาทต่อปี อาจประหยัดได้ ${impactComparison.savedAmount} บาทต่อปี' : 'เลือกวิธีที่ทำได้จริงด้านล่าง ไม่ต้องกรอกข้อมูลเพิ่ม'}'
+                      : 'Read this first. Current score is ${before.userScore}, ${_riskLabel(before.riskLevel)}. ${improved ? 'With selected actions, the score may drop to ${after.userScore}. Before impact ${impactComparison.beforeImpact} baht per year. After impact about ${impactComparison.afterImpact} baht per year. Potential saving ${impactComparison.savedAmount} baht per year.' : 'Choose practical actions below. No extra form is needed.'}',
                   size: 38,
                 ),
               ],
@@ -605,8 +629,8 @@ class _FarmerGuideCard extends StatelessWidget {
             Text(
               improved
                   ? (thai
-                      ? 'ถ้าทำตามที่เลือก คะแนนจะลดเหลือ ${after.userScore} ให้เจ้าหน้าที่ช่วยดูต่อได้'
-                      : 'With selected actions, the score may drop to ${after.userScore}. Staff can review the export.')
+                      ? 'ถ้าทำตามที่เลือก คะแนนจะลดเหลือ ${after.userScore} ผลกระทบก่อนปรับ ${impactComparison.beforeImpact} บาท/ปี หลังปรับประมาณ ${impactComparison.afterImpact} บาท/ปี อาจประหยัดได้ ${impactComparison.savedAmount} บาท/ปี'
+                      : 'With selected actions, the score may drop to ${after.userScore}. Impact changes from ${impactComparison.beforeImpact} to about ${impactComparison.afterImpact} THB/year, saving ${impactComparison.savedAmount} THB/year.')
                   : (thai
                       ? 'เลือกวิธีที่ทำได้จริงด้านล่าง ไม่ต้องกรอกข้อมูลเพิ่ม'
                       : 'Choose practical actions below. No extra form is needed.'),
@@ -765,6 +789,10 @@ class _RiskSummaryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = Color(result.userScoreColor);
+    final scoreTextColor =
+        ThemeData.estimateBrightnessForColor(color) == Brightness.light
+            ? const Color(0xFF263238)
+            : Colors.white;
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -781,7 +809,7 @@ class _RiskSummaryCard extends StatelessWidget {
                     '${result.userScore}',
                     maxLines: 1,
                     style: TextStyle(
-                      color: Colors.white,
+                      color: scoreTextColor,
                       fontSize: compact ? 30 : 34,
                       fontWeight: FontWeight.bold,
                     ),

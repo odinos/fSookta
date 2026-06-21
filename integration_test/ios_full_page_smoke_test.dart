@@ -1,6 +1,9 @@
 import 'dart:async';
+import 'dart:io';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -25,14 +28,20 @@ import 'package:fsookta/screens/onboarding/avatar_selection_screen.dart';
 import 'package:fsookta/screens/onboarding/language_selection_screen.dart';
 import 'package:fsookta/screens/onboarding/setup_screen.dart';
 
-const _capturePause =
-    bool.fromEnvironment('SOOKTA_SMOKE_CAPTURE_PAUSE');
+const _capturePause = bool.fromEnvironment('SOOKTA_SMOKE_CAPTURE_PAUSE');
+const _writeFileScreenshots =
+    bool.fromEnvironment('SOOKTA_WRITE_FILE_SCREENSHOTS');
+const _finalCopyPause = bool.fromEnvironment('SOOKTA_FINAL_COPY_PAUSE');
+
+final _screenCaptureKey = GlobalKey();
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
   testWidgets('iOS full-page smoke renders every primary screen',
       (tester) async {
+    await _prepareFileScreenshotDirectory();
+
     final prefs = await SharedPreferences.getInstance();
     await prefs.clear();
 
@@ -44,7 +53,12 @@ void main() {
     };
     addTearDown(() => FlutterError.onError = previousOnError);
 
-    await tester.pumpWidget(const SooktaApp());
+    await tester.pumpWidget(
+      RepaintBoundary(
+        key: _screenCaptureKey,
+        child: const SooktaApp(),
+      ),
+    );
     await _pumpFor(tester, const Duration(seconds: 2));
 
     final context = tester.element(find.byType(MaterialApp));
@@ -71,6 +85,16 @@ void main() {
       language: AppLanguage.en,
       flutterErrors: flutterErrors,
     );
+
+    if (_finalCopyPause) {
+      // Keep the iOS test host alive long enough for host-side tooling to copy
+      // file screenshots out of the app data container before Flutter test
+      // cleanup removes the temporary install.
+      // ignore: avoid_print
+      print(
+          'IOS_FILE_SCREENSHOT_COPY_READY: ${_fileScreenshotDirectory().path}');
+      await Future<void>.delayed(const Duration(seconds: 90));
+    }
   });
 }
 
@@ -315,6 +339,7 @@ Future<void> _visit(
     print('ANDROID_SMOKE_CAPTURE_READY: ${_screenshotName(label)}');
     await Future<void>.delayed(const Duration(milliseconds: 1800));
   }
+  await _writeFileScreenshot(tester, label);
 }
 
 String _screenshotName(String label) {
@@ -430,6 +455,50 @@ Future<void> _waitForHydration(
   for (var i = 0; i < 30 && !state.hydrated; i += 1) {
     await _pumpFor(tester, const Duration(milliseconds: 100));
   }
+}
+
+Directory _fileScreenshotDirectory() {
+  final home = Platform.environment['HOME'];
+  if (home == null || home.isEmpty) {
+    return Directory('${Directory.systemTemp.path}/sookta_ios_screenshots');
+  }
+  return Directory('$home/Documents/sookta_ios_screenshots');
+}
+
+Future<void> _prepareFileScreenshotDirectory() async {
+  if (!_writeFileScreenshots) return;
+  final directory = _fileScreenshotDirectory();
+  if (directory.existsSync()) {
+    await directory.delete(recursive: true);
+  }
+  await directory.create(recursive: true);
+  // ignore: avoid_print
+  print('IOS_FILE_SCREENSHOT_DIR: ${directory.path}');
+}
+
+Future<void> _writeFileScreenshot(
+  WidgetTester tester,
+  String label,
+) async {
+  if (!_writeFileScreenshots) return;
+  await tester.pump(const Duration(milliseconds: 100));
+  final renderObject = _screenCaptureKey.currentContext?.findRenderObject();
+  if (renderObject is! RenderRepaintBoundary) {
+    throw StateError('Unable to find root RepaintBoundary for $label');
+  }
+  final image = await renderObject.toImage(
+    pixelRatio: tester.view.devicePixelRatio,
+  );
+  final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+  image.dispose();
+  if (byteData == null) {
+    throw StateError('Unable to encode screenshot for $label');
+  }
+  final name = _screenshotName(label);
+  final file = File('${_fileScreenshotDirectory().path}/$name.png');
+  await file.writeAsBytes(byteData.buffer.asUint8List(), flush: true);
+  // ignore: avoid_print
+  print('IOS_FILE_SCREENSHOT_SAVED: ${file.path}');
 }
 
 void _seedState(SooktaAppState state) {

@@ -25,12 +25,14 @@ import 'initial_risk_screen.dart';
 class EvaluationFormScreen extends StatefulWidget {
   const EvaluationFormScreen({
     required this.activity,
+    this.initiallyShowAdvancedDetails = false,
     super.key,
   });
 
   static const routeName = '/evaluation-form';
 
   final SooktaActivity activity;
+  final bool initiallyShowAdvancedDetails;
 
   @override
   State<EvaluationFormScreen> createState() => _EvaluationFormScreenState();
@@ -40,8 +42,6 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
   final horizontalController = TextEditingController(text: '25');
   final verticalController = TextEditingController(text: '75');
   final transportController = TextEditingController(text: '4');
-  final initialForceController = TextEditingController(text: '18');
-  final sustainForceController = TextEditingController(text: '8');
   final imagePicker = ImagePicker();
   final poseService = PoseEstimationService();
   final videoFrameService = const VideoFrameExtractionService();
@@ -58,10 +58,14 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
   var selectedStaticHoldLevel = 0;
   var selectedWorkDaysPerWeek = 3.0;
   var selectedLoadWeight = 10.0;
+  var selectedPushPullDistance = 10.0;
+  var selectedInitialForce = 18.0;
+  var selectedSustainForce = 10.0;
   var showAdvancedDetails = false;
   var poseBusy = false;
   var poseAssessmentReady = false;
   String? poseStatus;
+  late String selectedToolId;
   AiRiskAlert? latestXGBoostAlert;
   MotionAnalysisSummary? latestMotionSummary;
   var latestCaptureSourceKind = 'photo_set';
@@ -80,6 +84,8 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
   void initState() {
     super.initState();
     selectedJobType = widget.activity.defaultJobType;
+    selectedToolId = widget.activity.defaultToolOption.id;
+    showAdvancedDetails = widget.initiallyShowAdvancedDetails;
     _applyActivityDefaults();
   }
 
@@ -106,8 +112,9 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
         selectedDurationHours = 2.0;
         selectedFrequency = 0.2;
         selectedWorkDaysPerWeek = 5.0;
-        initialForceController.text = '12';
-        sustainForceController.text = '6';
+        selectedPushPullDistance = 20.0;
+        selectedInitialForce = 18.0;
+        selectedSustainForce = 10.0;
         rebaInput = rebaInput.copyWith(
           activityScore: 1,
           loadScore: 1,
@@ -135,6 +142,9 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
         selectedFrequency = 2.0;
         selectedWorkDaysPerWeek = 4.0;
         selectedLoadWeight = 20.0;
+        selectedPushPullDistance = 30.0;
+        selectedInitialForce = 20.0;
+        selectedSustainForce = 12.0;
         transportController.text = '8';
         rebaInput = rebaInput.copyWith(
           activityScore: 1,
@@ -142,11 +152,10 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
           couplingScore: 1,
         );
     }
+    _applySelectedToolDefaults();
     rebaInput = rebaInput.copyWith(
       activityScore: _activityScoreFromWorkload(),
-      loadScore: selectedJobType == JobType.lifting
-          ? _loadScoreFromKg(selectedLoadWeight)
-          : rebaInput.loadScore,
+      loadScore: _loadScoreFromKg(selectedLoadWeight),
     );
   }
 
@@ -155,8 +164,6 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
     horizontalController.dispose();
     verticalController.dispose();
     transportController.dispose();
-    initialForceController.dispose();
-    sustainForceController.dispose();
     poseService.dispose();
     xGBoostPredictor?.dispose();
     super.dispose();
@@ -194,6 +201,10 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
               durationHours: selectedDurationHours,
               frequency: selectedFrequency,
               loadWeight: selectedLoadWeight,
+              toolLabel: selectedTool.label(thai: thai),
+              initialForce: selectedInitialForce,
+              sustainForce: selectedSustainForce,
+              pushPullDistance: selectedPushPullDistance,
             ),
             const SizedBox(height: 16),
             _ImageSlots(
@@ -219,6 +230,10 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
               durationHours: selectedDurationHours,
               frequency: selectedFrequency,
               loadWeight: selectedLoadWeight,
+              toolLabel: selectedTool.label(thai: thai),
+              initialForce: selectedInitialForce,
+              sustainForce: selectedSustainForce,
+              pushPullDistance: selectedPushPullDistance,
               onAnalyze: canAnalyze ? _analyze : null,
             ),
             if (latestFrameAnalyses.isNotEmpty) ...[
@@ -238,12 +253,14 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
                   setState(() => showAdvancedDetails = value),
               children: [
                 _SectionCard(
-                  title: thai ? 'ข้อมูลสำหรับนักวิจัย' : 'Research Details',
+                  title: thai
+                      ? 'ข้อมูลหน้างานที่ใช้คำนวณ'
+                      : 'Work Details Used for Scoring',
                   children: [
                     Text(
                       thai
-                          ? 'ระบบตั้งค่าให้แล้วจากกิจกรรมและรูปภาพ ปรับเฉพาะเมื่อทราบข้อมูลจริง'
-                          : 'The app pre-fills these values from the activity and photo. Adjust only when known.',
+                          ? 'ชาวสวนหรือเจ้าหน้าที่สามารถเลือกค่าที่ตรงกับงานจริง เช่น น้ำหนัก ระยะเวลา ความถี่ หรือแรงดัน/ลาก เพราะค่าเหล่านี้มีผลต่อคะแนน REBA และ ISO11228 หากไม่แน่ใจให้ใช้ค่าเริ่มต้น'
+                          : 'Farmers or staff can choose the values that match the real task, such as load, duration, frequency, or push/pull force. These values affect REBA and ISO11228 scores. If unsure, keep the default values.',
                       style: const TextStyle(color: Colors.black54),
                     ),
                     const SizedBox(height: 12),
@@ -269,6 +286,9 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
                       onSelectionChanged: (value) {
                         setState(() {
                           selectedJobType = value.first;
+                          rebaInput = rebaInput.copyWith(
+                            loadScore: _loadScoreFromKg(selectedLoadWeight),
+                          );
                           poseStatus = null;
                           poseAssessmentReady = false;
                         });
@@ -316,11 +336,23 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
                       items: {
                         1.0: thai ? '1-2 วัน/สัปดาห์' : '1-2 days/week',
                         3.0: thai ? '3-4 วัน/สัปดาห์' : '3-4 days/week',
+                        4.0: thai ? '4 วัน/สัปดาห์' : '4 days/week',
                         5.0: thai ? '5 วัน/สัปดาห์' : '5 days/week',
                         6.0: thai ? '6-7 วัน/สัปดาห์' : '6-7 days/week',
                       },
                       onChanged: (value) =>
                           setState(() => selectedWorkDaysPerWeek = value),
+                    ),
+                    _ChoiceRow<String>(
+                      label: thai
+                          ? 'เครื่องมือ/น้ำหนักที่ใช้'
+                          : 'Tool / load used',
+                      value: selectedToolId,
+                      items: {
+                        for (final option in widget.activity.toolOptions)
+                          option.id: option.label(thai: thai),
+                      },
+                      onChanged: _setTool,
                     ),
                     _ChoiceRow<int>(
                       label: thai ? 'คุณภาพการจับ' : 'Coupling quality',
@@ -339,16 +371,7 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
                       _ChoiceRow<double>(
                         label: thai ? 'น้ำหนักโดยประมาณ' : 'Estimated load',
                         value: selectedLoadWeight,
-                        items: {
-                          5.0: thai ? 'เบา (5 กก.)' : 'Light (5 kg)',
-                          10.0: thai ? 'ปานกลาง (10 กก.)' : 'Medium (10 kg)',
-                          15.0: thai
-                              ? 'ค่อนข้างหนัก (15 กก.)'
-                              : 'Quite heavy (15 kg)',
-                          20.0: thai ? 'หนัก (20 กก.)' : 'Heavy (20 kg)',
-                          25.0:
-                              thai ? 'หนักมาก (25 กก.)' : 'Very heavy (25 kg)',
-                        },
+                        items: _estimatedLoadOptions(thai),
                         onChanged: _setLoadWeight,
                       ),
                   ],
@@ -372,8 +395,12 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
                     horizontalController: horizontalController,
                     verticalController: verticalController,
                     transportController: transportController,
-                    initialForceController: initialForceController,
-                    sustainForceController: sustainForceController,
+                    initialForce: selectedInitialForce,
+                    sustainForce: selectedSustainForce,
+                    pushPullDistance: selectedPushPullDistance,
+                    onInitialForceChanged: _setInitialForce,
+                    onSustainForceChanged: _setSustainForce,
+                    onPushPullDistanceChanged: _setPushPullDistance,
                   ),
               ],
             ),
@@ -764,15 +791,22 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
       jobType: selectedJobType,
       gender: gender,
       dailyIncome: dailyIncome,
+      toolId: selectedTool.id,
+      toolLabelTh: selectedTool.labelTh,
+      toolLabelEn: selectedTool.labelEn,
+      toolWeightKg: selectedTool.weightKg,
+      toolWeightBandCode: selectedTool.weightBandCode,
       loadWeight: selectedLoadWeight,
       horizontalDist: _number(horizontalController, 25),
       verticalHeight: _number(verticalController, 75),
       liftFrequency: selectedFrequency,
       durationHours: selectedDurationHours,
       workDaysPerWeek: selectedWorkDaysPerWeek,
-      transportDistance: _number(transportController, 4),
-      initialForce: _number(initialForceController, 18),
-      sustainForce: _number(sustainForceController, 8),
+      transportDistance: selectedJobType == JobType.pushPull
+          ? selectedPushPullDistance
+          : _number(transportController, 4),
+      initialForce: selectedInitialForce,
+      sustainForce: selectedSustainForce,
     );
     final rebaData = rebaInput.copyWith(dailyIncome: dailyIncome);
     final rebaResult = ErgoCalculator.calculateRebaRisk(rebaData);
@@ -871,6 +905,34 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
     });
   }
 
+  void _setPushPullDistance(double value) {
+    setState(() => selectedPushPullDistance = value);
+  }
+
+  void _setInitialForce(double value) {
+    setState(() => selectedInitialForce = value);
+  }
+
+  void _setSustainForce(double value) {
+    setState(() => selectedSustainForce = value);
+  }
+
+  ActivityToolOption get selectedTool =>
+      widget.activity.toolOptionById(selectedToolId);
+
+  void _applySelectedToolDefaults() {
+    final tool = selectedTool;
+    selectedLoadWeight = tool.weightKg;
+    rebaInput = rebaInput.copyWith(loadScore: _loadScoreFromKg(tool.weightKg));
+  }
+
+  void _setTool(String value) {
+    setState(() {
+      selectedToolId = value;
+      _applySelectedToolDefaults();
+    });
+  }
+
   void _syncActivityScore() {
     rebaInput = rebaInput.copyWith(
       activityScore: _activityScoreFromWorkload(),
@@ -879,23 +941,46 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
 
   int _activityScoreFromWorkload() {
     var score = 0;
-    if (selectedDurationHours >= 2 ||
-        selectedFrequency >= 2 ||
-        selectedStaticHoldLevel >= 1) {
+    if (selectedStaticHoldLevel >= 2) {
       score += 1;
     }
-    if (selectedDurationHours >= 4 ||
-        selectedFrequency >= 12 ||
-        selectedStaticHoldLevel >= 2) {
+    if (selectedFrequency > 4) {
       score += 1;
     }
-    return score.clamp(0, 2).toInt();
+    if (selectedFrequency >= 12 || selectedDurationHours >= 4) {
+      score += 1;
+    }
+    return score.clamp(0, 3).toInt();
   }
 
   int _loadScoreFromKg(double kg) {
     if (kg <= 5) return 0;
     if (kg <= 15) return 1;
     return 2;
+  }
+
+  Map<double, String> _estimatedLoadOptions(bool thai) {
+    final options = <double, String>{
+      5.0: thai ? 'เบา (5 กก.)' : 'Light (5 kg)',
+      10.0: thai ? 'ปานกลาง (10 กก.)' : 'Medium (10 kg)',
+      15.0: thai ? 'ค่อนข้างหนัก (15 กก.)' : 'Quite heavy (15 kg)',
+      20.0: thai ? 'หนัก (20 กก.)' : 'Heavy (20 kg)',
+      25.0: thai ? 'หนักมาก (25 กก.)' : 'Very heavy (25 kg)',
+    };
+    if (!options.containsKey(selectedLoadWeight)) {
+      final formatted = _formatKg(selectedLoadWeight);
+      options[selectedLoadWeight] = thai
+          ? 'ตามเครื่องมือที่เลือก ($formatted กก.)'
+          : 'From selected tool ($formatted kg)';
+    }
+    return Map<double, String>.fromEntries(
+      options.entries.toList()..sort((a, b) => a.key.compareTo(b.key)),
+    );
+  }
+
+  String _formatKg(double kg) {
+    if (kg == kg.roundToDouble()) return kg.round().toString();
+    return kg.toStringAsFixed(1);
   }
 
   Future<List<PoseRebaFrameAnalysis>> _analyzePoseFrames(
@@ -1315,6 +1400,10 @@ class _EvaluationVoiceGuide extends StatelessWidget {
     required this.durationHours,
     required this.frequency,
     required this.loadWeight,
+    required this.toolLabel,
+    required this.initialForce,
+    required this.sustainForce,
+    required this.pushPullDistance,
   });
 
   final bool thai;
@@ -1323,12 +1412,16 @@ class _EvaluationVoiceGuide extends StatelessWidget {
   final double durationHours;
   final double frequency;
   final double loadWeight;
+  final String toolLabel;
+  final double initialForce;
+  final double sustainForce;
+  final double pushPullDistance;
 
   @override
   Widget build(BuildContext context) {
     final guide = thai
-        ? 'กิจกรรม $activityName ขั้นตอนนี้ให้ถ่ายรูป เลือกรูป หรือถ่ายวิดีโอไม่เกินยี่สิบวินาทีที่เห็นคนทำงานชัดเจน ระบบจะอ่านท่าทางและตั้งค่าประเมินให้อัตโนมัติ วิธีประเมินคือ ${_jobLabel(jobType, true)} ค่าเริ่มต้นคือ ${_defaultSummary(true)}'
-        : 'Activity $activityName. Take photos, choose photos, or record a video up to twenty seconds that clearly shows the worker. The app reads posture and prepares the assessment automatically. Assessment method is ${_jobLabel(jobType, false)}. Defaults are ${_defaultSummary(false)}.';
+        ? 'กิจกรรม $activityName ขั้นตอนนี้ให้ถ่ายรูป เลือกรูป หรือถ่ายวิดีโอไม่เกินยี่สิบวินาทีที่เห็นคนทำงานชัดเจน ระบบจะอ่านท่าทางและตั้งค่าประเมินให้อัตโนมัติ วิธีประเมินคือ ${_jobLabel(jobType, true)} ค่าเริ่มต้นคือ ${_defaultSummary(true)} เครื่องมือคือ $toolLabel'
+        : 'Activity $activityName. Take photos, choose photos, or record a video up to twenty seconds that clearly shows the worker. The app reads posture and prepares the assessment automatically. Assessment method is ${_jobLabel(jobType, false)}. Defaults are ${_defaultSummary(false)}. Tool is $toolLabel.';
     return Card(
       color: const Color(0xFFEAF5EF),
       child: Padding(
@@ -1371,6 +1464,11 @@ class _EvaluationVoiceGuide extends StatelessWidget {
       return thai
           ? '$duration, $repetition, น้ำหนักประมาณ ${loadWeight.round()} กิโลกรัม'
           : '$duration, $repetition, about ${loadWeight.round()} kilograms';
+    }
+    if (jobType == JobType.pushPull) {
+      return thai
+          ? '$duration, $repetition, แรงเริ่มต้น ${initialForce.round()} นิวตัน แรงต่อเนื่อง ${sustainForce.round()} นิวตัน ระยะ ${pushPullDistance.round()} เมตร'
+          : '$duration, $repetition, initial force ${initialForce.round()} newtons, sustained force ${sustainForce.round()} newtons, distance ${pushPullDistance.round()} meters';
     }
     return '$duration, $repetition';
   }
@@ -1586,6 +1684,10 @@ class _SimpleAssessmentCard extends StatelessWidget {
     required this.durationHours,
     required this.frequency,
     required this.loadWeight,
+    required this.toolLabel,
+    required this.initialForce,
+    required this.sustainForce,
+    required this.pushPullDistance,
     required this.onAnalyze,
   });
 
@@ -1599,6 +1701,10 @@ class _SimpleAssessmentCard extends StatelessWidget {
   final double durationHours;
   final double frequency;
   final double loadWeight;
+  final String toolLabel;
+  final double initialForce;
+  final double sustainForce;
+  final double pushPullDistance;
   final VoidCallback? onAnalyze;
 
   @override
@@ -1612,8 +1718,8 @@ class _SimpleAssessmentCard extends StatelessWidget {
             ? Colors.red.shade700
             : Colors.amber.shade700;
     final statusSpeech = thai
-        ? '${ready ? 'ระบบตั้งค่าประเมินให้แล้ว' : blocked ? 'ยังประเมินไม่ได้' : 'ถ่ายรูปหรือวิดีโอก่อน แล้วระบบจะช่วยคำนวณ'} ${poseStatus ?? 'ต้องมีรูปหรือวิดีโอที่เห็นบุคคลและท่าทางชัดเจนก่อน ระบบจึงจะแสดงตัวเลขประเมิน'} กิจกรรม $activityName วิธีประเมิน ${_jobLabel(jobType, true)} ค่าพื้นฐาน ${_defaultSummary(true)}'
-        : '${ready ? 'The app prepared the assessment.' : blocked ? 'Cannot assess yet.' : 'Take a photo or video and the app will calculate.'} ${poseStatus ?? 'A clear person-posture photo or video is required before the app shows assessment numbers.'} Activity $activityName. Assessment method ${_jobLabel(jobType, false)}. Defaults ${_defaultSummary(false)}.';
+        ? '${ready ? 'ระบบตั้งค่าประเมินให้แล้ว' : blocked ? 'ยังประเมินไม่ได้' : 'ถ่ายรูปหรือวิดีโอก่อน แล้วระบบจะช่วยคำนวณ'} ${poseStatus ?? 'ต้องมีรูปหรือวิดีโอที่เห็นบุคคลและท่าทางชัดเจนก่อน ระบบจึงจะแสดงตัวเลขประเมิน'} กิจกรรม $activityName วิธีประเมิน ${_jobLabel(jobType, true)} ค่าพื้นฐาน ${_defaultSummary(true)} เครื่องมือ $toolLabel'
+        : '${ready ? 'The app prepared the assessment.' : blocked ? 'Cannot assess yet.' : 'Take a photo or video and the app will calculate.'} ${poseStatus ?? 'A clear person-posture photo or video is required before the app shows assessment numbers.'} Activity $activityName. Assessment method ${_jobLabel(jobType, false)}. Defaults ${_defaultSummary(false)}. Tool $toolLabel.';
     return Card(
       color: ready
           ? const Color(0xFFEFF8EF)
@@ -1696,6 +1802,11 @@ class _SimpleAssessmentCard extends StatelessWidget {
               label: thai ? 'ค่าพื้นฐาน' : 'Defaults',
               value: _defaultSummary(thai),
             ),
+            _SimpleFactRow(
+              icon: Icons.inventory_2_outlined,
+              label: thai ? 'เครื่องมือ/น้ำหนัก' : 'Tool / load',
+              value: toolLabel,
+            ),
             const SizedBox(height: 14),
             FilledButton.icon(
               onPressed: onAnalyze,
@@ -1725,6 +1836,11 @@ class _SimpleAssessmentCard extends StatelessWidget {
       return thai
           ? '$duration, $repetition, น้ำหนักประมาณ ${loadWeight.round()} กก.'
           : '$duration, $repetition, about ${loadWeight.round()} kg';
+    }
+    if (jobType == JobType.pushPull) {
+      return thai
+          ? '$duration, $repetition, แรง ${initialForce.round()}/${sustainForce.round()} N, ระยะ ${pushPullDistance.round()} ม.'
+          : '$duration, $repetition, force ${initialForce.round()}/${sustainForce.round()} N, distance ${pushPullDistance.round()} m';
     }
     return '$duration, $repetition';
   }
@@ -1794,13 +1910,13 @@ class _AdvancedDetailsCard extends StatelessWidget {
         onExpansionChanged: onExpansionChanged,
         leading: const Icon(Icons.tune, color: SooktaColors.darkGreen),
         title: Text(
-          thai ? 'ปรับรายละเอียด ถ้าทราบ' : 'Adjust Details if Known',
+          thai ? 'ปรับรายละเอียดงานจริง' : 'Adjust Real Work Details',
           style: const TextStyle(fontWeight: FontWeight.bold),
         ),
         subtitle: Text(
           thai
-              ? 'ส่วนนี้ไม่จำเป็นสำหรับผู้ใช้ทั่วไป'
-              : 'Most users can leave this unchanged.',
+              ? 'เลือกค่าที่ใกล้เคียงงานจริงเพื่อให้คะแนนแม่นขึ้น'
+              : 'Choose values close to the real task for more accurate scoring.',
         ),
         childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
         children: children,
@@ -2277,7 +2393,7 @@ class _RebaCard extends StatelessWidget {
           label: thai ? 'กิจกรรมซ้ำ/ค้างท่า' : 'Activity',
           value: input.activityScore,
           min: 0,
-          max: 2,
+          max: 3,
           onChanged: (value) => onChanged(input.copyWith(activityScore: value)),
         ),
       ],
@@ -2315,8 +2431,12 @@ class _IsoCard extends StatelessWidget {
     required this.horizontalController,
     required this.verticalController,
     required this.transportController,
-    required this.initialForceController,
-    required this.sustainForceController,
+    required this.initialForce,
+    required this.sustainForce,
+    required this.pushPullDistance,
+    required this.onInitialForceChanged,
+    required this.onSustainForceChanged,
+    required this.onPushPullDistanceChanged,
   });
 
   final bool thai;
@@ -2324,8 +2444,12 @@ class _IsoCard extends StatelessWidget {
   final TextEditingController horizontalController;
   final TextEditingController verticalController;
   final TextEditingController transportController;
-  final TextEditingController initialForceController;
-  final TextEditingController sustainForceController;
+  final double initialForce;
+  final double sustainForce;
+  final double pushPullDistance;
+  final ValueChanged<double> onInitialForceChanged;
+  final ValueChanged<double> onSustainForceChanged;
+  final ValueChanged<double> onPushPullDistanceChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -2349,13 +2473,53 @@ class _IsoCard extends StatelessWidget {
             label: thai ? 'ระยะทางขนย้าย (m)' : 'Transport distance (m)',
           ),
         ] else ...[
-          _NumberField(
-            controller: initialForceController,
-            label: thai ? 'แรงเริ่มต้น (N)' : 'Initial force (N)',
+          Text(
+            thai
+                ? 'ค่าดัน/ลากเหล่านี้กล้องอ่านไม่ได้โดยตรง กรุณาเลือกค่าที่ใกล้เคียงกับงานจริงที่สุด หากไม่แน่ใจให้ใช้ค่าเริ่มต้น'
+                : 'Photos and video cannot directly measure these push/pull values. Choose the closest real-task values. If unsure, keep the defaults.',
+            style: const TextStyle(color: Colors.black54),
           ),
-          _NumberField(
-            controller: sustainForceController,
-            label: thai ? 'แรงต่อเนื่อง (N)' : 'Sustained force (N)',
+          const SizedBox(height: 10),
+          _ChoiceRow<double>(
+            label: thai ? 'แรงเริ่มต้นดัน/ลาก' : 'Initial push/pull force',
+            value: initialForce,
+            items: {
+              8.0: thai ? 'เบามาก (8 N)' : 'Very light (8 N)',
+              12.0: thai ? 'เบา (12 N)' : 'Light (12 N)',
+              18.0: thai ? 'ปานกลาง (18 N)' : 'Moderate (18 N)',
+              20.0: thai
+                  ? 'ค่าเริ่มต้นงานขนย้าย (20 N)'
+                  : 'Transport default (20 N)',
+              25.0: thai ? 'หนัก (25 N)' : 'Heavy (25 N)',
+              35.0: thai ? 'หนักมาก (35 N)' : 'Very heavy (35 N)',
+            },
+            onChanged: onInitialForceChanged,
+          ),
+          _ChoiceRow<double>(
+            label: thai ? 'แรงต่อเนื่องดัน/ลาก' : 'Sustained push/pull force',
+            value: sustainForce,
+            items: {
+              4.0: thai ? 'เบามาก (4 N)' : 'Very light (4 N)',
+              6.0: thai ? 'เบา (6 N)' : 'Light (6 N)',
+              10.0: thai ? 'ปานกลาง (10 N)' : 'Moderate (10 N)',
+              12.0: thai
+                  ? 'ค่าเริ่มต้นงานขนย้าย (12 N)'
+                  : 'Transport default (12 N)',
+              15.0: thai ? 'หนัก (15 N)' : 'Heavy (15 N)',
+              22.0: thai ? 'หนักมาก (22 N)' : 'Very heavy (22 N)',
+            },
+            onChanged: onSustainForceChanged,
+          ),
+          _ChoiceRow<double>(
+            label: thai ? 'ระยะดัน/ลาก' : 'Push/pull distance',
+            value: pushPullDistance,
+            items: {
+              2.0: thai ? 'ใกล้มาก (ไม่เกิน 2 ม.)' : 'Very short (up to 2 m)',
+              10.0: thai ? 'ใกล้ (2-10 ม.)' : 'Short (2-10 m)',
+              20.0: thai ? 'ปานกลาง (10-20 ม.)' : 'Moderate (10-20 m)',
+              30.0: thai ? 'ไกล (>20 ม.)' : 'Long (>20 m)',
+            },
+            onChanged: onPushPullDistanceChanged,
           ),
         ],
       ],
@@ -2438,7 +2602,9 @@ class _ChoiceRow<T> extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: DropdownButtonFormField<T>(
+        key: ValueKey<String>('${label}_${value.hashCode}'),
         initialValue: value,
+        isExpanded: true,
         decoration: InputDecoration(
           labelText: label,
           border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
@@ -2447,7 +2613,11 @@ class _ChoiceRow<T> extends StatelessWidget {
             .map(
               (entry) => DropdownMenuItem<T>(
                 value: entry.key,
-                child: Text(entry.value),
+                child: Text(
+                  entry.value,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
             )
             .toList(),

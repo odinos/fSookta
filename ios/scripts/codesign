@@ -1,0 +1,36 @@
+#!/bin/sh
+set -eu
+
+clean_path() {
+  target="$1"
+  [ -e "$target" ] || return 0
+
+  clean_root="$target"
+  case "$target" in
+    *.framework/*)
+      clean_root="${target%%.framework/*}.framework"
+      ;;
+  esac
+
+  find "$clean_root" \( -name '.DS_Store' -o -name '._*' -o -name '__MACOSX' \) \
+    -exec rm -rf {} + 2>/dev/null || true
+  find "$clean_root" -exec xattr -d com.apple.FinderInfo {} \; 2>/dev/null || true
+  find "$clean_root" -exec xattr -d com.apple.ResourceFork {} \; 2>/dev/null || true
+  find "$clean_root" -exec xattr -d 'com.apple.fileprovider.fpfs#P' {} \; 2>/dev/null || true
+  find "$clean_root" -exec xattr -d com.apple.provenance {} \; 2>/dev/null || true
+  find "$clean_root" -exec xattr -d com.apple.quarantine {} \; 2>/dev/null || true
+
+  # File Provider can stamp the framework directory again after recursive
+  # traversal, so strip the root once more immediately before codesign.
+  xattr -d com.apple.FinderInfo "$clean_root" 2>/dev/null || true
+  xattr -d com.apple.ResourceFork "$clean_root" 2>/dev/null || true
+  xattr -d 'com.apple.fileprovider.fpfs#P' "$clean_root" 2>/dev/null || true
+  xattr -d com.apple.provenance "$clean_root" 2>/dev/null || true
+  xattr -d com.apple.quarantine "$clean_root" 2>/dev/null || true
+}
+
+for arg in "$@"; do
+  clean_path "$arg"
+done
+
+exec /usr/bin/codesign "$@"

@@ -110,11 +110,28 @@ class ProfileTab extends StatelessWidget {
             const SizedBox(height: 12),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: _StatCard(
-                title: text.annualIncome,
-                value:
-                    profile.incomePerYear.isEmpty ? '-' : profile.incomePerYear,
-                unit: text.baht,
+              child: Row(
+                children: [
+                  Expanded(
+                    child: _StatCard(
+                      title: 'BMI',
+                      value: profile.bmi == null
+                          ? '-'
+                          : profile.bmi!.toStringAsFixed(1),
+                      unit: profile.bmiCategoryLabel(thai: text.isThai),
+                    ),
+                  ),
+                  SizedBox(width: statSpacing),
+                  Expanded(
+                    child: _StatCard(
+                      title: text.annualIncome,
+                      value: profile.incomePerYear.isEmpty
+                          ? '-'
+                          : profile.incomePerYear,
+                      unit: text.baht,
+                    ),
+                  ),
+                ],
               ),
             ),
             const SizedBox(height: 12),

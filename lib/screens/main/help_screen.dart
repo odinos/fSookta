@@ -273,7 +273,7 @@ const _thaiHelpSteps = [
   _HelpStep(
     title: '4. ตรวจข้อมูลก่อนดูผล',
     body:
-        'ผู้ใช้ทั่วไปไม่จำเป็นต้องกรอกตัวเลขเอง ถ้าต้องการเก็บข้อมูลงานวิจัยให้ละเอียด เจ้าหน้าที่สามารถเปิดส่วนปรับรายละเอียดเพื่อใส่น้ำหนัก ระยะทาง ความถี่ ระยะเวลา หรือแรงดันลากได้',
+        'เปิดส่วนปรับรายละเอียดเพื่อเลือกค่าน้ำหนัก ระยะทาง ความถี่ ระยะเวลา หรือแรงดันลากที่ใกล้เคียงงานจริงที่สุด ค่าเหล่านี้มีผลต่อคะแนน REBA และ ISO11228 หากไม่แน่ใจใช้ค่าเริ่มต้นได้',
     icon: Icons.tune_outlined,
   ),
   _HelpStep(
@@ -322,7 +322,7 @@ const _englishHelpSteps = [
   _HelpStep(
     title: '4. Review before viewing results',
     body:
-        'General users do not need to enter numbers manually. Research staff can open the detail section to record weight, distance, frequency, duration, or push/pull force when those values are available.',
+        'Open the detail section to choose load, distance, frequency, duration, or push/pull force values that are closest to the real task. These values affect REBA and ISO11228 scores. If unsure, keep the defaults.',
     icon: Icons.tune_outlined,
   ),
   _HelpStep(
