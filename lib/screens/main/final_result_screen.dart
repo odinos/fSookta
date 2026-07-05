@@ -38,38 +38,59 @@ class FinalResultScreen extends StatefulWidget {
 
 class _FinalResultScreenState extends State<FinalResultScreen> {
   EvaluationHistoryRecord? savedRecord;
+  bool savingRecord = false;
   bool exporting = false;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || savedRecord != null) return;
-      final strings = _strings(context);
-      setState(() {
-        savedRecord = AppStateScope.of(context).saveEvaluation(
-          activity: widget.bundle.activity,
-          activityName: widget.bundle.activityName,
-          before: widget.bundle.before,
-          after: widget.bundle.after,
-          selectedSuggestions:
-              widget.bundle.selectedSuggestionKeys.map(strings.get).toList(),
-          assessmentBreakdown: widget.bundle.breakdown,
-        );
-      });
-      final record = savedRecord;
-      if (record != null) {
-        unawaited(FirebaseTelemetryService.logAssessmentSaved(
-          activity: widget.bundle.activity.name,
-          beforeRisk: widget.bundle.before.riskLevel.name,
-          afterRisk: widget.bundle.after.riskLevel.name,
-          beforeScore: widget.bundle.before.userScore,
-          afterScore: widget.bundle.after.userScore,
-          suggestionCount: widget.bundle.selectedSuggestionKeys.length,
-        ));
-        unawaited(_showDailyPredictionAlertIfNeeded(record));
-      }
+      unawaited(_saveResultOnce());
     });
+  }
+
+  Future<void> _saveResultOnce() async {
+    if (!mounted || savedRecord != null || savingRecord) return;
+    savingRecord = true;
+    final strings = _strings(context);
+    late final EvaluationHistoryRecord record;
+    try {
+      record = await AppStateScope.of(context).saveEvaluation(
+        activity: widget.bundle.activity,
+        activityName: widget.bundle.activityName,
+        before: widget.bundle.before,
+        after: widget.bundle.after,
+        selectedSuggestions:
+            widget.bundle.selectedSuggestionKeys.map(strings.get).toList(),
+        assessmentBreakdown: widget.bundle.breakdown,
+        afterAssessmentBreakdown: widget.bundle.afterBreakdown,
+      );
+    } catch (error, stackTrace) {
+      FlutterError.reportError(FlutterErrorDetails(
+        exception: error,
+        stack: stackTrace,
+        library: 'sookta final result',
+        context: ErrorDescription('saving an evaluation history record'),
+      ));
+      if (mounted) {
+        setState(() => savingRecord = false);
+      }
+      return;
+    }
+    if (!mounted) return;
+    setState(() {
+      savedRecord = record;
+      savingRecord = false;
+    });
+    unawaited(FirebaseTelemetryService.logAssessmentSaved(
+      activity: widget.bundle.activity.name,
+      beforeRisk: widget.bundle.before.riskLevel.name,
+      afterRisk: widget.bundle.after.riskLevel.name,
+      beforeScore: widget.bundle.before.userScore,
+      afterScore: widget.bundle.after.userScore,
+      suggestionCount: widget.bundle.selectedSuggestionKeys.length,
+    ));
+    unawaited(_showDailyPredictionAlertIfNeeded(record));
   }
 
   Future<void> _showDailyPredictionAlertIfNeeded(
@@ -85,13 +106,12 @@ class _FinalResultScreenState extends State<FinalResultScreen> {
       final prediction = service.predictForRecords(records);
       if (!mounted || !prediction.requiresCareAlert) return;
       final thai = (state.language ?? AppLanguage.th) == AppLanguage.th;
-      final percent = (prediction.probability * 100).round();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
             thai
-                ? 'ครบ ${records.length} transaction แล้ว: ระบบพบแนวโน้มควรติดตามอาการ ($percent%)'
-                : '${records.length} transactions reached: follow-up trend detected ($percent%).',
+                ? 'ครบ ${records.length} ครั้งแล้ว: งานจริงก่อนปรับยังพบความเสี่ยงสูงหลายครั้ง ควรดูแนวโน้ม'
+                : '${records.length} records reached: high actual pre-improvement risk appears several times.',
           ),
           action: SnackBarAction(
             label: thai ? 'ดูผล' : 'View',
@@ -113,6 +133,7 @@ class _FinalResultScreenState extends State<FinalResultScreen> {
     final strings = _strings(context);
     final before = widget.bundle.before;
     final after = widget.bundle.after;
+    final recordReady = savedRecord != null;
     final impactComparison = EconomicImpactService.compareBeforeAfter(
       beforeImpact: before.economicLoss,
       beforeScore: before.userScore,
@@ -216,7 +237,7 @@ class _FinalResultScreenState extends State<FinalResultScreen> {
             ResearchDisclaimerCard(thai: thai),
             const SizedBox(height: 12),
             OutlinedButton.icon(
-              onPressed: exporting
+              onPressed: exporting || !recordReady
                   ? null
                   : () => _exportForStaff(
                         context: context,
@@ -224,7 +245,7 @@ class _FinalResultScreenState extends State<FinalResultScreen> {
                         suggestions: suggestions,
                         thai: thai,
                       ),
-              icon: exporting
+              icon: exporting || !recordReady
                   ? const SizedBox(
                       width: 18,
                       height: 18,
@@ -232,9 +253,11 @@ class _FinalResultScreenState extends State<FinalResultScreen> {
                     )
                   : const Icon(Icons.download_outlined),
               label: Text(
-                thai
-                    ? 'ส่งออกไฟล์ Excel สำหรับเจ้าหน้าที่'
-                    : 'Export Excel file for staff',
+                !recordReady
+                    ? (thai ? 'กำลังบันทึกข้อมูล...' : 'Saving result...')
+                    : (thai
+                        ? 'ส่งออกไฟล์ Excel สำหรับเจ้าหน้าที่'
+                        : 'Export Excel file for staff'),
               ),
             ),
             const SizedBox(height: 16),
