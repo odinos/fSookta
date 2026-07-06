@@ -147,6 +147,7 @@ class SooktaAppState extends ChangeNotifier {
   static const _setupCompletedKey = 'sookta.setupCompleted';
   static const _historyKey = 'sookta.history';
   static const _nextHistoryIdKey = 'sookta.nextHistoryId';
+  static const _evaluationDraftKey = 'sookta.evaluationDraft';
 
   AppLanguage? _language;
   UserProfile _profile = const UserProfile();
@@ -154,6 +155,7 @@ class SooktaAppState extends ChangeNotifier {
   String? _activeProfileId;
   bool _setupCompleted = false;
   final List<EvaluationHistoryRecord> _history = [];
+  EvaluationDraft? _evaluationDraft;
   int _nextHistoryId = 1;
   bool _hydrated = false;
   Future<void>? _restoreFuture;
@@ -166,6 +168,7 @@ class SooktaAppState extends ChangeNotifier {
   bool get hydrated => _hydrated;
   bool get hasLanguage => _language != null;
   List<EvaluationHistoryRecord> get history => List.unmodifiable(_history);
+  EvaluationDraft? get evaluationDraft => _evaluationDraft;
 
   Future<void> restore() {
     return _restoreFuture ??= _restore();
@@ -246,6 +249,16 @@ class SooktaAppState extends ChangeNotifier {
             _history.map((record) => record.id).reduce((a, b) => a > b ? a : b);
         if (_nextHistoryId <= maxId) _nextHistoryId = maxId + 1;
       }
+
+      final draftJson = preferences.getString(_evaluationDraftKey);
+      if (draftJson != null) {
+        final decoded = jsonDecode(draftJson);
+        if (decoded is Map) {
+          _evaluationDraft = EvaluationDraft.fromJson(
+            Map<String, Object?>.from(decoded),
+          );
+        }
+      }
     } catch (_) {
       _language = null;
       _profile = const UserProfile();
@@ -253,6 +266,7 @@ class SooktaAppState extends ChangeNotifier {
       _activeProfileId = null;
       _setupCompleted = false;
       _history.clear();
+      _evaluationDraft = null;
       _nextHistoryId = 1;
     } finally {
       _hydrated = true;
@@ -342,6 +356,19 @@ class SooktaAppState extends ChangeNotifier {
     return _history
         .where((record) => record.farmerProfileId == profileId)
         .toList(growable: false);
+  }
+
+  Future<void> saveEvaluationDraft(EvaluationDraft draft) async {
+    _evaluationDraft = draft.copyWith(savedAt: DateTime.now());
+    await _persist();
+    notifyListeners();
+  }
+
+  Future<void> clearEvaluationDraft() async {
+    if (_evaluationDraft == null) return;
+    _evaluationDraft = null;
+    await _persist();
+    notifyListeners();
   }
 
   UserProfile profileForRecord(EvaluationHistoryRecord record) {
@@ -543,11 +570,14 @@ class SooktaAppState extends ChangeNotifier {
       assessmentBreakdown: assessmentBreakdown,
       afterAssessmentBreakdown: afterAssessmentBreakdown,
     );
+    final draftBeforeSave = _evaluationDraft;
     _history.insert(0, record);
+    _evaluationDraft = null;
     try {
       await _persist();
     } catch (_) {
       _history.removeWhere((item) => item.id == record.id);
+      _evaluationDraft = draftBeforeSave;
       if (_nextHistoryId == record.id + 1) _nextHistoryId = record.id;
       rethrow;
     }
@@ -652,6 +682,15 @@ class SooktaAppState extends ChangeNotifier {
       _historyKey,
       jsonEncode(_history.map((record) => record.toJson()).toList()),
     );
+    final draft = _evaluationDraft;
+    if (draft == null) {
+      await preferences.remove(_evaluationDraftKey);
+    } else {
+      await preferences.setString(
+        _evaluationDraftKey,
+        jsonEncode(draft.toJson()),
+      );
+    }
   }
 
   UserProfile _ensureProfileId(UserProfile profile) {

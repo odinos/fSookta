@@ -372,3 +372,166 @@ class InitialRiskPayload {
   final RebaInputData rebaInput;
   final AssessmentBreakdown? breakdown;
 }
+
+class EvaluationDraft {
+  const EvaluationDraft({
+    required this.activity,
+    required this.jobType,
+    this.selectedImagePaths = const [],
+    this.selectedToolId = '',
+    this.durationHours = 1,
+    this.frequency = 0.2,
+    this.staticHoldLevel = 0,
+    this.workDaysPerWeek = 3,
+    this.loadWeight = 10,
+    this.pushPullDistance = 10,
+    this.initialForce = 18,
+    this.sustainForce = 10,
+    this.horizontalDistanceText = '25',
+    this.verticalHeightText = '75',
+    this.transportDistanceText = '4',
+    this.showAdvancedDetails = false,
+    this.rebaInput = const RebaInputData(),
+    this.savedAt,
+  });
+
+  final SooktaActivity activity;
+  final JobType jobType;
+  final List<String> selectedImagePaths;
+  final String selectedToolId;
+  final double durationHours;
+  final double frequency;
+  final int staticHoldLevel;
+  final double workDaysPerWeek;
+  final double loadWeight;
+  final double pushPullDistance;
+  final double initialForce;
+  final double sustainForce;
+  final String horizontalDistanceText;
+  final String verticalHeightText;
+  final String transportDistanceText;
+  final bool showAdvancedDetails;
+  final RebaInputData rebaInput;
+  final DateTime? savedAt;
+
+  EvaluationDraft copyWith({
+    SooktaActivity? activity,
+    JobType? jobType,
+    List<String>? selectedImagePaths,
+    String? selectedToolId,
+    double? durationHours,
+    double? frequency,
+    int? staticHoldLevel,
+    double? workDaysPerWeek,
+    double? loadWeight,
+    double? pushPullDistance,
+    double? initialForce,
+    double? sustainForce,
+    String? horizontalDistanceText,
+    String? verticalHeightText,
+    String? transportDistanceText,
+    bool? showAdvancedDetails,
+    RebaInputData? rebaInput,
+    DateTime? savedAt,
+  }) {
+    return EvaluationDraft(
+      activity: activity ?? this.activity,
+      jobType: jobType ?? this.jobType,
+      selectedImagePaths: selectedImagePaths ?? this.selectedImagePaths,
+      selectedToolId: selectedToolId ?? this.selectedToolId,
+      durationHours: durationHours ?? this.durationHours,
+      frequency: frequency ?? this.frequency,
+      staticHoldLevel: staticHoldLevel ?? this.staticHoldLevel,
+      workDaysPerWeek: workDaysPerWeek ?? this.workDaysPerWeek,
+      loadWeight: loadWeight ?? this.loadWeight,
+      pushPullDistance: pushPullDistance ?? this.pushPullDistance,
+      initialForce: initialForce ?? this.initialForce,
+      sustainForce: sustainForce ?? this.sustainForce,
+      horizontalDistanceText:
+          horizontalDistanceText ?? this.horizontalDistanceText,
+      verticalHeightText: verticalHeightText ?? this.verticalHeightText,
+      transportDistanceText:
+          transportDistanceText ?? this.transportDistanceText,
+      showAdvancedDetails: showAdvancedDetails ?? this.showAdvancedDetails,
+      rebaInput: rebaInput ?? this.rebaInput,
+      savedAt: savedAt ?? this.savedAt,
+    );
+  }
+
+  Map<String, Object?> toJson() {
+    return {
+      'activity': activity.name,
+      'jobType': jobType.name,
+      'selectedImagePaths': selectedImagePaths,
+      'selectedToolId': selectedToolId,
+      'durationHours': durationHours,
+      'frequency': frequency,
+      'staticHoldLevel': staticHoldLevel,
+      'workDaysPerWeek': workDaysPerWeek,
+      'loadWeight': loadWeight,
+      'pushPullDistance': pushPullDistance,
+      'initialForce': initialForce,
+      'sustainForce': sustainForce,
+      'horizontalDistanceText': horizontalDistanceText,
+      'verticalHeightText': verticalHeightText,
+      'transportDistanceText': transportDistanceText,
+      'showAdvancedDetails': showAdvancedDetails,
+      'rebaInput': rebaInput.toJson(),
+      'savedAt': savedAt?.toIso8601String(),
+    };
+  }
+
+  factory EvaluationDraft.fromJson(Map<String, Object?> json) {
+    final activityName = json['activity'] as String?;
+    final jobTypeName = json['jobType'] as String?;
+    final activity = SooktaActivity.values.firstWhere(
+      (item) => item.name == activityName,
+      orElse: () => SooktaActivity.transplanting,
+    );
+    final jobType = JobType.values.firstWhere(
+      (item) => item.name == jobTypeName,
+      orElse: () => activity.defaultJobType,
+    );
+    final savedAtRaw = json['savedAt'] as String?;
+    return EvaluationDraft(
+      activity: activity,
+      jobType: jobType,
+      selectedImagePaths: (json['selectedImagePaths'] as List?)
+              ?.whereType<String>()
+              .toList(growable: false) ??
+          const [],
+      selectedToolId: json['selectedToolId'] as String? ?? '',
+      durationHours: _draftDouble(json['durationHours'], 1),
+      frequency: _draftDouble(json['frequency'], 0.2),
+      staticHoldLevel: _draftInt(json['staticHoldLevel'], 0),
+      workDaysPerWeek: _draftDouble(json['workDaysPerWeek'], 3),
+      loadWeight: _draftDouble(json['loadWeight'], 10),
+      pushPullDistance: _draftDouble(json['pushPullDistance'], 10),
+      initialForce: _draftDouble(json['initialForce'], 18),
+      sustainForce: _draftDouble(json['sustainForce'], 10),
+      horizontalDistanceText: json['horizontalDistanceText'] as String? ?? '25',
+      verticalHeightText: json['verticalHeightText'] as String? ?? '75',
+      transportDistanceText: json['transportDistanceText'] as String? ?? '4',
+      showAdvancedDetails: json['showAdvancedDetails'] as bool? ?? false,
+      rebaInput: json['rebaInput'] is Map
+          ? RebaInputData.fromJson(
+              Map<String, Object?>.from(json['rebaInput'] as Map),
+            )
+          : const RebaInputData(),
+      savedAt: savedAtRaw == null ? null : DateTime.tryParse(savedAtRaw),
+    );
+  }
+}
+
+double _draftDouble(Object? value, double fallback) {
+  if (value is num) return value.toDouble();
+  if (value is String) return double.tryParse(value) ?? fallback;
+  return fallback;
+}
+
+int _draftInt(Object? value, int fallback) {
+  if (value is int) return value;
+  if (value is num) return value.toInt();
+  if (value is String) return int.tryParse(value) ?? fallback;
+  return fallback;
+}

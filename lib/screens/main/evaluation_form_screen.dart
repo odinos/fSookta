@@ -48,6 +48,7 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
   risk_ml.JointFeatureSchema? jointFeatureSchema;
   risk_ml.MoveNetJointFeatureExtractor? jointFeatureExtractor;
   risk_ml.XGBoostOnnxPredictor? xGBoostPredictor;
+  Timer? draftSaveTimer;
 
   final selectedImagePaths = <String>[];
   final latestPoseEstimates = <PoseEstimate>[];
@@ -71,6 +72,9 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
   var latestCaptureSourceKind = 'photo_set';
   int? latestVideoDurationMs;
   late JobType selectedJobType;
+  var draftApplied = false;
+  var restoredDraft = false;
+  var hydratingDraft = false;
   var rebaInput = const RebaInputData(
     trunkScore: 3,
     neckScore: 1,
@@ -87,6 +91,21 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
     selectedToolId = widget.activity.defaultToolOption.id;
     showAdvancedDetails = widget.initiallyShowAdvancedDetails;
     _applyActivityDefaults();
+    horizontalController.addListener(_scheduleDraftSave);
+    verticalController.addListener(_scheduleDraftSave);
+    transportController.addListener(_scheduleDraftSave);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (draftApplied) return;
+    draftApplied = true;
+    final draft = AppStateScope.of(context).evaluationDraft;
+    if (draft == null || draft.activity != widget.activity) return;
+    hydratingDraft = true;
+    _applyEvaluationDraft(draft);
+    hydratingDraft = false;
   }
 
   void _applyActivityDefaults() {
@@ -159,8 +178,75 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
     );
   }
 
+  void _applyEvaluationDraft(EvaluationDraft draft) {
+    selectedJobType = draft.jobType;
+    selectedToolId = widget.activity.toolOptions
+            .any((option) => option.id == draft.selectedToolId)
+        ? draft.selectedToolId
+        : widget.activity.defaultToolOption.id;
+    selectedImagePaths
+      ..clear()
+      ..addAll(draft.selectedImagePaths.take(4));
+    selectedDurationHours = draft.durationHours;
+    selectedFrequency = draft.frequency;
+    selectedStaticHoldLevel = draft.staticHoldLevel;
+    selectedWorkDaysPerWeek = draft.workDaysPerWeek;
+    selectedLoadWeight = draft.loadWeight;
+    selectedPushPullDistance = draft.pushPullDistance;
+    selectedInitialForce = draft.initialForce;
+    selectedSustainForce = draft.sustainForce;
+    horizontalController.text = draft.horizontalDistanceText;
+    verticalController.text = draft.verticalHeightText;
+    transportController.text = draft.transportDistanceText;
+    showAdvancedDetails = draft.showAdvancedDetails;
+    rebaInput = draft.rebaInput;
+    restoredDraft = true;
+    poseStatus = null;
+    poseAssessmentReady = false;
+    latestXGBoostAlert = null;
+    latestMotionSummary = null;
+    latestPoseEstimates.clear();
+    latestFrameAnalyses.clear();
+    latestFrameTimestampMs.clear();
+  }
+
+  EvaluationDraft _currentDraft() {
+    return EvaluationDraft(
+      activity: widget.activity,
+      jobType: selectedJobType,
+      selectedImagePaths: selectedImagePaths.toList(growable: false),
+      selectedToolId: selectedToolId,
+      durationHours: selectedDurationHours,
+      frequency: selectedFrequency,
+      staticHoldLevel: selectedStaticHoldLevel,
+      workDaysPerWeek: selectedWorkDaysPerWeek,
+      loadWeight: selectedLoadWeight,
+      pushPullDistance: selectedPushPullDistance,
+      initialForce: selectedInitialForce,
+      sustainForce: selectedSustainForce,
+      horizontalDistanceText: horizontalController.text,
+      verticalHeightText: verticalController.text,
+      transportDistanceText: transportController.text,
+      showAdvancedDetails: showAdvancedDetails,
+      rebaInput: rebaInput,
+    );
+  }
+
+  void _scheduleDraftSave() {
+    if (!mounted || hydratingDraft) return;
+    draftSaveTimer?.cancel();
+    draftSaveTimer = Timer(const Duration(milliseconds: 350), () {
+      if (!mounted) return;
+      unawaited(AppStateScope.of(context).saveEvaluationDraft(_currentDraft()));
+    });
+  }
+
   @override
   void dispose() {
+    draftSaveTimer?.cancel();
+    horizontalController.removeListener(_scheduleDraftSave);
+    verticalController.removeListener(_scheduleDraftSave);
+    transportController.removeListener(_scheduleDraftSave);
     horizontalController.dispose();
     verticalController.dispose();
     transportController.dispose();
@@ -193,6 +279,10 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
                 fontWeight: FontWeight.bold,
               ),
             ),
+            if (restoredDraft) ...[
+              const SizedBox(height: 8),
+              _DraftRestoredNotice(thai: thai),
+            ],
             const SizedBox(height: 8),
             _EvaluationVoiceGuide(
               thai: thai,
@@ -249,8 +339,10 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
             _AdvancedDetailsCard(
               thai: thai,
               expanded: showAdvancedDetails,
-              onExpansionChanged: (value) =>
-                  setState(() => showAdvancedDetails = value),
+              onExpansionChanged: (value) {
+                setState(() => showAdvancedDetails = value);
+                _scheduleDraftSave();
+              },
               children: [
                 _SectionCard(
                   title: thai
@@ -292,6 +384,7 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
                           poseStatus = null;
                           poseAssessmentReady = false;
                         });
+                        _scheduleDraftSave();
                         if (selectedImagePaths.isNotEmpty) {
                           _applyPoseEstimates();
                         }
@@ -340,8 +433,10 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
                         5.0: thai ? '5 วัน/สัปดาห์' : '5 days/week',
                         6.0: thai ? '6-7 วัน/สัปดาห์' : '6-7 days/week',
                       },
-                      onChanged: (value) =>
-                          setState(() => selectedWorkDaysPerWeek = value),
+                      onChanged: (value) {
+                        setState(() => selectedWorkDaysPerWeek = value);
+                        _scheduleDraftSave();
+                      },
                     ),
                     _ChoiceRow<String>(
                       label: thai
@@ -362,10 +457,12 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
                         1: thai ? 'ปานกลาง (+1)' : 'Fair (+1)',
                         2: thai ? 'ไม่ดี (+2)' : 'Poor (+2)',
                       },
-                      onChanged: (value) => setState(
-                        () => rebaInput =
-                            rebaInput.copyWith(couplingScore: value),
-                      ),
+                      onChanged: (value) {
+                        setState(() {
+                          rebaInput = rebaInput.copyWith(couplingScore: value);
+                        });
+                        _scheduleDraftSave();
+                      },
                     ),
                     if (selectedJobType == JobType.lifting)
                       _ChoiceRow<double>(
@@ -383,7 +480,10 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
                     input: rebaInput,
                     poseBusy: poseBusy,
                     poseStatus: poseStatus,
-                    onChanged: (input) => setState(() => rebaInput = input),
+                    onChanged: (input) {
+                      setState(() => rebaInput = input);
+                      _scheduleDraftSave();
+                    },
                     onAutoFill: selectedImagePaths.isEmpty || poseBusy
                         ? null
                         : _applyPoseEstimates,
@@ -594,6 +694,7 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
       latestFrameAnalyses.clear();
       latestFrameTimestampMs.clear();
     });
+    _scheduleDraftSave();
     await _applyPoseEstimates();
   }
 
@@ -611,6 +712,7 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
       latestFrameAnalyses.clear();
       latestFrameTimestampMs.clear();
     });
+    _scheduleDraftSave();
     if (selectedImagePaths.isNotEmpty) {
       await _applyPoseEstimates();
     }
@@ -882,6 +984,7 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
       selectedDurationHours = value;
       _syncActivityScore();
     });
+    _scheduleDraftSave();
   }
 
   void _setFrequency(double value) {
@@ -889,6 +992,7 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
       selectedFrequency = value;
       _syncActivityScore();
     });
+    _scheduleDraftSave();
   }
 
   void _setStaticHold(int value) {
@@ -896,6 +1000,7 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
       selectedStaticHoldLevel = value;
       _syncActivityScore();
     });
+    _scheduleDraftSave();
   }
 
   void _setLoadWeight(double value) {
@@ -907,14 +1012,17 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
 
   void _setPushPullDistance(double value) {
     setState(() => selectedPushPullDistance = value);
+    _scheduleDraftSave();
   }
 
   void _setInitialForce(double value) {
     setState(() => selectedInitialForce = value);
+    _scheduleDraftSave();
   }
 
   void _setSustainForce(double value) {
     setState(() => selectedSustainForce = value);
+    _scheduleDraftSave();
   }
 
   ActivityToolOption get selectedTool =>
@@ -931,6 +1039,7 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
       selectedToolId = value;
       _applySelectedToolDefaults();
     });
+    _scheduleDraftSave();
   }
 
   void _syncActivityScore() {
@@ -1471,6 +1580,40 @@ class _EvaluationVoiceGuide extends StatelessWidget {
           : '$duration, $repetition, initial force ${initialForce.round()} newtons, sustained force ${sustainForce.round()} newtons, distance ${pushPullDistance.round()} meters';
     }
     return '$duration, $repetition';
+  }
+}
+
+class _DraftRestoredNotice extends StatelessWidget {
+  const _DraftRestoredNotice({required this.thai});
+
+  final bool thai;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF7FBF8),
+        border: Border.all(color: const Color(0xFFD6E7DD)),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.history, color: SooktaColors.darkGreen),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              thai ? 'นำข้อมูลแบบร่างกลับมาแล้ว' : 'Draft details restored',
+              style: const TextStyle(
+                color: SooktaColors.darkGreen,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 
