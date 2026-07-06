@@ -1,7 +1,7 @@
 class SooktaBuildInfo {
   const SooktaBuildInfo._();
 
-  static const versionName = '1.3.3';
-  static const buildNumber = '16';
+  static const versionName = '1.3.6';
+  static const buildNumber = '21';
   static const label = '$versionName+$buildNumber';
 }

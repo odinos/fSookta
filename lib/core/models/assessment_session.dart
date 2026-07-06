@@ -44,6 +44,17 @@ extension SooktaActivityInfo on SooktaActivity {
     };
   }
 
+  String get readablePoseExampleAsset {
+    return switch (this) {
+      SooktaActivity.transplanting => SooktaAssets.transplantingPoseExample,
+      SooktaActivity.fertilizing => SooktaAssets.fertilizingPoseExample,
+      SooktaActivity.pesticide => SooktaAssets.pesticidePoseExample,
+      SooktaActivity.pruning => SooktaAssets.pruningPoseExample,
+      SooktaActivity.harvesting => SooktaAssets.harvestingPoseExample,
+      SooktaActivity.transport => SooktaAssets.transportPoseExample,
+    };
+  }
+
   String label({required bool thai}) {
     if (thai) {
       return switch (this) {
@@ -56,7 +67,7 @@ extension SooktaActivityInfo on SooktaActivity {
       };
     }
     return switch (this) {
-      SooktaActivity.transplanting => 'Transplanting',
+      SooktaActivity.transplanting => 'Planting',
       SooktaActivity.fertilizing => 'Fertilizing',
       SooktaActivity.pesticide => 'Pesticide Spraying',
       SooktaActivity.pruning => 'Pruning',

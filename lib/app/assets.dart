@@ -13,4 +13,27 @@ class SooktaAssets {
   static const pruning = 'assets/images/img_pruning.png';
   static const harvesting = 'assets/images/img_harvesting.png';
   static const transport = 'assets/images/img_transport.png';
+  static const readablePoseExample = 'assets/images/example_readable_pose.png';
+  static const transplantingPoseExample =
+      'assets/images/example_transplanting_pose.png';
+  static const fertilizingPoseExample =
+      'assets/images/example_fertilizing_pose.png';
+  static const pesticidePoseExample =
+      'assets/images/example_pesticide_pose.png';
+  static const pruningPoseExample = 'assets/images/example_pruning_pose.png';
+  static const harvestingPoseExample =
+      'assets/images/example_harvesting_pose.png';
+  static const transportPoseExample =
+      'assets/images/example_transport_pose.png';
+  static const userManualPdf = 'assets/documents/sookta_user_manual.pdf';
+  static const userManualPage1 =
+      'assets/images/manual_pages/sookta_user_manual_page-1.png';
+  static const userManualPage2 =
+      'assets/images/manual_pages/sookta_user_manual_page-2.png';
+  static const userManualPage3 =
+      'assets/images/manual_pages/sookta_user_manual_page-3.png';
+  static const userManualPage4 =
+      'assets/images/manual_pages/sookta_user_manual_page-4.png';
+  static const userManualPage5 =
+      'assets/images/manual_pages/sookta_user_manual_page-5.png';
 }

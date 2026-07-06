@@ -45,8 +45,8 @@ class ContactScreen extends StatelessWidget {
                     const SizedBox(height: 4),
                     Text(
                       thai
-                          ? 'คณะสาธารณสุขศาสตร์ มหาวิทยาลัยธรรมศาสตร์'
-                          : 'Faculty of Public Health, Thammasat University',
+                          ? 'คณะสหเวชศาสตร์ มหาวิทยาลัยธรรมศาสตร์'
+                          : 'Faculty of Allied Health Sciences, Thammasat University',
                       textAlign: TextAlign.center,
                     ),
                   ],
@@ -60,9 +60,9 @@ class ContactScreen extends StatelessWidget {
               value: 'apisara.chaisi@dome.tu.ac.th',
             ),
             const _ContactRow(
-              icon: Icons.phone_outlined,
-              label: 'Phone',
-              value: '0985162941',
+              icon: Icons.chat_outlined,
+              label: 'Line ID',
+              value: '089088',
             ),
             const SizedBox(height: 12),
             Card(

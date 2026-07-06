@@ -51,7 +51,7 @@ class EvaluationMenuScreen extends StatelessWidget {
                       thai: thai,
                       text: thai
                           ? 'เลือกกิจกรรมที่ต้องการประเมิน เช่น ปลูกกล้า ใส่ปุ๋ย ฉีดพ่น ตัดแต่งกิ่ง เก็บเกี่ยว หรือขนย้ายผลผลิต หลังเลือกแล้วให้ถ่ายรูปท่าทางทำงานให้เห็นคนชัดเจน'
-                          : 'Choose the activity to assess, such as transplanting, fertilizing, spraying, pruning, harvesting, or transport. After choosing, take a clear work-posture photo.',
+                          : 'Choose the activity to assess, such as planting, fertilizing, spraying, pruning, harvesting, or transport. After choosing, take a clear work-posture photo.',
                       size: 42,
                     ),
                   ),

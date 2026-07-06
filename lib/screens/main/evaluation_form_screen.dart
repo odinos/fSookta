@@ -298,6 +298,7 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
             ),
             const SizedBox(height: 16),
             _ImageSlots(
+              activity: widget.activity,
               imagePaths: selectedImagePaths,
               onCamera: selectedImagePaths.length >= 4 ? null : _capturePhoto,
               onGallery:
@@ -449,6 +450,11 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
                       },
                       onChanged: _setTool,
                     ),
+                    _LockedLoadSummary(
+                      thai: thai,
+                      toolLabel: selectedTool.label(thai: thai),
+                      loadKgText: _formatKg(selectedLoadWeight),
+                    ),
                     _ChoiceRow<int>(
                       label: thai ? 'คุณภาพการจับ' : 'Coupling quality',
                       value: rebaInput.couplingScore,
@@ -464,13 +470,6 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
                         _scheduleDraftSave();
                       },
                     ),
-                    if (selectedJobType == JobType.lifting)
-                      _ChoiceRow<double>(
-                        label: thai ? 'น้ำหนักโดยประมาณ' : 'Estimated load',
-                        value: selectedLoadWeight,
-                        items: _estimatedLoadOptions(thai),
-                        onChanged: _setLoadWeight,
-                      ),
                   ],
                 ),
                 const SizedBox(height: 12),
@@ -1003,13 +1002,6 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
     _scheduleDraftSave();
   }
 
-  void _setLoadWeight(double value) {
-    setState(() {
-      selectedLoadWeight = value;
-      rebaInput = rebaInput.copyWith(loadScore: _loadScoreFromKg(value));
-    });
-  }
-
   void _setPushPullDistance(double value) {
     setState(() => selectedPushPullDistance = value);
     _scheduleDraftSave();
@@ -1066,25 +1058,6 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
     if (kg <= 5) return 0;
     if (kg <= 15) return 1;
     return 2;
-  }
-
-  Map<double, String> _estimatedLoadOptions(bool thai) {
-    final options = <double, String>{
-      5.0: thai ? 'เบา (5 กก.)' : 'Light (5 kg)',
-      10.0: thai ? 'ปานกลาง (10 กก.)' : 'Medium (10 kg)',
-      15.0: thai ? 'ค่อนข้างหนัก (15 กก.)' : 'Quite heavy (15 kg)',
-      20.0: thai ? 'หนัก (20 กก.)' : 'Heavy (20 kg)',
-      25.0: thai ? 'หนักมาก (25 กก.)' : 'Very heavy (25 kg)',
-    };
-    if (!options.containsKey(selectedLoadWeight)) {
-      final formatted = _formatKg(selectedLoadWeight);
-      options[selectedLoadWeight] = thai
-          ? 'ตามเครื่องมือที่เลือก ($formatted กก.)'
-          : 'From selected tool ($formatted kg)';
-    }
-    return Map<double, String>.fromEntries(
-      options.entries.toList()..sort((a, b) => a.key.compareTo(b.key)),
-    );
   }
 
   String _formatKg(double kg) {
@@ -1619,6 +1592,7 @@ class _DraftRestoredNotice extends StatelessWidget {
 
 class _ImageSlots extends StatelessWidget {
   const _ImageSlots({
+    required this.activity,
     required this.imagePaths,
     required this.onCamera,
     required this.onGallery,
@@ -1629,6 +1603,7 @@ class _ImageSlots extends StatelessWidget {
     required this.thai,
   });
 
+  final SooktaActivity activity;
   final List<String> imagePaths;
   final VoidCallback? onCamera;
   final VoidCallback? onGallery;
@@ -1675,6 +1650,8 @@ class _ImageSlots extends StatelessWidget {
               : 'Use 1-4 clear photos or a short video up to 20 seconds. The app reads posture, summarizes motion, and fills the assessment automatically.',
           style: const TextStyle(color: Colors.black54),
         ),
+        const SizedBox(height: 12),
+        _ReadablePoseExample(activity: activity, thai: thai),
         const SizedBox(height: 12),
         LayoutBuilder(
           builder: (context, constraints) {
@@ -1811,6 +1788,246 @@ class _ImageSlots extends StatelessWidget {
           },
         ),
       ],
+    );
+  }
+}
+
+class _ReadablePoseExample extends StatelessWidget {
+  const _ReadablePoseExample({
+    required this.activity,
+    required this.thai,
+  });
+
+  final SooktaActivity activity;
+  final bool thai;
+
+  @override
+  Widget build(BuildContext context) {
+    final activityLabel = activity.label(thai: thai);
+    final imageAsset = activity.readablePoseExampleAsset;
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF7FBF8),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFD6E7DD)),
+      ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final compact = constraints.maxWidth < 420;
+          final image = _ReadablePosePreviewImage(
+            activityLabel: activityLabel,
+            imageAsset: imageAsset,
+            thai: thai,
+            width: compact ? constraints.maxWidth : 128,
+            height: compact ? 190 : 116,
+          );
+          final text = Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  thai
+                      ? 'ตัวอย่างภาพ: $activityLabel'
+                      : 'Example: $activityLabel',
+                  style: const TextStyle(
+                    color: SooktaColors.darkGreen,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  thai
+                      ? 'ถ่ายให้เห็นคนทำงานเกือบทั้งตัว แสงชัด และอย่าให้ใบไม้ เครื่องมือ หรือคนอื่นบังศีรษะ หลัง แขน มือ และขา'
+                      : 'Capture almost the full worker with clear light. Avoid leaves, tools, or other people covering the head, back, arms, hands, and legs.',
+                  style: const TextStyle(color: Colors.black54),
+                ),
+              ],
+            ),
+          );
+          if (compact) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                image,
+                const SizedBox(height: 8),
+                Row(children: [text]),
+              ],
+            );
+          }
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              image,
+              const SizedBox(width: 12),
+              text,
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _ReadablePosePreviewImage extends StatelessWidget {
+  const _ReadablePosePreviewImage({
+    required this.activityLabel,
+    required this.imageAsset,
+    required this.thai,
+    required this.width,
+    required this.height,
+  });
+
+  final String activityLabel;
+  final String imageAsset;
+  final bool thai;
+  final double width;
+  final double height;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: thai
+          ? 'ดูตัวอย่างภาพที่อ่านง่ายแบบเต็มจอ'
+          : 'View readable example full screen',
+      child: InkWell(
+        onTap: () => _showReadablePosePreview(
+          context,
+          imageAsset: imageAsset,
+          activityLabel: activityLabel,
+          thai: thai,
+        ),
+        borderRadius: BorderRadius.circular(8),
+        child: SizedBox(
+          width: width,
+          height: height,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: const Color(0xFFF7FBF8),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: Image.asset(
+                imageAsset,
+                fit: BoxFit.contain,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+Future<void> _showReadablePosePreview(
+  BuildContext context, {
+  required String imageAsset,
+  required String activityLabel,
+  required bool thai,
+}) {
+  return showDialog<void>(
+    context: context,
+    builder: (context) {
+      return Dialog.fullscreen(
+        child: SafeArea(
+          child: Column(
+            children: [
+              AppBar(
+                title: Text(
+                  thai
+                      ? 'ตัวอย่างภาพ: $activityLabel'
+                      : 'Example: $activityLabel',
+                ),
+                automaticallyImplyLeading: false,
+                actions: [
+                  IconButton(
+                    tooltip: thai ? 'ปิด' : 'Close',
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(Icons.close),
+                  ),
+                ],
+              ),
+              Expanded(
+                child: InteractiveViewer(
+                  key: const ValueKey('readable_pose_full_preview'),
+                  minScale: 0.7,
+                  maxScale: 4,
+                  child: Center(
+                    child: Image.asset(
+                      imageAsset,
+                      fit: BoxFit.contain,
+                    ),
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(18, 8, 18, 18),
+                child: Text(
+                  thai
+                      ? 'ถ่ายให้เห็นคนทำงานเกือบทั้งตัวและไม่ให้สิ่งของบังข้อสำคัญ เพื่อให้ระบบอ่านท่าทางได้แม่นขึ้น'
+                      : 'Capture almost the full worker without blocking key joints so the app can read posture more reliably.',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: Colors.black54, height: 1.35),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    },
+  );
+}
+
+class _LockedLoadSummary extends StatelessWidget {
+  const _LockedLoadSummary({
+    required this.thai,
+    required this.toolLabel,
+    required this.loadKgText,
+  });
+
+  final bool thai;
+  final String toolLabel;
+  final String loadKgText;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF7FBF8),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFD6E7DD)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.lock_outline, color: SooktaColors.darkGreen),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text.rich(
+              TextSpan(
+                text:
+                    thai ? 'น้ำหนักใช้ตามเครื่องมือ: ' : 'Load follows tool: ',
+                style: const TextStyle(color: Colors.black54),
+                children: [
+                  TextSpan(
+                    text: thai
+                        ? '$toolLabel ($loadKgText กก.)'
+                        : '$toolLabel ($loadKgText kg)',
+                    style: const TextStyle(
+                      color: Colors.black87,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -2053,13 +2270,13 @@ class _AdvancedDetailsCard extends StatelessWidget {
         onExpansionChanged: onExpansionChanged,
         leading: const Icon(Icons.tune, color: SooktaColors.darkGreen),
         title: Text(
-          thai ? 'ปรับรายละเอียดงานจริง' : 'Adjust Real Work Details',
+          thai ? 'กรุณาปรับรายละเอียดงานจริง' : 'Adjust Real Work Details',
           style: const TextStyle(fontWeight: FontWeight.bold),
         ),
         subtitle: Text(
           thai
-              ? 'เลือกค่าที่ใกล้เคียงงานจริงเพื่อให้คะแนนแม่นขึ้น'
-              : 'Choose values close to the real task for more accurate scoring.',
+              ? 'เลือกค่าที่ใกล้เคียงงานจริงที่สุด ระบบจะใช้ค่านี้คำนวณคะแนน'
+              : 'Choose values closest to the real task. The app uses them for scoring.',
         ),
         childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
         children: children,

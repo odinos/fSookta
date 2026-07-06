@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 
+import '../../app/assets.dart';
 import '../../app/app_state.dart';
 import '../../app/sookta_app.dart';
+import '../../core/models/assessment_session.dart';
+import '../../core/services/manual_document_service.dart';
 import '../../widgets/responsive_content.dart';
 import '../../widgets/tts_button.dart';
 
@@ -18,13 +21,13 @@ class HelpScreen extends StatelessWidget {
     final steps = thai ? _thaiHelpSteps : _englishHelpSteps;
     final quickTips = thai ? _thaiQuickTips : _englishQuickTips;
     final ttsText = [
-      thai ? 'คำแนะนำการใช้งานสุขท่า' : 'Sookta usage guide',
+      thai ? 'คู่มือการใช้งานสุขท่า' : 'Sookta user manual',
       ...steps.map((step) => '${step.title}. ${step.body}'),
       ...quickTips,
     ].join('. ');
 
     return Scaffold(
-      appBar: AppBar(title: Text(thai ? 'ความช่วยเหลือ' : 'Help')),
+      appBar: AppBar(title: Text(thai ? 'คู่มือการใช้งาน' : 'User Manual')),
       body: SafeArea(
         child: ResponsiveListView(
           maxWidth: 760,
@@ -33,6 +36,10 @@ class HelpScreen extends StatelessWidget {
               thai: thai,
               ttsText: ttsText,
             ),
+            const SizedBox(height: 16),
+            _ManualPdfCard(thai: thai),
+            const SizedBox(height: 16),
+            _ActivityExampleGallery(thai: thai),
             const SizedBox(height: 16),
             Card(
               child: ListTile(
@@ -224,6 +231,132 @@ class ReferencesScreen extends StatelessWidget {
   }
 }
 
+class _ManualPdfCard extends StatelessWidget {
+  const _ManualPdfCard({required this.thai});
+
+  final bool thai;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      color: const Color(0xFFFFF7E0),
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const CircleAvatar(
+                  backgroundColor: Colors.white,
+                  foregroundColor: Color(0xFF2E7D32),
+                  child: Icon(Icons.picture_as_pdf_outlined),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        thai
+                            ? 'อ่านจากคู่มือ PDF ฉบับเต็ม'
+                            : 'Read the full PDF manual',
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                              fontWeight: FontWeight.w800,
+                              color: const Color(0xFF214D3A),
+                            ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        thai
+                            ? 'เอกสารคู่มือถูกนำมาเรียงเป็นหน้าอ่านในแอป และยังเปิดเป็นไฟล์ PDF ฉบับเต็มได้'
+                            : 'The PDF manual pages are arranged for in-app reading, and the full PDF can still be opened.',
+                        style: const TextStyle(color: Colors.black54),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            _ManualPageGallery(thai: thai),
+            const SizedBox(height: 14),
+            FilledButton.icon(
+              onPressed: () => _openManual(context, thai),
+              icon: const Icon(Icons.open_in_new),
+              label: Text(thai ? 'เปิดคู่มือการใช้งาน' : 'Open User Manual'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openManual(BuildContext context, bool thai) async {
+    try {
+      await ManualDocumentService.openManual(thai: thai);
+    } catch (_) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            thai
+                ? 'ยังเปิดคู่มือไม่ได้ กรุณาลองใหม่อีกครั้ง'
+                : 'Could not open the manual. Please try again.',
+          ),
+        ),
+      );
+    }
+  }
+}
+
+const _manualPageAssets = [
+  SooktaAssets.userManualPage1,
+  SooktaAssets.userManualPage2,
+  SooktaAssets.userManualPage3,
+  SooktaAssets.userManualPage4,
+  SooktaAssets.userManualPage5,
+];
+
+class _ManualPageGallery extends StatelessWidget {
+  const _ManualPageGallery({required this.thai});
+
+  final bool thai;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final columns = constraints.maxWidth >= 640 ? 3 : 2;
+        return GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: _manualPageAssets.length,
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: columns,
+            crossAxisSpacing: 10,
+            mainAxisSpacing: 10,
+            childAspectRatio: 0.72,
+          ),
+          itemBuilder: (context, index) {
+            final pageNumber = index + 1;
+            final title =
+                thai ? 'คู่มือหน้า $pageNumber' : 'Manual page $pageNumber';
+            return _PreviewableAssetImage(
+              key: ValueKey('manual_pdf_page_$pageNumber'),
+              imageAsset: _manualPageAssets[index],
+              title: title,
+              thai: thai,
+              fit: BoxFit.contain,
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
 const _references = [
   'Hignett, S., & McAtamney, L. (2000). Rapid Entire Body Assessment (REBA). Applied Ergonomics, 31(2), 201–205.',
   'ErgoPlus. REBA: A Step-by-Step Guide – Rapid Entire Body Assessment. https://ergo-plus.com/wp-content/uploads/REBA-A-Step-by-Step-Guide.pdf',
@@ -254,21 +387,21 @@ const _thaiHelpSteps = [
     body:
         'หน้าแรกจะแสดงชาวสวนที่กำลังเก็บข้อมูลอยู่ หากเจ้าหน้าที่เก็บข้อมูลหลายคน ให้กดสลับรายชื่อเพื่อเลือก เพิ่ม แก้ไข หรือลบชาวสวนก่อนเริ่มประเมิน',
     icon: Icons.groups_outlined,
-    imageAsset: 'assets/images/male_01.png',
+    imageAsset: SooktaAssets.female01,
   ),
   _HelpStep(
     title: '2. เลือกกิจกรรมที่ทำจริง',
     body:
         'กดเริ่มทำแบบประเมิน แล้วเลือกกิจกรรม เช่น ปลูกกล้า ใส่ปุ๋ย ฉีดพ่น ตัดแต่งกิ่ง เก็บเกี่ยว หรือขนย้ายผลผลิต แอปจะเตรียมวิธีคำนวณที่เหมาะกับงานนั้นให้เอง',
     icon: Icons.grid_view_outlined,
-    imageAsset: 'assets/images/img_transport.png',
+    imageAsset: SooktaAssets.transplanting,
   ),
   _HelpStep(
     title: '3. ถ่ายรูปหรือเลือกรูปท่าทาง',
     body:
-        'ถ่ายให้เห็นคนทำงานทั้งตัวชัดที่สุด โดยเฉพาะศีรษะ หลัง แขน มือ และขา ถ่ายได้สูงสุด 4 รูป ระบบจะอ่านท่าทางจากภาพและตั้งค่าประเมินให้อัตโนมัติ',
+        'ถ่ายให้เห็นคนทำงานเกือบทั้งตัว แสงชัด ไม่ให้ใบไม้หรือเครื่องมือบังศีรษะ หลัง แขน มือ และขา ถ่ายได้สูงสุด 4 รูป หรือใช้วิดีโอสั้น ระบบจะอ่านท่าทางและตั้งค่าประเมินให้อัตโนมัติ',
     icon: Icons.camera_alt_outlined,
-    imageAsset: 'assets/images/img_pruning.png',
+    imageAsset: SooktaAssets.readablePoseExample,
   ),
   _HelpStep(
     title: '4. ตรวจข้อมูลก่อนดูผล',
@@ -287,7 +420,7 @@ const _thaiHelpSteps = [
     body:
         'หน้าคำแนะนำจะแสดงวิธีปรับงานที่ทำได้จริง เช่น ลดการก้มบิด ใช้อุปกรณ์ช่วย แบ่งน้ำหนัก หรือพักเป็นช่วง เลือกวิธีที่ทำได้ ระบบจะแสดงคะแนนหลังปรับปรุงให้เห็นทันที',
     icon: Icons.checklist_rtl_outlined,
-    imageAsset: 'assets/images/img_harvesting.png',
+    imageAsset: SooktaAssets.pruning,
   ),
   _HelpStep(
     title: '7. ดูประวัติและส่งออกไฟล์',
@@ -303,21 +436,21 @@ const _englishHelpSteps = [
     body:
         'Home shows the farmer currently being recorded. For field research with multiple farmers, switch the active farmer or add, edit, and delete farmer records before starting an assessment.',
     icon: Icons.groups_outlined,
-    imageAsset: 'assets/images/male_01.png',
+    imageAsset: SooktaAssets.female01,
   ),
   _HelpStep(
     title: '2. Choose the real activity',
     body:
-        'Tap Start Evaluation and choose the work activity, such as transplanting, fertilizing, spraying, pruning, harvesting, or produce transport. The app prepares the right assessment method for that task.',
+        'Tap Start Evaluation and choose the work activity, such as planting, fertilizing, spraying, pruning, harvesting, or produce transport. The app prepares the right assessment method for that task.',
     icon: Icons.grid_view_outlined,
-    imageAsset: 'assets/images/img_transport.png',
+    imageAsset: SooktaAssets.transplanting,
   ),
   _HelpStep(
     title: '3. Take or choose posture photos',
     body:
-        'Capture the worker as clearly as possible, especially the head, back, arms, hands, and legs. You can add up to 4 photos. The app reads posture from the images and prepares the assessment automatically.',
+        'Capture almost the full worker with clear light. Avoid leaves or tools covering the head, back, arms, hands, and legs. You can add up to 4 photos or a short video. The app reads posture and prepares the assessment automatically.',
     icon: Icons.camera_alt_outlined,
-    imageAsset: 'assets/images/img_pruning.png',
+    imageAsset: SooktaAssets.readablePoseExample,
   ),
   _HelpStep(
     title: '4. Review before viewing results',
@@ -336,7 +469,7 @@ const _englishHelpSteps = [
     body:
         'The recommendations screen shows practical actions such as reducing twisting, using support tools, splitting loads, or taking work breaks. Select what can really be done and the app shows the improved score.',
     icon: Icons.checklist_rtl_outlined,
-    imageAsset: 'assets/images/img_harvesting.png',
+    imageAsset: SooktaAssets.pruning,
   ),
   _HelpStep(
     title: '7. Review history and export files',
@@ -392,7 +525,7 @@ class _HelpHeaderCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    thai ? 'ใช้สุขท่าอย่างไร' : 'How to Use Sookta',
+                    thai ? 'คู่มือการใช้งาน Sookta' : 'Sookta User Manual',
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
                           fontWeight: FontWeight.w800,
                           color: const Color(0xFF214D3A),
@@ -401,8 +534,8 @@ class _HelpHeaderCard extends StatelessWidget {
                   const SizedBox(height: 6),
                   Text(
                     thai
-                        ? 'ทำตามขั้นตอนสั้น ๆ นี้เพื่อประเมินท่าทาง ลดความเสี่ยง และส่งออกข้อมูลวิจัยได้ถูกต้อง'
-                        : 'Follow these short steps to assess posture, reduce risk, and export research data correctly.',
+                        ? 'รวมคู่มือ PDF ขั้นตอนใช้งาน และตัวอย่างภาพที่ควรถ่ายสำหรับแต่ละหมวดงาน'
+                        : 'PDF manual, step-by-step guidance, and recommended capture examples for each activity.',
                     style: const TextStyle(color: Colors.black54),
                   ),
                 ],
@@ -439,6 +572,8 @@ class _HelpStepCard extends StatelessWidget {
                 ? null
                 : _StepImage(
                     imageAsset: imageAsset,
+                    title: step.title,
+                    thai: thai,
                     compact: compact,
                   );
 
@@ -522,30 +657,341 @@ class _StepText extends StatelessWidget {
 class _StepImage extends StatelessWidget {
   const _StepImage({
     required this.imageAsset,
+    required this.title,
+    required this.thai,
     required this.compact,
   });
 
   final String imageAsset;
+  final String title;
+  final bool thai;
   final bool compact;
 
   @override
   Widget build(BuildContext context) {
     return Align(
       alignment: compact ? Alignment.center : Alignment.topRight,
-      child: Container(
+      child: _PreviewableAssetImage(
+        imageAsset: imageAsset,
+        title: title,
+        thai: thai,
         width: compact ? double.infinity : 132,
         height: compact ? 128 : 116,
-        decoration: BoxDecoration(
-          color: const Color(0xFFF7FBF8),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(8),
-          child: Image.asset(imageAsset, fit: BoxFit.contain),
+        fit: BoxFit.contain,
+      ),
+    );
+  }
+}
+
+class _ActivityExampleGallery extends StatelessWidget {
+  const _ActivityExampleGallery({required this.thai});
+
+  final bool thai;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const CircleAvatar(
+                  backgroundColor: Color(0xFFEAF5EF),
+                  foregroundColor: Color(0xFF2E7D32),
+                  child: Icon(Icons.photo_library_outlined),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        thai
+                            ? 'ตัวอย่างภาพที่ควรถ่ายตามหมวดงาน'
+                            : 'Recommended photo examples by activity',
+                        style:
+                            Theme.of(context).textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.w800,
+                                ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        thai
+                            ? 'ใช้ภาพตัวอย่างเพื่อเทียบมุมกล้องก่อนถ่ายจริง ควรเห็นศีรษะ หลัง แขน มือ ขา และเท้าให้ครบที่สุด'
+                            : 'Use these examples to compare the camera angle before capture. The head, back, arms, hands, legs, and feet should be visible as much as possible.',
+                        style: const TextStyle(
+                          color: Colors.black54,
+                          height: 1.35,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final columns = constraints.maxWidth >= 620
+                    ? 3
+                    : constraints.maxWidth < 360
+                        ? 1
+                        : 2;
+                return GridView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: SooktaActivity.values.length,
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: columns,
+                    crossAxisSpacing: 10,
+                    mainAxisSpacing: 10,
+                    childAspectRatio: columns == 1 ? 2.6 : 1.3,
+                  ),
+                  itemBuilder: (context, index) {
+                    final activity = SooktaActivity.values[index];
+                    final label = activity.label(thai: thai);
+                    return _ActivityExampleTile(
+                      key: ValueKey('help_activity_example_${activity.name}'),
+                      title: label,
+                      imageAsset: activity.readablePoseExampleAsset,
+                      thai: thai,
+                    );
+                  },
+                );
+              },
+            ),
+          ],
         ),
       ),
     );
   }
+}
+
+class _ActivityExampleTile extends StatelessWidget {
+  const _ActivityExampleTile({
+    super.key,
+    required this.title,
+    required this.imageAsset,
+    required this.thai,
+  });
+
+  final String title;
+  final String imageAsset;
+  final bool thai;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: thai ? 'ดูภาพเต็ม $title' : 'View full image: $title',
+      child: InkWell(
+        onTap: () => _showAssetPreview(context, imageAsset, title, thai),
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          decoration: BoxDecoration(
+            color: const Color(0xFFF7FBF8),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: const Color(0xFFD6E7DD)),
+          ),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final compact = constraints.maxWidth < 220;
+              final image = SizedBox(
+                width: compact ? double.infinity : 104,
+                height: compact ? 96 : 104,
+                child: Padding(
+                  padding: const EdgeInsets.all(8),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(6),
+                    child: Image.asset(
+                      imageAsset,
+                      fit: BoxFit.contain,
+                    ),
+                  ),
+                ),
+              );
+              final label = Padding(
+                padding: EdgeInsets.fromLTRB(
+                  compact ? 8 : 0,
+                  compact ? 0 : 8,
+                  8,
+                  8,
+                ),
+                child: Text(
+                  thai ? 'ตัวอย่างภาพ: $title' : 'Example photo: $title',
+                  maxLines: compact ? 2 : 3,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: compact ? TextAlign.center : TextAlign.start,
+                  style: const TextStyle(
+                    color: Color(0xFF214D3A),
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              );
+              if (compact) {
+                return Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    image,
+                    label,
+                  ],
+                );
+              }
+              return Row(
+                children: [
+                  image,
+                  Expanded(child: label),
+                ],
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PreviewableAssetImage extends StatelessWidget {
+  const _PreviewableAssetImage({
+    super.key,
+    required this.imageAsset,
+    required this.title,
+    required this.thai,
+    this.width,
+    this.height,
+    this.fit = BoxFit.cover,
+  });
+
+  final String imageAsset;
+  final String title;
+  final bool thai;
+  final double? width;
+  final double? height;
+  final BoxFit fit;
+
+  @override
+  Widget build(BuildContext context) {
+    const bottomInset = 34.0;
+    final content = Stack(
+      children: [
+        Positioned.fill(
+          bottom: bottomInset,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
+            child: Image.asset(
+              imageAsset,
+              fit: fit,
+              gaplessPlayback: true,
+            ),
+          ),
+        ),
+        Positioned(
+          left: 8,
+          right: 8,
+          bottom: 8,
+          child: Text(
+            thai ? 'แตะเพื่อดูภาพเต็ม' : 'Tap to view full image',
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: Colors.black54, fontSize: 12),
+          ),
+        ),
+      ],
+    );
+
+    final imageCard = ClipRRect(
+      borderRadius: BorderRadius.circular(8),
+      child: content,
+    );
+
+    final sizedContent = width == null && height == null
+        ? AspectRatio(
+            aspectRatio: 1.3,
+            child: imageCard,
+          )
+        : SizedBox(
+            width: width,
+            height: height,
+            child: imageCard,
+          );
+
+    return Semantics(
+      button: true,
+      label: thai ? 'ดูภาพเต็ม $title' : 'View full image: $title',
+      child: InkWell(
+        onTap: () => _showAssetPreview(context, imageAsset, title, thai),
+        borderRadius: BorderRadius.circular(8),
+        child: Ink(
+          width: width,
+          height: height,
+          decoration: BoxDecoration(
+            color: const Color(0xFFF7FBF8),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: const Color(0xFFD6E7DD)),
+          ),
+          child: sizedContent,
+        ),
+      ),
+    );
+  }
+}
+
+Future<void> _showAssetPreview(
+  BuildContext context,
+  String imageAsset,
+  String title,
+  bool thai,
+) {
+  return showDialog<void>(
+    context: context,
+    builder: (context) {
+      return Dialog.fullscreen(
+        child: SafeArea(
+          child: Column(
+            children: [
+              AppBar(
+                title: Text(title),
+                automaticallyImplyLeading: false,
+                actions: [
+                  IconButton(
+                    tooltip: thai ? 'ปิด' : 'Close',
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(Icons.close),
+                  ),
+                ],
+              ),
+              Expanded(
+                child: InteractiveViewer(
+                  key: const ValueKey('asset_image_full_preview'),
+                  minScale: 0.7,
+                  maxScale: 4,
+                  child: Center(
+                    child: Image.asset(
+                      imageAsset,
+                      fit: BoxFit.contain,
+                    ),
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(18, 8, 18, 18),
+                child: Text(
+                  thai
+                      ? 'ใช้ภาพตัวอย่างนี้เพื่อเทียบมุมและกิจกรรม ก่อนถ่ายภาพหรือวิดีโอจริง'
+                      : 'Use this example to compare the angle and activity before taking the real photo or video.',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: Colors.black54, height: 1.35),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    },
+  );
 }
 
 class TermsScreen extends StatelessWidget {

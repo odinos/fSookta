@@ -15,7 +15,7 @@ class SooktaStrings {
 
   static const _en = <String, String>{
     'app_name': 'Sookta',
-    'job_transplanting': 'Transplanting',
+    'job_transplanting': 'Planting',
     'job_fertilizing': 'Fertilizing',
     'job_pesticide': 'Pesticide Spraying',
     'job_pruning': 'Pruning',
