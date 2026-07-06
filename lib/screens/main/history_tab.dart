@@ -75,8 +75,9 @@ class HistoryTab extends StatelessWidget {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           IconButton.filled(
-                            tooltip:
-                                thai ? 'ทำนายจากประวัติ' : 'Daily prediction',
+                            tooltip: thai
+                                ? 'แนวโน้ม 7 ครั้งล่าสุด'
+                                : '7-record trend',
                             style: IconButton.styleFrom(
                               backgroundColor:
                                   Colors.white.withValues(alpha: 0.2),

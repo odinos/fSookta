@@ -53,6 +53,20 @@ class TrainingDataExportService {
     'overweight_bmi_days_norm',
   ];
 
+  static const dailyExportFeatureColumns = [
+    ...dailyFeatureColumns,
+    'avg_reba_score_after_norm',
+    'max_reba_score_after_norm',
+    'avg_score_before_norm',
+    'max_score_before_norm',
+    'avg_score_after_norm',
+    'neck_or_upper_limb_high_days_norm',
+    'recent_score_slope_norm',
+    'avg_tool_load_kg_norm',
+    'max_tool_load_kg_norm',
+    'avg_lift_frequency_per_hour_norm',
+  ];
+
   static const _landmarks = [
     'nose',
     'leftEye',
@@ -163,7 +177,7 @@ class TrainingDataExportService {
       'transaction_ids',
       'activity_summary',
       'assessment_methods',
-      ...dailyFeatureColumns,
+      ...dailyExportFeatureColumns,
       'msd_symptom_present',
       'requires_medical_treatment_within_7_days',
       'medical_visit_within_7_days',
@@ -213,7 +227,7 @@ class TrainingDataExportService {
             }
             return breakdown.primaryMethod.name;
           })),
-          for (final column in dailyFeatureColumns) features[column] ?? 0,
+          for (final column in dailyExportFeatureColumns) features[column] ?? 0,
           '',
           '',
           '',
@@ -283,6 +297,13 @@ class TrainingDataExportService {
       'training_iso11228_matched_session_id',
       'app_record_id',
       'farmer_id',
+      'participant_profile_id',
+      'farmer_age',
+      'farmer_gender',
+      'farmer_weight_kg',
+      'farmer_height_cm',
+      'farmer_bmi',
+      'farmer_bmi_category',
       'assessment_date',
       'job_type',
       'tool_id',
@@ -290,10 +311,34 @@ class TrainingDataExportService {
       'tool_used_en',
       'tool_weight_kg',
       'tool_weight_band_code',
+      'manual_handling_weight_kg',
+      'manual_handling_distance_m',
+      'horizontal_distance_cm',
+      'vertical_height_cm',
+      'lift_frequency_per_minute',
+      'lift_frequency_per_hour',
+      'duration_hours',
+      'duration_minutes',
+      'work_days_per_week',
+      'initial_force_n',
+      'sustain_force_n',
       'primary_method',
       'iso_method',
+      'reba_score_before_app',
+      'reba_risk_before_app',
+      'iso_score_before_app',
+      'iso_risk_before_app',
+      'reba_score_after_app',
+      'reba_risk_after_app',
+      'iso_score_after_app',
+      'iso_risk_after_app',
       'combined_score_app',
       'combined_risk_app',
+      'score_after_app',
+      'risk_after_app',
+      'economic_loss_thb',
+      'money_saved_thb',
+      'selected_suggestions',
       'is_worst_pose',
       'motion_source_kind',
       'video_duration_ms',
@@ -329,9 +374,11 @@ class TrainingDataExportService {
     for (final record in records) {
       final breakdown = record.assessmentBreakdown;
       if (breakdown == null) continue;
+      final afterBreakdown = record.afterAssessmentBreakdown;
       final profile =
           profilesByRecordId[record.id] ?? _profileFromRecord(record);
       final motion = breakdown.motionSummary;
+      final input = breakdown.ergoInput;
       for (final frame in breakdown.poseFrames) {
         if (frame.jointFeatures.length != featureColumns.length) continue;
         rows.add([
@@ -375,17 +422,50 @@ class TrainingDataExportService {
           '',
           record.id,
           _farmerId(profile, record),
+          profile.profileId.isNotEmpty
+              ? profile.profileId
+              : record.farmerProfileId ?? '',
+          _profileNumber(profile.age, record.farmerAge),
+          _profileText(profile.gender, record.farmerGender),
+          _profileNumber(profile.weight, record.farmerWeight),
+          _profileNumber(profile.height, record.farmerHeight),
+          _bmiForExport(profile, record),
+          record.farmerBmiCategory ?? profile.bmiCategoryKey,
           record.dateTime.toIso8601String(),
-          breakdown.ergoInput.jobType.name,
-          breakdown.ergoInput.toolId,
-          breakdown.ergoInput.toolLabelTh,
-          breakdown.ergoInput.toolLabelEn,
-          breakdown.ergoInput.toolWeightKg,
-          breakdown.ergoInput.toolWeightBandCode,
+          input.jobType.name,
+          input.toolId,
+          input.toolLabelTh,
+          input.toolLabelEn,
+          input.toolWeightKg,
+          input.toolWeightBandCode,
+          input.loadWeight > 0 ? input.loadWeight : input.toolWeightKg,
+          input.transportDistance,
+          input.horizontalDist,
+          input.verticalHeight,
+          input.liftFrequency,
+          input.liftFrequency * 60,
+          input.durationHours,
+          input.durationHours * 60,
+          input.workDaysPerWeek,
+          input.initialForce,
+          input.sustainForce,
           breakdown.primaryMethod.name,
           breakdown.isoMethod?.name ?? '',
+          breakdown.rebaResult.userScore,
+          breakdown.rebaResult.riskLevel.name,
+          breakdown.isoResult?.userScore ?? '',
+          breakdown.isoResult?.riskLevel.name ?? '',
+          afterBreakdown?.rebaResult.userScore ?? '',
+          afterBreakdown?.rebaResult.riskLevel.name ?? '',
+          afterBreakdown?.isoResult?.userScore ?? '',
+          afterBreakdown?.isoResult?.riskLevel.name ?? '',
           record.scoreBefore,
           record.riskBefore.name,
+          record.scoreAfter,
+          record.riskAfter.name,
+          record.economicLoss,
+          record.moneySaved,
+          record.selectedSuggestions.join(';'),
           frame.imageIndex == breakdown.worstPoseImageIndex ? 1 : 0,
           motion?.sourceKind ?? '',
           motion?.durationMs ?? '',
@@ -469,6 +549,42 @@ class TrainingDataExportService {
       return record.farmerProfileId!;
     }
     return 'unknown_farmer';
+  }
+
+  static String _profileText(String profileValue, String? recordValue) {
+    final trimmedProfile = profileValue.trim();
+    if (trimmedProfile.isNotEmpty) return trimmedProfile;
+    return recordValue?.trim() ?? '';
+  }
+
+  static Object _profileNumber(String profileValue, String? recordValue) {
+    final value = _parseDouble(profileValue) ?? _parseDouble(recordValue ?? '');
+    return value ?? '';
+  }
+
+  static Object _bmiForExport(
+    UserProfile profile,
+    EvaluationHistoryRecord record,
+  ) {
+    final recordBmi = record.farmerBmi;
+    if (recordBmi != null && recordBmi > 0) return recordBmi;
+    final profileBmi = profile.bmi;
+    if (profileBmi != null && profileBmi > 0) return profileBmi;
+    final weight =
+        _parseDouble(profile.weight) ?? _parseDouble(record.farmerWeight ?? '');
+    final height =
+        _parseDouble(profile.height) ?? _parseDouble(record.farmerHeight ?? '');
+    if (weight == null || height == null || weight <= 0 || height <= 0) {
+      return '';
+    }
+    final meters = height / 100;
+    return weight / (meters * meters);
+  }
+
+  static double? _parseDouble(String raw) {
+    final normalized = raw.trim().replaceAll(',', '.');
+    if (normalized.isEmpty) return null;
+    return double.tryParse(normalized);
   }
 
   static String _uniqueText(Iterable<String> values) {

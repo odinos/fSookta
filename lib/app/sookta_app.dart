@@ -15,6 +15,7 @@ import '../screens/main/help_screen.dart';
 import '../screens/main/history_detail_screen.dart';
 import '../screens/main/initial_risk_screen.dart';
 import '../screens/main/main_tabs_screen.dart';
+import '../screens/main/risk_reduction_potential_screen.dart';
 import '../screens/main/route_error_screen.dart';
 import '../screens/main/training_data_export_screen.dart';
 import '../core/models/assessment_session.dart';
@@ -69,6 +70,8 @@ class _SooktaAppState extends State<SooktaApp> {
           TrainingDataExportScreen.routeName: (_) =>
               const TrainingDataExportScreen(),
           DailyPredictionScreen.routeName: (_) => const DailyPredictionScreen(),
+          RiskReductionPotentialScreen.routeName: (_) =>
+              const RiskReductionPotentialScreen(),
         },
         onGenerateRoute: _generateRoute,
         initialRoute: SplashScreen.routeName,
