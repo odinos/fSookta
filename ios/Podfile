@@ -104,17 +104,22 @@ post_install do |installer|
         target="$1"
         [ -e "$target" ] || return 0
         find "$target" \( -name '.DS_Store' -o -name '._*' -o -name '__MACOSX' \) -exec rm -rf {} + 2>/dev/null || true
+        find "$target" -exec xattr -c {} \; 2>/dev/null || true
         find "$target" -exec xattr -d com.apple.FinderInfo {} \; 2>/dev/null || true
         find "$target" -exec xattr -d com.apple.ResourceFork {} \; 2>/dev/null || true
         find "$target" -exec xattr -d 'com.apple.fileprovider.fpfs#P' {} \; 2>/dev/null || true
         find "$target" -exec xattr -d com.apple.provenance {} \; 2>/dev/null || true
         find "$target" -exec xattr -d com.apple.quarantine {} \; 2>/dev/null || true
+        xattr -c "$target" 2>/dev/null || true
       }
 
       strip_metadata "${TARGET_BUILD_DIR}/${WRAPPER_NAME}"
       strip_metadata "${TARGET_BUILD_DIR}/App.framework"
+      strip_metadata "${TARGET_BUILD_DIR}/Flutter.framework"
       strip_metadata "${CONFIGURATION_BUILD_DIR}/App.framework"
+      strip_metadata "${CONFIGURATION_BUILD_DIR}/Flutter.framework"
       strip_metadata "${BUILT_PRODUCTS_DIR}/App.framework"
+      strip_metadata "${BUILT_PRODUCTS_DIR}/Flutter.framework"
       strip_metadata "${SRCROOT}/../build/native_assets/ios"
     SCRIPT
 

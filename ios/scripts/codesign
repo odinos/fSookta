@@ -12,21 +12,49 @@ clean_path() {
       ;;
   esac
 
-  find "$clean_root" \( -name '.DS_Store' -o -name '._*' -o -name '__MACOSX' \) \
-    -exec rm -rf {} + 2>/dev/null || true
-  find "$clean_root" -exec xattr -d com.apple.FinderInfo {} \; 2>/dev/null || true
-  find "$clean_root" -exec xattr -d com.apple.ResourceFork {} \; 2>/dev/null || true
-  find "$clean_root" -exec xattr -d 'com.apple.fileprovider.fpfs#P' {} \; 2>/dev/null || true
-  find "$clean_root" -exec xattr -d com.apple.provenance {} \; 2>/dev/null || true
-  find "$clean_root" -exec xattr -d com.apple.quarantine {} \; 2>/dev/null || true
+  case "$clean_root" in
+    */build/native_assets/ios/*.framework|build/native_assets/ios/*.framework)
+      tmp_root="${TMPDIR:-/tmp}/$(basename "$clean_root").clean.$$"
+      rm -rf "$tmp_root"
+      ditto --norsrc --noextattr "$clean_root" "$tmp_root" 2>/dev/null || true
+      if [ -d "$tmp_root" ]; then
+        rm -rf "$clean_root"
+        mv "$tmp_root" "$clean_root"
+      fi
+      ;;
+  esac
 
-  # File Provider can stamp the framework directory again after recursive
-  # traversal, so strip the root once more immediately before codesign.
-  xattr -d com.apple.FinderInfo "$clean_root" 2>/dev/null || true
-  xattr -d com.apple.ResourceFork "$clean_root" 2>/dev/null || true
-  xattr -d 'com.apple.fileprovider.fpfs#P' "$clean_root" 2>/dev/null || true
-  xattr -d com.apple.provenance "$clean_root" 2>/dev/null || true
-  xattr -d com.apple.quarantine "$clean_root" 2>/dev/null || true
+  for _ in 1 2 3 4 5; do
+    /usr/bin/xattr -c "$clean_root" 2>/dev/null || true
+    /usr/bin/xattr -d com.apple.FinderInfo "$clean_root" 2>/dev/null || true
+    /usr/bin/xattr -d com.apple.ResourceFork "$clean_root" 2>/dev/null || true
+    /usr/bin/xattr -d 'com.apple.fileprovider.fpfs#P' "$clean_root" 2>/dev/null || true
+    /usr/bin/xattr -d com.apple.provenance "$clean_root" 2>/dev/null || true
+    /usr/bin/xattr -d com.apple.quarantine "$clean_root" 2>/dev/null || true
+
+    find "$clean_root" \( -name '.DS_Store' -o -name '._*' -o -name '__MACOSX' \) \
+      -exec rm -rf {} + 2>/dev/null || true
+    find "$clean_root" -exec /usr/bin/xattr -c {} \; 2>/dev/null || true
+    find "$clean_root" -exec /usr/bin/xattr -d com.apple.FinderInfo {} \; 2>/dev/null || true
+    find "$clean_root" -exec /usr/bin/xattr -d com.apple.ResourceFork {} \; 2>/dev/null || true
+    find "$clean_root" -exec /usr/bin/xattr -d 'com.apple.fileprovider.fpfs#P' {} \; 2>/dev/null || true
+    find "$clean_root" -exec /usr/bin/xattr -d com.apple.provenance {} \; 2>/dev/null || true
+    find "$clean_root" -exec /usr/bin/xattr -d com.apple.quarantine {} \; 2>/dev/null || true
+
+    # File Provider can stamp the framework directory again after recursive
+    # traversal, so strip the root once more immediately before codesign.
+    /usr/bin/xattr -c "$clean_root" 2>/dev/null || true
+    /usr/bin/xattr -d com.apple.FinderInfo "$clean_root" 2>/dev/null || true
+    /usr/bin/xattr -d com.apple.ResourceFork "$clean_root" 2>/dev/null || true
+    /usr/bin/xattr -d 'com.apple.fileprovider.fpfs#P' "$clean_root" 2>/dev/null || true
+    /usr/bin/xattr -d com.apple.provenance "$clean_root" 2>/dev/null || true
+    /usr/bin/xattr -d com.apple.quarantine "$clean_root" 2>/dev/null || true
+
+    if ! /usr/bin/xattr "$clean_root" 2>/dev/null | /usr/bin/grep -Eq 'FinderInfo|ResourceFork|fileprovider'; then
+      break
+    fi
+    /bin/sleep 0.2
+  done
 }
 
 for arg in "$@"; do
