@@ -91,9 +91,9 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
     selectedToolId = widget.activity.defaultToolOption.id;
     showAdvancedDetails = widget.initiallyShowAdvancedDetails;
     _applyActivityDefaults();
-    horizontalController.addListener(_scheduleDraftSave);
-    verticalController.addListener(_scheduleDraftSave);
-    transportController.addListener(_scheduleDraftSave);
+    horizontalController.addListener(_onNumberTextChanged);
+    verticalController.addListener(_onNumberTextChanged);
+    transportController.addListener(_onNumberTextChanged);
   }
 
   @override
@@ -244,9 +244,9 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
   @override
   void dispose() {
     draftSaveTimer?.cancel();
-    horizontalController.removeListener(_scheduleDraftSave);
-    verticalController.removeListener(_scheduleDraftSave);
-    transportController.removeListener(_scheduleDraftSave);
+    horizontalController.removeListener(_onNumberTextChanged);
+    verticalController.removeListener(_onNumberTextChanged);
+    transportController.removeListener(_onNumberTextChanged);
     horizontalController.dispose();
     verticalController.dispose();
     transportController.dispose();
@@ -261,8 +261,11 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
     final language = state.language ?? AppLanguage.th;
     final thai = language == AppLanguage.th;
     final activityName = widget.activity.label(thai: thai);
-    final canAnalyze =
-        selectedImagePaths.isNotEmpty && poseAssessmentReady && !poseBusy;
+    final validationIssues = _requiredDataIssues(thai);
+    final canAnalyze = selectedImagePaths.isNotEmpty &&
+        poseAssessmentReady &&
+        !poseBusy &&
+        validationIssues.isEmpty;
 
     return Scaffold(
       appBar: AppBar(title: Text(thai ? 'แบบฟอร์มประเมิน' : 'Evaluation Form')),
@@ -325,6 +328,7 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
               initialForce: selectedInitialForce,
               sustainForce: selectedSustainForce,
               pushPullDistance: selectedPushPullDistance,
+              validationIssues: validationIssues,
               onAnalyze: canAnalyze ? _analyze : null,
             ),
             if (latestFrameAnalyses.isNotEmpty) ...[
@@ -873,6 +877,19 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
   Future<void> _analyze() async {
     final state = AppStateScope.of(context);
     final thai = (state.language ?? AppLanguage.th) == AppLanguage.th;
+    final validationIssues = _requiredDataIssues(thai);
+    if (validationIssues.isNotEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            thai
+                ? 'กรุณาตรวจข้อมูลก่อนประเมิน: ${validationIssues.first}'
+                : 'Check required data before assessment: ${validationIssues.first}',
+          ),
+        ),
+      );
+      return;
+    }
     if (selectedImagePaths.isEmpty || poseBusy || !poseAssessmentReady) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -888,6 +905,9 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
     final activityName = widget.activity.label(thai: thai);
     final gender = state.profile.gender.toLowerCase();
     final dailyIncome = state.dailyIncome.toDouble();
+    final horizontalDistance = _numberValue(horizontalController.text) ?? 25;
+    final verticalHeight = _numberValue(verticalController.text) ?? 75;
+    final transportDistance = _numberValue(transportController.text) ?? 4;
     final ergoInput = ErgoInputData(
       jobType: selectedJobType,
       gender: gender,
@@ -898,14 +918,14 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
       toolWeightKg: selectedTool.weightKg,
       toolWeightBandCode: selectedTool.weightBandCode,
       loadWeight: selectedLoadWeight,
-      horizontalDist: _number(horizontalController, 25),
-      verticalHeight: _number(verticalController, 75),
+      horizontalDist: horizontalDistance,
+      verticalHeight: verticalHeight,
       liftFrequency: selectedFrequency,
       durationHours: selectedDurationHours,
       workDaysPerWeek: selectedWorkDaysPerWeek,
       transportDistance: selectedJobType == JobType.pushPull
           ? selectedPushPullDistance
-          : _number(transportController, 4),
+          : transportDistance,
       initialForce: selectedInitialForce,
       sustainForce: selectedSustainForce,
     );
@@ -974,8 +994,100 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
     );
   }
 
-  double _number(TextEditingController controller, double fallback) {
-    return double.tryParse(controller.text.trim()) ?? fallback;
+  List<String> _requiredDataIssues(bool thai) {
+    final issues = <String>[];
+    if (selectedDurationHours <= 0) {
+      issues.add(thai
+          ? 'ระยะเวลาทำงานต้องมากกว่า 0'
+          : 'Work duration must be greater than 0');
+    }
+    if (selectedFrequency < 0) {
+      issues.add(thai
+          ? 'ความถี่งานต้องไม่ติดลบ'
+          : 'Work frequency cannot be negative');
+    }
+    if (selectedWorkDaysPerWeek <= 0) {
+      issues.add(thai
+          ? 'จำนวนวันทำงานต่อสัปดาห์ต้องมากกว่า 0'
+          : 'Work days per week must be greater than 0');
+    }
+    final knownTool = widget.activity.toolOptions
+        .any((option) => option.id == selectedToolId);
+    if (!knownTool) {
+      issues.add(thai
+          ? 'กรุณาเลือกเครื่องมือ/น้ำหนักที่ใช้'
+          : 'Choose the tool or load used');
+    }
+    if (selectedJobType == JobType.lifting) {
+      _addPositiveNumberIssue(
+        issues,
+        thai: thai,
+        valueText: horizontalController.text,
+        thaiLabel: 'ระยะห่าง H',
+        englishLabel: 'Distance H',
+      );
+      _addPositiveNumberIssue(
+        issues,
+        thai: thai,
+        valueText: verticalController.text,
+        thaiLabel: 'ความสูง V',
+        englishLabel: 'Height V',
+      );
+      _addPositiveNumberIssue(
+        issues,
+        thai: thai,
+        valueText: transportController.text,
+        thaiLabel: 'ระยะทางขนย้าย',
+        englishLabel: 'Transport distance',
+      );
+    } else if (selectedJobType == JobType.pushPull) {
+      if (selectedInitialForce <= 0) {
+        issues.add(thai
+            ? 'แรงเริ่มต้นดัน/ลากต้องมากกว่า 0'
+            : 'Initial push/pull force must be greater than 0');
+      }
+      if (selectedSustainForce <= 0) {
+        issues.add(thai
+            ? 'แรงต่อเนื่องดัน/ลากต้องมากกว่า 0'
+            : 'Sustained push/pull force must be greater than 0');
+      }
+      if (selectedPushPullDistance <= 0) {
+        issues.add(thai
+            ? 'ระยะดัน/ลากต้องมากกว่า 0'
+            : 'Push/pull distance must be greater than 0');
+      }
+    }
+    return issues;
+  }
+
+  void _addPositiveNumberIssue(
+    List<String> issues, {
+    required bool thai,
+    required String valueText,
+    required String thaiLabel,
+    required String englishLabel,
+  }) {
+    final value = _numberValue(valueText);
+    if (value == null || value <= 0) {
+      issues.add(thai
+          ? '$thaiLabel ต้องเป็นตัวเลขมากกว่า 0'
+          : '$englishLabel must be a number greater than 0');
+    }
+  }
+
+  double? _numberValue(String valueText) {
+    final normalized = valueText.trim().replaceAll(',', '.');
+    if (normalized.isEmpty) return null;
+    return double.tryParse(normalized);
+  }
+
+  void _onNumberTextChanged() {
+    if (!mounted || hydratingDraft) {
+      _scheduleDraftSave();
+      return;
+    }
+    setState(() {});
+    _scheduleDraftSave();
   }
 
   void _setDurationHours(double value) {
@@ -2048,6 +2160,7 @@ class _SimpleAssessmentCard extends StatelessWidget {
     required this.initialForce,
     required this.sustainForce,
     required this.pushPullDistance,
+    required this.validationIssues,
     required this.onAnalyze,
   });
 
@@ -2065,6 +2178,7 @@ class _SimpleAssessmentCard extends StatelessWidget {
   final double initialForce;
   final double sustainForce;
   final double pushPullDistance;
+  final List<String> validationIssues;
   final VoidCallback? onAnalyze;
 
   @override
@@ -2167,6 +2281,13 @@ class _SimpleAssessmentCard extends StatelessWidget {
               label: thai ? 'เครื่องมือ/น้ำหนัก' : 'Tool / load',
               value: toolLabel,
             ),
+            if (validationIssues.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              _RequiredDataNotice(
+                thai: thai,
+                issues: validationIssues,
+              ),
+            ],
             const SizedBox(height: 14),
             FilledButton.icon(
               onPressed: onAnalyze,
@@ -2244,6 +2365,60 @@ class _SimpleFactRow extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _RequiredDataNotice extends StatelessWidget {
+  const _RequiredDataNotice({
+    required this.thai,
+    required this.issues,
+  });
+
+  final bool thai;
+  final List<String> issues;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF7E6),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.orange.shade300),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(
+                  Icons.info_outline,
+                  color: Colors.orange.shade800,
+                  size: 20,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    thai
+                        ? 'กรุณาตรวจข้อมูลก่อนประเมิน'
+                        : 'Check required data before assessment',
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            for (final issue in issues)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Text('• $issue'),
+              ),
+          ],
+        ),
       ),
     );
   }
