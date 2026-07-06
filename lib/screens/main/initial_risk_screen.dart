@@ -16,6 +16,7 @@ import '../../widgets/economic_impact_comparison_card.dart';
 import '../../widgets/research_disclaimer_card.dart';
 import '../../widgets/responsive_content.dart';
 import '../../widgets/tts_button.dart';
+import 'evaluation_menu_screen.dart';
 import 'final_result_screen.dart';
 
 class InitialRiskScreen extends StatefulWidget {
@@ -34,6 +35,7 @@ class InitialRiskScreen extends StatefulWidget {
 
 class _InitialRiskScreenState extends State<InitialRiskScreen> {
   final selectedKeys = <String>{};
+  var preSaveConfirmed = false;
 
   @override
   Widget build(BuildContext context) {
@@ -48,6 +50,7 @@ class _InitialRiskScreenState extends State<InitialRiskScreen> {
       bodyPartRisks: before.bodyPartRisks,
     );
     final after = _simulateAfter(before);
+    final afterBreakdown = _simulateAfterBreakdown(widget.payload.breakdown);
 
     return Scaffold(
       appBar: AppBar(
@@ -206,21 +209,42 @@ class _InitialRiskScreenState extends State<InitialRiskScreen> {
               ),
             ],
             const SizedBox(height: 24),
-            FilledButton.icon(
-              onPressed: () {
-                Navigator.of(context).pushNamed(
-                  FinalResultScreen.routeName,
-                  arguments: AssessmentBundle(
-                    activity: widget.payload.activity,
-                    activityName: widget.payload.activityName,
-                    jobType: widget.payload.jobType,
-                    before: before,
-                    after: after,
-                    selectedSuggestionKeys: selectedKeys.toList(),
-                    breakdown: widget.payload.breakdown,
-                  ),
+            _PreSaveConfirmationCard(
+              activityName: widget.payload.activityName,
+              jobType: widget.payload.jobType,
+              confirmed: preSaveConfirmed,
+              thai: thai,
+              onConfirmedChanged: (value) {
+                setState(() => preSaveConfirmed = value);
+              },
+              onEditDetails: () => Navigator.of(context).pop(),
+              onChooseActivity: () {
+                Navigator.of(context).popUntil(
+                  (route) =>
+                      route.settings.name == EvaluationMenuScreen.routeName ||
+                      route.isFirst,
                 );
               },
+            ),
+            const SizedBox(height: 12),
+            FilledButton.icon(
+              onPressed: preSaveConfirmed
+                  ? () {
+                      Navigator.of(context).pushNamed(
+                        FinalResultScreen.routeName,
+                        arguments: AssessmentBundle(
+                          activity: widget.payload.activity,
+                          activityName: widget.payload.activityName,
+                          jobType: widget.payload.jobType,
+                          before: before,
+                          after: after,
+                          selectedSuggestionKeys: selectedKeys.toList(),
+                          breakdown: widget.payload.breakdown,
+                          afterBreakdown: afterBreakdown,
+                        ),
+                      );
+                    }
+                  : null,
               icon: const Icon(Icons.summarize_outlined),
               label: Text(thai ? 'ดูผลหลังปรับปรุง' : 'View Improved Result'),
             ),
@@ -283,6 +307,22 @@ class _InitialRiskScreenState extends State<InitialRiskScreen> {
           affectedParts.contains(part) ? _lowerRisk(level) : level,
         ),
       ),
+    );
+  }
+
+  AssessmentBreakdown? _simulateAfterBreakdown(AssessmentBreakdown? before) {
+    if (before == null) return null;
+    return AssessmentBreakdown(
+      primaryMethod: before.primaryMethod,
+      rebaInput: before.rebaInput,
+      rebaResult: _simulateAfter(before.rebaResult),
+      ergoInput: before.ergoInput,
+      isoMethod: before.isoMethod,
+      isoResult:
+          before.isoResult == null ? null : _simulateAfter(before.isoResult!),
+      poseFrames: before.poseFrames,
+      worstPoseImageIndex: before.worstPoseImageIndex,
+      motionSummary: before.motionSummary,
     );
   }
 
@@ -560,6 +600,155 @@ class _InitialRiskScreenState extends State<InitialRiskScreen> {
       0xFFFF5252,
     ];
     return colors[(score - 1).clamp(0, 8).toInt()];
+  }
+}
+
+class _PreSaveConfirmationCard extends StatelessWidget {
+  const _PreSaveConfirmationCard({
+    required this.activityName,
+    required this.jobType,
+    required this.confirmed,
+    required this.thai,
+    required this.onConfirmedChanged,
+    required this.onEditDetails,
+    required this.onChooseActivity,
+  });
+
+  final String activityName;
+  final JobType jobType;
+  final bool confirmed;
+  final bool thai;
+  final ValueChanged<bool> onConfirmedChanged;
+  final VoidCallback onEditDetails;
+  final VoidCallback onChooseActivity;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(
+                  Icons.fact_check_outlined,
+                  color: SooktaColors.darkGreen,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    thai
+                        ? 'ตรวจสอบข้อมูลก่อนบันทึก'
+                        : 'Check details before saving',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              thai
+                  ? 'ถ้ากิจกรรมหรือท่าทางไม่ตรงกับงานจริง ให้กลับไปแก้ก่อน ระบบจะยังไม่บันทึกผลจนกว่าจะยืนยัน'
+                  : 'If the activity or posture does not match the real task, go back and correct it before saving.',
+              style: const TextStyle(color: Colors.black54, height: 1.35),
+            ),
+            const SizedBox(height: 12),
+            _ConfirmationRow(
+              label: thai ? 'กิจกรรม' : 'Activity',
+              value: activityName,
+            ),
+            _ConfirmationRow(
+              label: thai ? 'วิธีประเมิน/ท่าทาง' : 'Assessment method',
+              value: _jobTypeLabel(jobType, thai),
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                OutlinedButton.icon(
+                  onPressed: onEditDetails,
+                  icon: const Icon(Icons.tune_outlined),
+                  label: Text(
+                    thai
+                        ? 'แก้ท่าทาง/รายละเอียดประเมิน'
+                        : 'Edit posture/details',
+                  ),
+                ),
+                OutlinedButton.icon(
+                  onPressed: onChooseActivity,
+                  icon: const Icon(Icons.category_outlined),
+                  label: Text(
+                    thai ? 'เลือกกิจกรรมใหม่' : 'Choose another activity',
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            CheckboxListTile(
+              value: confirmed,
+              onChanged: (value) => onConfirmedChanged(value ?? false),
+              title: Text(
+                thai
+                    ? 'ยืนยันข้อมูลถูกต้องก่อนบันทึก'
+                    : 'Confirm details are correct before saving',
+              ),
+              controlAffinity: ListTileControlAffinity.leading,
+              contentPadding: EdgeInsets.zero,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _jobTypeLabel(JobType jobType, bool thai) {
+    return switch (jobType) {
+      JobType.reba => thai ? 'ท่าทาง' : 'Posture',
+      JobType.lifting => thai ? 'ยก/แบก' : 'Lifting/carrying',
+      JobType.pushPull => thai ? 'ดัน/ดึง' : 'Push/pull',
+    };
+  }
+}
+
+class _ConfirmationRow extends StatelessWidget {
+  const _ConfirmationRow({
+    required this.label,
+    required this.value,
+  });
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 136,
+            child: Text(
+              label,
+              style: const TextStyle(color: Colors.black54),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 
