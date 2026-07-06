@@ -161,6 +161,10 @@ void main() {
     expect(csv, contains('ข้อมูลย่อย REBA'));
     expect(csv, contains('ข้อมูลย่อย ISO11228'));
     expect(csv, contains('หลีกเลี่ยงการก้มหลังค้างนาน'));
+    expect(csv, contains('แหล่งอ้างอิงที่ใช้ในการประเมิน'));
+    expect(csv, contains('Hignett, S., & McAtamney, L. (2000)'));
+    expect(csv, contains('ISO 11228-1:2021'));
+    expect(csv, contains('ไม่ใช่ใบรับรองทางการแพทย์'));
   });
 
   test('builds history export CSV from saved record', () {
@@ -228,6 +232,8 @@ void main() {
     expect(csv, contains('แรงเริ่มต้นดัน/ลาก'));
     expect(csv, contains('5280'));
     expect(csv, contains('สูตรคำนวณผลกระทบหลังปรับ'));
+    expect(csv, contains('แหล่งอ้างอิงที่ใช้ในการประเมิน'));
+    expect(csv, contains('ISO 11228-2:2007'));
   });
 
   test('builds all-farmer worksheet CSV for research staff', () {
@@ -323,8 +329,17 @@ void main() {
     expect(csv, contains('expert_risk_level'));
     expect(csv, contains('expert_assessment_date'));
     expect(csv, contains('expert_comments'));
+    expect(csv, contains('assessment_reference_sources'));
+    expect(csv, contains('assessment_scope_note'));
+    expect(csv, contains('calculation_standard_note'));
+    expect(csv, contains('export_schema_version'));
 
     final row = _firstAllHistoryDataRow(csv);
+    expect(row['export_schema_version'], 'sookta-export-references-v1');
+    expect(row['assessment_reference_sources'], contains('REBA'));
+    expect(row['assessment_reference_sources'], contains('ISO 11228'));
+    expect(row['assessment_scope_note'], contains('not medical diagnosis'));
+    expect(row['calculation_standard_note'], contains('REBA'));
     expect(row['wrist_risk'], 'ความเสี่ยงสูง');
     expect(
       row['upper_limb_risk'],

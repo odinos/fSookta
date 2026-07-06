@@ -4,6 +4,7 @@ import 'package:path_provider/path_provider.dart';
 
 import '../../app/app_state.dart';
 import '../models/assessment_session.dart';
+import '../models/assessment_reference_sources.dart';
 import '../models/economic_impact_models.dart';
 import '../models/evaluation_models.dart';
 import 'economic_impact_service.dart';
@@ -218,6 +219,7 @@ class AssessmentExportService {
             ? 'ไฟล์นี้เป็น CSV ที่เปิดด้วย Excel ได้ ใช้เพื่อการติดตามงานวิจัย ไม่ใช่ใบรับรองทางการแพทย์'
             : 'This CSV opens in Excel and is for research follow-up, not medical certification.',
       ],
+      ...AssessmentReferenceSources.csvRows(thai: thai),
     ];
     return '\uFEFF${rows.map(_csvRow).join('\n')}\n';
   }
@@ -326,6 +328,7 @@ class AssessmentExportService {
             ? 'ไฟล์นี้ส่งออกจากหน้าประวัติ เป็น CSV ที่เปิดด้วย Excel ได้ ใช้เพื่อการติดตามงานวิจัย ไม่ใช่ใบรับรองทางการแพทย์'
             : 'This history export is a CSV that opens in Excel and is for research follow-up, not medical certification.',
       ],
+      ...AssessmentReferenceSources.csvRows(thai: thai),
     ];
     return '\uFEFF${rows.map(_csvRow).join('\n')}\n';
   }
@@ -339,6 +342,10 @@ class AssessmentExportService {
     final rows = <List<Object?>>[
       [
         'Export Generated At',
+        'export_schema_version',
+        'assessment_reference_sources',
+        'assessment_scope_note',
+        'calculation_standard_note',
         'Record ID',
         'Farmer ID',
         thai ? 'ชื่อผู้ใช้' : 'Name',
@@ -572,6 +579,10 @@ class AssessmentExportService {
             : rebaReduction / rebaBeforeScore;
     return [
       generatedAt,
+      AssessmentReferenceSources.exportSchemaVersion,
+      AssessmentReferenceSources.joinedReferences(),
+      AssessmentReferenceSources.scopeNoteEn,
+      AssessmentReferenceSources.calculationStandardNoteEn,
       record.id,
       userId,
       profile.name.isEmpty ? (record.farmerName ?? '-') : profile.name,

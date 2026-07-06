@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../app/assets.dart';
 import '../../app/app_state.dart';
 import '../../app/sookta_app.dart';
+import '../../core/models/assessment_reference_sources.dart';
 import '../../core/models/assessment_session.dart';
 import '../../core/services/manual_document_service.dart';
 import '../../widgets/responsive_content.dart';
@@ -132,7 +133,7 @@ class ReferencesScreen extends StatelessWidget {
         AppLanguage.th;
     final ttsText = [
       thai ? 'แหล่งอ้างอิง' : 'References',
-      ..._references,
+      ...AssessmentReferenceSources.references,
     ].join('. ');
 
     return Scaffold(
@@ -191,7 +192,7 @@ class ReferencesScreen extends StatelessWidget {
                 padding: const EdgeInsets.all(18),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  children: _references
+                  children: AssessmentReferenceSources.references
                       .map(
                         (reference) => Padding(
                           padding: const EdgeInsets.only(bottom: 12),
@@ -356,16 +357,6 @@ class _ManualPageGallery extends StatelessWidget {
     );
   }
 }
-
-const _references = [
-  'Hignett, S., & McAtamney, L. (2000). Rapid Entire Body Assessment (REBA). Applied Ergonomics, 31(2), 201–205.',
-  'ErgoPlus. REBA: A Step-by-Step Guide – Rapid Entire Body Assessment. https://ergo-plus.com/wp-content/uploads/REBA-A-Step-by-Step-Guide.pdf',
-  'ISO 11228-1:2021 – Ergonomics – Manual handling – Part 1: Lifting, holding and carrying.',
-  'ISO 11228-2:2007 – Ergonomics – Manual handling – Part 2: Pushing and pulling.',
-  'ISO 11228-3:2007 – Ergonomics – Manual handling – Part 3: Handling of low loads at high frequency.',
-  'International Labour Organization. (2014). Ergonomic Checkpoints in Agriculture (2nd ed.). ILO.',
-  'Zadry, H.R., Kamil, M., & Saputra, N. (2025). Design and evaluation of a novel user-centred cassava extractor.',
-];
 
 class _HelpStep {
   const _HelpStep({
