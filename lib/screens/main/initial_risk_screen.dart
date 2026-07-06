@@ -852,7 +852,6 @@ class _AiRiskAlertCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final percent = (alert.probability * 100).round();
     final color = _levelColor(alert.level);
     final title =
         thai ? 'สัญญาณช่วยเฝ้าระวังท่าทาง' : 'Posture Awareness Signal';
@@ -879,7 +878,7 @@ class _AiRiskAlertCard extends StatelessWidget {
                 Chip(
                   backgroundColor: color.withValues(alpha: 0.12),
                   label: Text(
-                    '$percent%',
+                    _chipLabel(alert.level, thai),
                     style: TextStyle(
                       color: color,
                       fontWeight: FontWeight.bold,
@@ -958,6 +957,23 @@ class _AiRiskAlertCard extends StatelessWidget {
       AiAlertLevel.watch => 'Watch this posture',
       AiAlertLevel.high => 'High risk, improve posture',
       AiAlertLevel.critical => 'Very high risk, improve posture now',
+    };
+  }
+
+  String _chipLabel(AiAlertLevel level, bool thai) {
+    if (thai) {
+      return switch (level) {
+        AiAlertLevel.low => 'ต่ำ',
+        AiAlertLevel.watch => 'เฝ้าระวัง',
+        AiAlertLevel.high => 'สูง',
+        AiAlertLevel.critical => 'สูงมาก',
+      };
+    }
+    return switch (level) {
+      AiAlertLevel.low => 'Low',
+      AiAlertLevel.watch => 'Watch',
+      AiAlertLevel.high => 'High',
+      AiAlertLevel.critical => 'Very high',
     };
   }
 }

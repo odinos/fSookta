@@ -342,6 +342,7 @@ class AssessmentBundle {
     required this.after,
     required this.selectedSuggestionKeys,
     this.breakdown,
+    this.afterBreakdown,
   });
 
   final SooktaActivity activity;
@@ -351,6 +352,7 @@ class AssessmentBundle {
   final ErgoResult after;
   final List<String> selectedSuggestionKeys;
   final AssessmentBreakdown? breakdown;
+  final AssessmentBreakdown? afterBreakdown;
 }
 
 class InitialRiskPayload {
