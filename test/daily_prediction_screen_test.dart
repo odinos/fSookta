@@ -54,6 +54,23 @@ void main() {
     expect(find.textContaining('ISO11228'), findsWidgets);
     expect(find.textContaining('ทำตามคำแนะนำแล้วดีขึ้น'), findsNothing);
 
+    await tester.scrollUntilVisible(
+      find.textContaining('ค่าจริงที่ใช้ดูแนวโน้ม'),
+      240,
+    );
+    expect(
+      find.textContaining('ระบบใช้ผลก่อนปรับปรุงเป็นฐานคำนวณระดับแนวโน้ม'),
+      findsWidgets,
+    );
+    expect(
+      find.textContaining('ผลหลังปรับปรุงถูกใช้เพื่อเปรียบเทียบ'),
+      findsWidgets,
+    );
+    expect(
+      find.textContaining('ยังไม่ใช่ผลทำนายจากข้อมูลอาการหรือการรักษาจริง'),
+      findsWidgets,
+    );
+
     final improvementButton =
         find.widgetWithText(OutlinedButton, 'ดูศักยภาพการลดความเสี่ยง');
     await tester.scrollUntilVisible(

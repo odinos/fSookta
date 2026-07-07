@@ -210,6 +210,38 @@ void main() {
     expect(prediction.averageIsoAfterScore, closeTo(25 / 7, 0.001));
   });
 
+  test('daily logistic features include after-assessment values', () async {
+    final service = await DailyInjuryPredictionService.load();
+
+    final prediction = service.predictForRecords([
+      for (var day = 1; day <= 7; day++)
+        _record(
+          day,
+          score: 9,
+          afterScore: 3,
+          risk: RiskLevel.high,
+          riskAfter: RiskLevel.low,
+          assessmentBreakdown: _breakdownWithIso(
+            rebaScore: 9,
+            isoScore: 8,
+          ),
+          afterAssessmentBreakdown: _breakdownWithIso(
+            rebaScore: 3,
+            isoScore: 2,
+            rebaRisk: RiskLevel.low,
+            isoRisk: RiskLevel.low,
+          ),
+        ),
+    ]);
+
+    expect(prediction.hasEnoughData, isTrue);
+    expect(prediction.featureValues['avg_reba_score_after_norm'],
+        closeTo(0.25, 0.001));
+    expect(prediction.featureValues['avg_iso_score_after_norm'],
+        closeTo(0.125, 0.001));
+    expect(prediction.featureValues['no_improvement_days_norm'], 0);
+  });
+
   test('daily trend summarizes farmer-friendly before and after improvement',
       () async {
     final service = await DailyInjuryPredictionService.load();

@@ -595,8 +595,8 @@ class _FeatureSnapshotCard extends StatelessWidget {
             const SizedBox(height: 8),
             Text(
               thai
-                  ? 'หน้านี้ใช้ผลก่อนเลือกคำแนะนำจาก 7 ครั้งล่าสุด เพื่อสะท้อนความเสี่ยงจริงของงานที่บันทึก'
-                  : 'This screen uses the latest 7 pre-improvement results to reflect the actual risk of recorded work.',
+                  ? 'ระบบใช้ผลก่อนปรับปรุงเป็นฐานคำนวณระดับแนวโน้มจาก 7 ครั้งล่าสุด ผลหลังปรับปรุงถูกใช้เพื่อเปรียบเทียบศักยภาพการลดความเสี่ยงและเป็นข้อมูลประกอบเท่านั้น ยังไม่ใช่ผลทำนายจากข้อมูลอาการหรือการรักษาจริง'
+                  : 'The app uses before-improvement results from the latest 7 records as the basis for the trend level. After-improvement results are used for risk-reduction comparison and supporting features only. This is not yet a prediction from real symptom or treatment outcomes.',
               style: TextStyle(
                 color: Colors.black.withValues(alpha: 0.64),
                 height: 1.35,

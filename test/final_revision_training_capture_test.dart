@@ -101,11 +101,13 @@ void main() {
     );
     expect(find.text('คะแนนก่อนปรับ'), findsNothing);
     await tester.scrollUntilVisible(
-      find.textContaining('ก่อนเลือกคำแนะนำ'),
+      find.textContaining('ผลก่อนปรับปรุงเป็นฐาน'),
       240,
       scrollable: find.byType(Scrollable).first,
     );
-    expect(find.textContaining('ก่อนเลือกคำแนะนำ'), findsWidgets);
+    expect(find.textContaining('ผลก่อนปรับปรุงเป็นฐาน'), findsWidgets);
+    expect(find.textContaining('ผลหลังปรับปรุงถูกใช้เพื่อเปรียบเทียบ'),
+        findsWidgets);
     expect(find.textContaining('REBA ล่าสุด'), findsWidgets);
     expect(find.textContaining('Probability'), findsNothing);
 
