@@ -262,7 +262,9 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
     final thai = language == AppLanguage.th;
     final activityName = widget.activity.label(thai: thai);
     final validationIssues = _requiredDataIssues(thai);
+    final imageQualityIssues = _imageQualityIssues(thai);
     final canAnalyze = selectedImagePaths.isNotEmpty &&
+        imageQualityIssues.isEmpty &&
         poseAssessmentReady &&
         !poseBusy &&
         validationIssues.isEmpty;
@@ -310,6 +312,7 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
               onVideoGallery: poseBusy ? null : _pickGalleryVideo,
               onSlotTap: _pickGalleryForSlot,
               onSlotRemove: _removeImageAt,
+              imageQualityIssues: imageQualityIssues,
               thai: thai,
             ),
             const SizedBox(height: 16),
@@ -1060,6 +1063,22 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
     return issues;
   }
 
+  List<String> _imageQualityIssues(bool thai) {
+    final issues = <String>[];
+    final missingAngles = math.max(0, 4 - selectedImagePaths.length);
+    if (missingAngles > 0) {
+      issues.add(thai
+          ? 'ยังขาดอีก $missingAngles มุม ถ่ายเพิ่มให้ครบ 4 มุมก่อนประเมิน'
+          : '$missingAngles image angles are still missing. Add all 4 angles before assessment.');
+    }
+    if (selectedImagePaths.length >= 4 && !poseBusy && !poseAssessmentReady) {
+      issues.add(thai
+          ? 'ยังอ่านท่าทางไม่ได้ ถ่ายใหม่ให้เห็นศีรษะ หลัง แขน มือ ขา และเท้า'
+          : 'Posture is not readable yet. Retake the photo so the head, back, arms, hands, legs, and feet are visible.');
+    }
+    return issues;
+  }
+
   void _addPositiveNumberIssue(
     List<String> issues, {
     required bool thai,
@@ -1712,6 +1731,7 @@ class _ImageSlots extends StatelessWidget {
     required this.onVideoGallery,
     required this.onSlotTap,
     required this.onSlotRemove,
+    required this.imageQualityIssues,
     required this.thai,
   });
 
@@ -1723,6 +1743,7 @@ class _ImageSlots extends StatelessWidget {
   final VoidCallback? onVideoGallery;
   final ValueChanged<int> onSlotTap;
   final ValueChanged<int> onSlotRemove;
+  final List<String> imageQualityIssues;
   final bool thai;
 
   @override
@@ -1775,6 +1796,13 @@ class _ImageSlots extends StatelessWidget {
           slotLimit: slotLimit,
           thai: thai,
         ),
+        if (imageQualityIssues.isNotEmpty) ...[
+          const SizedBox(height: 10),
+          _ImageQualityNotice(
+            issues: imageQualityIssues,
+            thai: thai,
+          ),
+        ],
         const SizedBox(height: 12),
         _ReadablePoseExample(activity: activity, thai: thai),
         const SizedBox(height: 12),
@@ -1925,6 +1953,68 @@ class _ImageSlots extends StatelessWidget {
           },
         ),
       ],
+    );
+  }
+}
+
+class _ImageQualityNotice extends StatelessWidget {
+  const _ImageQualityNotice({
+    required this.issues,
+    required this.thai,
+  });
+
+  final List<String> issues;
+  final bool thai;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF7E0),
+        border: Border.all(color: const Color(0xFFFFD98A)),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(
+              Icons.photo_camera_back_outlined,
+              color: Colors.amber.shade800,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    thai
+                        ? 'ตรวจภาพก่อนประเมิน'
+                        : 'Check images before assessment',
+                    style: TextStyle(
+                      color: Colors.amber.shade900,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  for (final issue in issues)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 4),
+                      child: Text(
+                        issue,
+                        style: const TextStyle(
+                          color: Color(0xFF5F4700),
+                          height: 1.35,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
