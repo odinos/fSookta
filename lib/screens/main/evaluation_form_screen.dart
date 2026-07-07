@@ -1732,6 +1732,13 @@ class _ImageSlots extends StatelessWidget {
         : 4;
     final slotLimit =
         imagePaths.length > 4 ? VideoFrameExtractionService.maxFrames : 4;
+    final filledCount = math.min(imagePaths.length, slotLimit);
+    final slotSpecs = List<_ImageSlotSpec>.generate(
+      slotCount,
+      (index) => imagePaths.length > 4
+          ? _ImageSlotSpec.videoFrame(index, thai: thai)
+          : _ImageSlotSpec.photoAngle(index, thai: thai),
+    );
     return _SectionCard(
       title: thai
           ? '1. ถ่ายรูปหรือวิดีโอท่าทางทำงาน (${imagePaths.length}/$slotLimit)'
@@ -1762,6 +1769,12 @@ class _ImageSlots extends StatelessWidget {
               : 'Use 1-4 clear photos or a short video up to 20 seconds. The app reads posture, summarizes motion, and fills the assessment automatically.',
           style: const TextStyle(color: Colors.black54),
         ),
+        const SizedBox(height: 10),
+        _ImageSlotSummary(
+          filledCount: filledCount,
+          slotLimit: slotLimit,
+          thai: thai,
+        ),
         const SizedBox(height: 12),
         _ReadablePoseExample(activity: activity, thai: thai),
         const SizedBox(height: 12),
@@ -1781,8 +1794,9 @@ class _ImageSlots extends StatelessWidget {
               itemBuilder: (context, index) {
                 final filled = index < imagePaths.length;
                 final enabled = filled || index == imagePaths.length;
+                final spec = slotSpecs[index];
                 return InkWell(
-                  onTap: enabled && !filled ? () => onSlotTap(index) : null,
+                  onTap: enabled ? () => onSlotTap(index) : null,
                   borderRadius: BorderRadius.circular(8),
                   child: DecoratedBox(
                     decoration: BoxDecoration(
@@ -1800,37 +1814,20 @@ class _ImageSlots extends StatelessWidget {
                     ),
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(7),
-                      child: filled
-                          ? Stack(
-                              fit: StackFit.expand,
-                              children: [
-                                Image.file(
-                                  File(imagePaths[index]),
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (_, __, ___) => const Icon(
-                                    Icons.broken_image_outlined,
-                                    color: SooktaColors.darkGreen,
-                                  ),
-                                ),
-                                Positioned(
-                                  right: 6,
-                                  top: 6,
-                                  child: IconButton.filled(
-                                    style: IconButton.styleFrom(
-                                      backgroundColor:
-                                          Colors.red.withValues(alpha: 0.86),
-                                      foregroundColor: Colors.white,
-                                      fixedSize: const Size(30, 30),
-                                      minimumSize: const Size(30, 30),
-                                      padding: EdgeInsets.zero,
-                                    ),
-                                    onPressed: () => onSlotRemove(index),
-                                    icon: const Icon(Icons.close, size: 18),
-                                  ),
-                                ),
-                              ],
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          if (filled)
+                            Image.file(
+                              File(imagePaths[index]),
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => const Icon(
+                                Icons.broken_image_outlined,
+                                color: SooktaColors.darkGreen,
+                              ),
                             )
-                          : Center(
+                          else
+                            Center(
                               child: Icon(
                                 enabled
                                     ? Icons.add_a_photo_outlined
@@ -1840,6 +1837,34 @@ class _ImageSlots extends StatelessWidget {
                                     : Colors.grey.shade400,
                               ),
                             ),
+                          Positioned.fill(
+                            child: _ImageSlotOverlay(
+                              spec: spec,
+                              filled: filled,
+                              enabled: enabled,
+                              thai: thai,
+                            ),
+                          ),
+                          if (filled)
+                            Positioned(
+                              right: 6,
+                              top: 6,
+                              child: IconButton.filled(
+                                tooltip: thai ? 'ลบภาพ' : 'Remove image',
+                                style: IconButton.styleFrom(
+                                  backgroundColor:
+                                      Colors.red.withValues(alpha: 0.86),
+                                  foregroundColor: Colors.white,
+                                  fixedSize: const Size(30, 30),
+                                  minimumSize: const Size(30, 30),
+                                  padding: EdgeInsets.zero,
+                                ),
+                                onPressed: () => onSlotRemove(index),
+                                icon: const Icon(Icons.close, size: 18),
+                              ),
+                            ),
+                        ],
+                      ),
                     ),
                   ),
                 );
@@ -1900,6 +1925,222 @@ class _ImageSlots extends StatelessWidget {
           },
         ),
       ],
+    );
+  }
+}
+
+class _ImageSlotSpec {
+  const _ImageSlotSpec({
+    required this.title,
+    required this.hint,
+  });
+
+  factory _ImageSlotSpec.photoAngle(int index, {required bool thai}) {
+    if (thai) {
+      return switch (index) {
+        0 => const _ImageSlotSpec(
+            title: 'มุมที่ 1: เห็นท่าทางหลัก',
+            hint: 'เห็นลำตัว แขน ขา และเครื่องมือหลัก',
+          ),
+        1 => const _ImageSlotSpec(
+            title: 'มุมที่ 2: ด้านข้างซ้าย',
+            hint: 'ช่วยดูการก้ม เอียง และระยะเอื้อม',
+          ),
+        2 => const _ImageSlotSpec(
+            title: 'มุมที่ 3: ด้านข้างขวา',
+            hint: 'ช่วยเทียบไหล่ แขน และน้ำหนักงาน',
+          ),
+        _ => const _ImageSlotSpec(
+            title: 'มุมที่ 4: มุมที่เห็นงานจริงชัดที่สุด',
+            hint: 'เลือกมุมที่เห็นท่าทางเสี่ยงที่สุด',
+          ),
+      };
+    }
+    return switch (index) {
+      0 => const _ImageSlotSpec(
+          title: 'Angle 1: Main posture',
+          hint: 'Show the body, arms, legs, and main tool.',
+        ),
+      1 => const _ImageSlotSpec(
+          title: 'Angle 2: Left side',
+          hint: 'Helps read bending, leaning, and reaching.',
+        ),
+      2 => const _ImageSlotSpec(
+          title: 'Angle 3: Right side',
+          hint: 'Helps compare shoulders, arms, and work load.',
+        ),
+      _ => const _ImageSlotSpec(
+          title: 'Angle 4: Clearest working angle',
+          hint: 'Use the angle that shows the riskiest posture.',
+        ),
+    };
+  }
+
+  factory _ImageSlotSpec.videoFrame(int index, {required bool thai}) {
+    final number = index + 1;
+    return _ImageSlotSpec(
+      title: thai ? 'เฟรมวิดีโอที่ $number' : 'Video frame $number',
+      hint: thai
+          ? 'ระบบสุ่มจากวิดีโอเพื่ออ่านท่าทาง'
+          : 'Sampled from video for posture reading.',
+    );
+  }
+
+  final String title;
+  final String hint;
+}
+
+class _ImageSlotSummary extends StatelessWidget {
+  const _ImageSlotSummary({
+    required this.filledCount,
+    required this.slotLimit,
+    required this.thai,
+  });
+
+  final int filledCount;
+  final int slotLimit;
+  final bool thai;
+
+  @override
+  Widget build(BuildContext context) {
+    final complete = filledCount >= slotLimit;
+    final text = thai
+        ? 'ภาพครบ $filledCount จาก $slotLimit มุม'
+        : '$filledCount of $slotLimit image angles ready';
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: complete ? const Color(0xFFE8F5E9) : const Color(0xFFFFF8E1),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: complete ? SooktaColors.leafGreen : const Color(0xFFFFD54F),
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            complete ? Icons.check_circle_outline : Icons.info_outline,
+            color: complete ? SooktaColors.darkGreen : const Color(0xFF8A6D1D),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(
+                color:
+                    complete ? SooktaColors.darkGreen : const Color(0xFF6D5200),
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ImageSlotOverlay extends StatelessWidget {
+  const _ImageSlotOverlay({
+    required this.spec,
+    required this.filled,
+    required this.enabled,
+    required this.thai,
+  });
+
+  final _ImageSlotSpec spec;
+  final bool filled;
+  final bool enabled;
+  final bool thai;
+
+  @override
+  Widget build(BuildContext context) {
+    final status = filled
+        ? (thai ? 'มีภาพแล้ว' : 'Image ready')
+        : (thai ? 'ยังไม่มีภาพ' : 'Missing image');
+    final action = filled
+        ? (thai ? 'เปลี่ยนภาพ' : 'Change image')
+        : enabled
+            ? (thai ? 'เพิ่มภาพ' : 'Add image')
+            : (thai ? 'เติมช่องก่อนหน้า' : 'Fill previous slot first');
+    final foreground = filled ? Colors.white : SooktaColors.darkGreen;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: filled
+            ? const LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Color(0x33000000),
+                  Color(0x11000000),
+                  Color(0xCC000000),
+                ],
+              )
+            : null,
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              spec.title,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: foreground,
+                fontWeight: FontWeight.w800,
+                fontSize: 13,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              status,
+              style: TextStyle(
+                color: foreground,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const Spacer(),
+            Text(
+              spec.hint,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: filled ? Colors.white70 : Colors.black54,
+                fontSize: 11,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Row(
+              children: [
+                Icon(
+                  filled
+                      ? Icons.change_circle_outlined
+                      : enabled
+                          ? Icons.add_photo_alternate_outlined
+                          : Icons.lock_outline,
+                  size: 16,
+                  color: foreground,
+                ),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: Text(
+                    action,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: foreground,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
