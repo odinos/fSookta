@@ -222,15 +222,16 @@ class _FinalResultScreenState extends State<FinalResultScreen> {
               ),
             ),
             const SizedBox(height: 16),
-            EconomicImpactComparisonCard(
-              comparison: impactComparison,
-              thai: thai,
-            ),
-            const SizedBox(height: 16),
             _FarmerFinalSummaryCard(
               before: before,
               after: after,
               saved: saved,
+              suggestions: suggestions,
+              thai: thai,
+            ),
+            const SizedBox(height: 16),
+            EconomicImpactComparisonCard(
+              comparison: impactComparison,
               thai: thai,
             ),
             const SizedBox(height: 12),
@@ -427,17 +428,24 @@ class _FarmerFinalSummaryCard extends StatelessWidget {
     required this.before,
     required this.after,
     required this.saved,
+    required this.suggestions,
     required this.thai,
   });
 
   final ErgoResult before;
   final ErgoResult after;
   final int saved;
+  final List<String> suggestions;
   final bool thai;
 
   @override
   Widget build(BuildContext context) {
     final isBetter = after.userScore < before.userScore;
+    final nextAction = suggestions.isNotEmpty
+        ? suggestions.first
+        : (thai
+            ? 'บันทึกงานจริงต่อเนื่อง และปรึกษาเจ้าหน้าที่หากคะแนนยังสูง'
+            : 'Keep recording real work and consult staff if the score stays high.');
     return Card(
       color: const Color(0xFFF4FBF5),
       child: Padding(
@@ -454,7 +462,7 @@ class _FarmerFinalSummaryCard extends StatelessWidget {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    thai ? 'สรุปแบบเข้าใจง่าย' : 'Simple summary',
+                    thai ? 'สรุปสำหรับเกษตรกร' : 'Farmer summary',
                     style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
@@ -474,6 +482,25 @@ class _FarmerFinalSummaryCard extends StatelessWidget {
                       : 'The score has not dropped yet. Try more posture actions next time.'),
               style: const TextStyle(fontWeight: FontWeight.bold),
             ),
+            const SizedBox(height: 10),
+            _FarmerSummaryLine(
+              icon: Icons.warning_amber_outlined,
+              text: thai
+                  ? 'ก่อนปรับ: ${_riskLabel(before.riskLevel, thai)} (คะแนน ${before.userScore})'
+                  : 'Before: ${_riskLabel(before.riskLevel, thai)} (score ${before.userScore})',
+            ),
+            const SizedBox(height: 6),
+            _FarmerSummaryLine(
+              icon: Icons.check_circle_outline,
+              text: thai
+                  ? 'หลังปรับ: ${_riskLabel(after.riskLevel, thai)} (คะแนน ${after.userScore})'
+                  : 'After: ${_riskLabel(after.riskLevel, thai)} (score ${after.userScore})',
+            ),
+            const SizedBox(height: 6),
+            _FarmerSummaryLine(
+              icon: Icons.task_alt,
+              text: thai ? 'ควรทำต่อ: $nextAction' : 'Next action: $nextAction',
+            ),
             const SizedBox(height: 6),
             Text(
               saved > 0
@@ -484,11 +511,53 @@ class _FarmerFinalSummaryCard extends StatelessWidget {
                       ? 'ข้อมูลนี้ถูกบันทึกแล้ว เจ้าหน้าที่สามารถดูรายละเอียดจากไฟล์ส่งออก'
                       : 'This result is saved. Staff can review details from the export.'),
             ),
+            const SizedBox(height: 8),
+            Text(
+              thai
+                  ? 'รายละเอียดสำหรับเจ้าหน้าที่อยู่ด้านล่าง'
+                  : 'Staff details are below.',
+              style: const TextStyle(
+                color: Colors.black54,
+                fontSize: 13,
+              ),
+            ),
           ],
         ),
       ),
     );
   }
+}
+
+class _FarmerSummaryLine extends StatelessWidget {
+  const _FarmerSummaryLine({
+    required this.icon,
+    required this.text,
+  });
+
+  final IconData icon;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 18, color: SooktaColors.darkGreen),
+        const SizedBox(width: 8),
+        Expanded(child: Text(text)),
+      ],
+    );
+  }
+}
+
+String _riskLabel(RiskLevel risk, bool thai) {
+  if (thai) return risk.label;
+  return switch (risk) {
+    RiskLevel.low => 'Low risk',
+    RiskLevel.medium => 'Medium risk',
+    RiskLevel.high => 'High risk',
+    RiskLevel.veryHigh => 'Very high risk',
+  };
 }
 
 class _ScoreBlock extends StatelessWidget {
