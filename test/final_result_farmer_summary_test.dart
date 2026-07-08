@@ -74,6 +74,13 @@ void main() {
     await tester.tap(find.text('รายละเอียดสำหรับเจ้าหน้าที่และวิชาการ'));
     await tester.pumpAndSettle();
     await tester.scrollUntilVisible(
+      find.text('จุดเสี่ยงที่พบ'),
+      400,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.textContaining('จุดเสี่ยงหลัก: หลัง/ลำตัว'), findsOneWidget);
+    expect(find.textContaining('พบ 1 จุดเสี่ยง'), findsOneWidget);
+    await tester.scrollUntilVisible(
       find.text('วิธีประเมินที่ใช้'),
       400,
       scrollable: find.byType(Scrollable).first,

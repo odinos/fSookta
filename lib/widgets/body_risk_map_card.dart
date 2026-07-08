@@ -22,6 +22,15 @@ class BodyRiskMapCard extends StatelessWidget {
     final riskyParts = BodyPart.values
         .where((part) => (bodyRisks[part] ?? RiskLevel.low) != RiskLevel.low)
         .toList();
+    riskyParts.sort((a, b) {
+      final riskCompare = (bodyRisks[b] ?? RiskLevel.low)
+          .index
+          .compareTo((bodyRisks[a] ?? RiskLevel.low).index);
+      if (riskCompare != 0) return riskCompare;
+      return BodyPart.values.indexOf(a).compareTo(BodyPart.values.indexOf(b));
+    });
+    final mainRiskPart = riskyParts.isEmpty ? null : riskyParts.first;
+    final mainRisk = mainRiskPart == null ? null : bodyRisks[mainRiskPart];
 
     return Card(
       child: Padding(
@@ -37,6 +46,15 @@ class BodyRiskMapCard extends StatelessWidget {
               style: const TextStyle(fontWeight: FontWeight.bold),
               textAlign: TextAlign.center,
             ),
+            if (mainRiskPart != null && mainRisk != null) ...[
+              const SizedBox(height: 10),
+              _BodyRiskSummary(
+                mainPart: mainRiskPart,
+                mainRisk: mainRisk,
+                riskCount: riskyParts.length,
+                thai: thai,
+              ),
+            ],
             const SizedBox(height: 12),
             LayoutBuilder(
               builder: (context, constraints) {
@@ -105,6 +123,58 @@ class BodyRiskMapCard extends StatelessWidget {
                   );
                 },
               ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _BodyRiskSummary extends StatelessWidget {
+  const _BodyRiskSummary({
+    required this.mainPart,
+    required this.mainRisk,
+    required this.riskCount,
+    required this.thai,
+  });
+
+  final BodyPart mainPart;
+  final RiskLevel mainRisk;
+  final int riskCount;
+  final bool thai;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Color(mainRisk.colorHex).withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: Color(mainRisk.colorHex).withValues(alpha: 0.28),
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              thai
+                  ? 'จุดเสี่ยงหลัก: ${bodyPartLabel(mainPart, thai)} (${riskLevelText(mainRisk, thai)})'
+                  : 'Main risk point: ${bodyPartLabel(mainPart, thai)} (${riskLevelText(mainRisk, thai)})',
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              thai
+                  ? 'พบ $riskCount จุดเสี่ยง เริ่มดูจากตำแหน่งนี้ก่อน'
+                  : '$riskCount risk point(s) found. Start reviewing this area first.',
+              style: const TextStyle(
+                color: Colors.black54,
+                fontSize: 12.5,
+                height: 1.3,
+              ),
+            ),
           ],
         ),
       ),
