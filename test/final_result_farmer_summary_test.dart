@@ -10,7 +10,10 @@ import 'package:fsookta/core/models/evaluation_models.dart';
 import 'package:fsookta/screens/main/final_result_screen.dart';
 
 void main() {
+  final spokenTexts = <String>[];
+
   setUp(() {
+    spokenTexts.clear();
     SharedPreferences.setMockInitialValues({});
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(
@@ -19,6 +22,10 @@ void main() {
         if (call.method == 'getVoices') return <Map<String, Object?>>[];
         if (call.method == 'getLanguages') return <String>['th-TH', 'en-US'];
         if (call.method == 'getDefaultVoice') return <String, Object?>{};
+        if (call.method == 'speak') {
+          spokenTexts.add(call.arguments.toString());
+          return 1;
+        }
         return 1;
       },
     );
@@ -72,6 +79,37 @@ void main() {
       scrollable: find.byType(Scrollable).first,
     );
     expect(find.text('วิธีประเมินที่ใช้'), findsOneWidget);
+  });
+
+  testWidgets(
+      'reads concise farmer guidance from the main result speech button',
+      (tester) async {
+    final state = SooktaAppState()..setLanguage(AppLanguage.th);
+    addTearDown(state.dispose);
+    tester.view.physicalSize = const Size(390, 1600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      AppStateScope(
+        state: state,
+        child: MaterialApp(home: FinalResultScreen(bundle: _bundle())),
+      ),
+    );
+    await tester.pump();
+
+    await tester.tap(find.byIcon(Icons.volume_up).first);
+    await tester.pump();
+
+    expect(spokenTexts, isNotEmpty);
+    final speech = spokenTexts.single;
+    expect(speech, contains('สรุปผลประเมิน'));
+    expect(speech, contains('ก่อนปรับ คะแนน 8 ความเสี่ยงสูง'));
+    expect(speech, contains('หลังปรับ คะแนน 4 ความเสี่ยงปานกลาง'));
+    expect(speech, contains('ควรทำต่อ'));
+    expect(speech, isNot(contains('ผลกระทบก่อนปรับ')));
+    expect(speech.length, lessThanOrEqualTo(180));
   });
 }
 

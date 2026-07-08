@@ -188,9 +188,12 @@ class _FinalResultScreenState extends State<FinalResultScreen> {
                         );
                         final tts = SooktaTtsButton(
                           thai: thai,
-                          text: thai
-                              ? 'ผลลัพธ์โดยประมาณหลังเลือกแนวทางปรับปรุง ก่อนปรับ ${before.userScore} หลังปรับ ${after.userScore} ผลกระทบก่อนปรับ ${impactComparison.beforeImpact} บาทต่อปี หลังปรับประมาณ ${impactComparison.afterImpact} บาทต่อปี อาจประหยัดได้ ${impactComparison.savedAmount} บาทต่อปี'
-                              : 'Estimated result after selected improvements. Before score ${before.userScore}. After score ${after.userScore}. Before impact ${impactComparison.beforeImpact} baht per year. After impact about ${impactComparison.afterImpact} baht per year. Potential saving ${impactComparison.savedAmount} baht per year.',
+                          text: _farmerResultSpeechText(
+                            before: before,
+                            after: after,
+                            suggestions: suggestions,
+                            thai: thai,
+                          ),
                         );
                         if (compact) {
                           return Column(
@@ -622,6 +625,27 @@ String _riskLabel(RiskLevel risk, bool thai) {
     RiskLevel.high => 'High risk',
     RiskLevel.veryHigh => 'Very high risk',
   };
+}
+
+String _farmerResultSpeechText({
+  required ErgoResult before,
+  required ErgoResult after,
+  required List<String> suggestions,
+  required bool thai,
+}) {
+  final nextAction = suggestions.isNotEmpty
+      ? suggestions.first
+      : (thai
+          ? 'ทำตามคำแนะนำที่เลือกไว้ และบันทึกผลครั้งถัดไป'
+          : 'Follow the selected advice and record the next result.');
+  if (thai) {
+    return 'สรุปผลประเมิน ก่อนปรับ คะแนน ${before.userScore} ${_riskLabel(before.riskLevel, thai)} '
+        'หลังปรับ คะแนน ${after.userScore} ${_riskLabel(after.riskLevel, thai)} '
+        'ควรทำต่อ $nextAction';
+  }
+  return 'Assessment summary. Before score ${before.userScore}, ${_riskLabel(before.riskLevel, thai)}. '
+      'After score ${after.userScore}, ${_riskLabel(after.riskLevel, thai)}. '
+      'Next action: $nextAction';
 }
 
 class _ScoreBlock extends StatelessWidget {
