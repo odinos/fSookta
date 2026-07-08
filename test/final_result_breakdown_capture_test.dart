@@ -139,6 +139,13 @@ void main() {
     await tester.pump(const Duration(milliseconds: 800));
 
     await tester.scrollUntilVisible(
+      find.text('รายละเอียดสำหรับเจ้าหน้าที่และวิชาการ'),
+      500,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.text('รายละเอียดสำหรับเจ้าหน้าที่และวิชาการ'));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
       find.text('วิธีประเมินที่ใช้'),
       500,
       scrollable: find.byType(Scrollable).first,

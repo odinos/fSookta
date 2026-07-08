@@ -234,48 +234,6 @@ class _FinalResultScreenState extends State<FinalResultScreen> {
               comparison: impactComparison,
               thai: thai,
             ),
-            const SizedBox(height: 12),
-            ResearchDisclaimerCard(thai: thai),
-            const SizedBox(height: 12),
-            OutlinedButton.icon(
-              onPressed: exporting || !recordReady
-                  ? null
-                  : () => _exportForStaff(
-                        context: context,
-                        state: state,
-                        suggestions: suggestions,
-                        thai: thai,
-                      ),
-              icon: exporting || !recordReady
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.download_outlined),
-              label: Text(
-                !recordReady
-                    ? (thai ? 'กำลังบันทึกข้อมูล...' : 'Saving result...')
-                    : (thai
-                        ? 'ส่งออกไฟล์ Excel สำหรับเจ้าหน้าที่'
-                        : 'Export Excel file for staff'),
-              ),
-            ),
-            const SizedBox(height: 16),
-            BodyRiskMapCard(
-              bodyRisks: before.bodyPartRisks,
-              thai: thai,
-              title: thai ? 'จุดเสี่ยงที่พบ' : 'Risky Points',
-              bodyRiskReasons: assessmentBodyRiskReasons(
-                widget.bundle.breakdown,
-                thai,
-              ),
-            ),
-            const SizedBox(height: 16),
-            AssessmentMethodSummaryCard(
-              breakdown: widget.bundle.breakdown,
-              thai: thai,
-            ),
             const SizedBox(height: 16),
             Card(
               child: Padding(
@@ -318,6 +276,20 @@ class _FinalResultScreenState extends State<FinalResultScreen> {
                 ),
               ),
             ),
+            const SizedBox(height: 16),
+            _TechnicalDetailsSection(
+              before: before,
+              breakdown: widget.bundle.breakdown,
+              thai: thai,
+              exporting: exporting,
+              recordReady: recordReady,
+              onExport: () => _exportForStaff(
+                context: context,
+                state: state,
+                suggestions: suggestions,
+                thai: thai,
+              ),
+            ),
             const SizedBox(height: 24),
             FilledButton.icon(
               onPressed: () {
@@ -329,8 +301,6 @@ class _FinalResultScreenState extends State<FinalResultScreen> {
               icon: const Icon(Icons.home),
               label: Text(thai ? 'กลับสู่หน้าหลัก' : 'Back to Home'),
             ),
-            const SizedBox(height: 12),
-            RiskReferenceFootnote(thai: thai),
           ],
         ),
       ),
@@ -420,6 +390,100 @@ class _FinalResultScreenState extends State<FinalResultScreen> {
     final box = context.findRenderObject();
     if (box is! RenderBox) return null;
     return box.localToGlobal(Offset.zero) & box.size;
+  }
+}
+
+class _TechnicalDetailsSection extends StatelessWidget {
+  const _TechnicalDetailsSection({
+    required this.before,
+    required this.breakdown,
+    required this.thai,
+    required this.exporting,
+    required this.recordReady,
+    required this.onExport,
+  });
+
+  final ErgoResult before;
+  final AssessmentBreakdown? breakdown;
+  final bool thai;
+  final bool exporting;
+  final bool recordReady;
+  final VoidCallback onExport;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFFE0E8E0)),
+      ),
+      child: ExpansionTile(
+        tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        childrenPadding: const EdgeInsets.fromLTRB(0, 0, 0, 12),
+        leading: const Icon(
+          Icons.assignment_outlined,
+          color: SooktaColors.darkGreen,
+        ),
+        title: Text(
+          thai
+              ? 'รายละเอียดสำหรับเจ้าหน้าที่และวิชาการ'
+              : 'Staff and technical details',
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
+        subtitle: Text(
+          thai
+              ? 'เปิดดูวิธีประเมิน จุดเสี่ยง และไฟล์ส่งออกเมื่อจำเป็น'
+              : 'Open for methods, risk points, and staff export when needed.',
+        ),
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                ResearchDisclaimerCard(thai: thai),
+                const SizedBox(height: 12),
+                OutlinedButton.icon(
+                  onPressed: exporting || !recordReady ? null : onExport,
+                  icon: exporting || !recordReady
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.download_outlined),
+                  label: Text(
+                    !recordReady
+                        ? (thai ? 'กำลังบันทึกข้อมูล...' : 'Saving result...')
+                        : (thai
+                            ? 'ส่งออกไฟล์ Excel สำหรับเจ้าหน้าที่'
+                            : 'Export Excel file for staff'),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                BodyRiskMapCard(
+                  bodyRisks: before.bodyPartRisks,
+                  thai: thai,
+                  title: thai ? 'จุดเสี่ยงที่พบ' : 'Risky Points',
+                  bodyRiskReasons: assessmentBodyRiskReasons(
+                    breakdown,
+                    thai,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                AssessmentMethodSummaryCard(
+                  breakdown: breakdown,
+                  thai: thai,
+                ),
+                const SizedBox(height: 12),
+                RiskReferenceFootnote(thai: thai),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 

@@ -58,6 +58,15 @@ void main() {
     );
 
     await tester.scrollUntilVisible(
+      find.text('รายละเอียดสำหรับเจ้าหน้าที่และวิชาการ'),
+      400,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.text('วิธีประเมินที่ใช้'), findsNothing);
+
+    await tester.tap(find.text('รายละเอียดสำหรับเจ้าหน้าที่และวิชาการ'));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
       find.text('วิธีประเมินที่ใช้'),
       400,
       scrollable: find.byType(Scrollable).first,
