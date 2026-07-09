@@ -12,6 +12,7 @@ import '../../core/services/assessment_export_service.dart';
 import '../../core/services/daily_injury_prediction_service.dart';
 import '../../core/services/economic_impact_service.dart';
 import '../../core/services/firebase_telemetry_service.dart';
+import '../../core/services/risk_recommendation_service.dart';
 import '../../core/theme/sookta_theme.dart';
 import '../../widgets/assessment_breakdown_card.dart';
 import '../../widgets/body_risk_map_card.dart';
@@ -142,6 +143,11 @@ class _FinalResultScreenState extends State<FinalResultScreen> {
     final saved = impactComparison.savedAmount;
     final suggestions =
         widget.bundle.selectedSuggestionKeys.map(strings.get).toList();
+    final activityRiskRecommendations = _activityRiskRecommendationTexts(
+      activity: widget.bundle.activity,
+      before: before,
+      strings: strings,
+    );
 
     return Scaffold(
       appBar: AppBar(
@@ -237,6 +243,13 @@ class _FinalResultScreenState extends State<FinalResultScreen> {
               comparison: impactComparison,
               thai: thai,
             ),
+            if (activityRiskRecommendations.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              _ActivityRiskRecommendationCard(
+                recommendations: activityRiskRecommendations,
+                thai: thai,
+              ),
+            ],
             const SizedBox(height: 16),
             Card(
               child: Padding(
@@ -393,6 +406,100 @@ class _FinalResultScreenState extends State<FinalResultScreen> {
     final box = context.findRenderObject();
     if (box is! RenderBox) return null;
     return box.localToGlobal(Offset.zero) & box.size;
+  }
+}
+
+List<String> _activityRiskRecommendationTexts({
+  required SooktaActivity activity,
+  required ErgoResult before,
+  required SooktaStrings strings,
+}) {
+  final keys = [
+    ...RiskRecommendationService.activityKeys(
+      activity: activity,
+      riskLevel: before.riskLevel,
+    ),
+    ...RiskRecommendationService.bodyMapKeys(
+      bodyPartRisks: before.bodyPartRisks,
+      activity: activity,
+      overallRisk: before.riskLevel,
+    ),
+  ];
+  final seen = <String>{};
+  final texts = <String>[];
+  for (final key in keys) {
+    if (!seen.add(key)) continue;
+    final text = strings.get(key).trim();
+    if (text.isEmpty || text == key) continue;
+    texts.add(text);
+  }
+  return texts;
+}
+
+class _ActivityRiskRecommendationCard extends StatelessWidget {
+  const _ActivityRiskRecommendationCard({
+    required this.recommendations,
+    required this.thai,
+  });
+
+  final List<String> recommendations;
+  final bool thai;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      color: const Color(0xFFFFFBF0),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.health_and_safety_outlined,
+                    color: SooktaColors.darkGreen),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    thai
+                        ? 'คำแนะนำตามกิจกรรมและความเสี่ยง'
+                        : 'Recommendations by activity and risk',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(
+              thai
+                  ? 'เริ่มจากข้อที่ทำได้จริงในงานนี้ แล้วติดตามคะแนนครั้งถัดไป'
+                  : 'Start with actions that fit this task, then compare the next result.',
+              style: const TextStyle(color: Colors.black54, fontSize: 12.5),
+            ),
+            const SizedBox(height: 12),
+            ...recommendations.map(
+              (item) => Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(Icons.arrow_circle_right_outlined,
+                        size: 18, color: SooktaColors.leafGreen),
+                    const SizedBox(width: 8),
+                    Expanded(child: Text(item)),
+                    SooktaTtsButton(
+                      text: item,
+                      thai: thai,
+                      size: 32,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 

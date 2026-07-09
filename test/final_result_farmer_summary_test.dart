@@ -57,6 +57,15 @@ void main() {
     expect(find.textContaining('ก่อนปรับ: ความเสี่ยงสูง'), findsOneWidget);
     expect(find.textContaining('หลังปรับ: ความเสี่ยงปานกลาง'), findsOneWidget);
     expect(find.textContaining('ควรทำต่อ'), findsOneWidget);
+
+    await tester.scrollUntilVisible(
+      find.text('คำแนะนำตามกิจกรรมและความเสี่ยง'),
+      400,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.text('คำแนะนำตามกิจกรรมและความเสี่ยง'), findsOneWidget);
+    expect(find.textContaining('ลดน้ำหนักปุ๋ยต่อครั้ง'), findsOneWidget);
+    expect(find.textContaining('หลีกเลี่ยงการก้มต่อเนื่อง'), findsOneWidget);
     expect(find.textContaining('รายละเอียดสำหรับเจ้าหน้าที่อยู่ด้านล่าง'),
         findsOneWidget);
     expect(
