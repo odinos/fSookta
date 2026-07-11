@@ -104,16 +104,21 @@ class _HistoryTabState extends State<HistoryTab> {
                           ),
                           const SizedBox(width: 8),
                           IconButton.filled(
-                            tooltip: thai ? 'ส่งออกทั้งหมด' : 'Export all',
+                            tooltip: _exportTooltip(
+                              thai: thai,
+                              shown: filteredHistory.length,
+                              total: history.length,
+                            ),
                             style: IconButton.styleFrom(
                               backgroundColor:
                                   Colors.white.withValues(alpha: 0.2),
                             ),
-                            onPressed: history.isEmpty
+                            onPressed: filteredHistory.isEmpty
                                 ? null
                                 : () => _exportAll(
                                       context: context,
                                       state: state,
+                                      records: filteredHistory,
                                       thai: thai,
                                     ),
                             icon: const Icon(Icons.download_outlined,
@@ -249,10 +254,10 @@ class _HistoryTabState extends State<HistoryTab> {
   Future<void> _exportAll({
     required BuildContext context,
     required SooktaAppState state,
+    required List<EvaluationHistoryRecord> records,
     required bool thai,
   }) async {
     try {
-      final records = state.history;
       final file = await AssessmentExportService.exportAllHistoryCsv(
         records: records,
         profilesByRecordId: {
@@ -264,15 +269,11 @@ class _HistoryTabState extends State<HistoryTab> {
       if (!context.mounted) return;
       await SharePlus.instance.share(
         ShareParams(
-          title: thai
-              ? 'ไฟล์ประวัติผลประเมินทุกคน'
-              : 'All farmer assessment export',
-          subject: thai
-              ? 'ไฟล์ประวัติผลประเมินทุกคน'
-              : 'All farmer assessment export',
+          title: thai ? 'ไฟล์ประวัติผลประเมิน' : 'Assessment history export',
+          subject: thai ? 'ไฟล์ประวัติผลประเมิน' : 'Assessment history export',
           text: thai
-              ? 'ไฟล์ CSV รวมผลประเมินหลายคน สำหรับเจ้าหน้าที่วิจัย'
-              : 'CSV with all farmer assessment records for research staff.',
+              ? 'ไฟล์ CSV รวมประวัติที่เลือกไว้ ${records.length} รายการ สำหรับเจ้าหน้าที่วิจัย'
+              : 'CSV with ${records.length} selected assessment history records for research staff.',
           files: [XFile(file.path, mimeType: 'text/csv')],
           fileNameOverrides: [file.uri.pathSegments.last],
           sharePositionOrigin: _shareOrigin(context),
@@ -290,6 +291,22 @@ class _HistoryTabState extends State<HistoryTab> {
         ),
       );
     }
+  }
+
+  String _exportTooltip({
+    required bool thai,
+    required int shown,
+    required int total,
+  }) {
+    if (shown == 0) {
+      return thai ? 'ไม่มีประวัติให้ส่งออก' : 'No history to export';
+    }
+    if (shown == total) {
+      return thai ? 'ส่งออกทั้งหมด' : 'Export all';
+    }
+    return thai
+        ? 'ส่งออกประวัติที่แสดงอยู่ $shown รายการ'
+        : 'Export $shown visible history records';
   }
 
   Rect? _shareOrigin(BuildContext context) {

@@ -76,6 +76,10 @@ void main() {
     expect(find.textContaining('ชาวสวนทดสอบ • การใส่ปุ๋ย'), findsOneWidget);
     expect(find.textContaining('ชาวสวนทดสอบ • การปลูกกล้า'), findsOneWidget);
     expect(find.textContaining('ชาวสวนทดสอบ • การตัดแต่งกิ่ง'), findsNothing);
+    expect(
+      find.byTooltip('ส่งออกประวัติที่แสดงอยู่ 2 รายการ'),
+      findsOneWidget,
+    );
   });
 }
 
