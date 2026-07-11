@@ -81,6 +81,56 @@ void main() {
       findsOneWidget,
     );
   });
+
+  testWidgets('shows empty filtered state and disables filtered export',
+      (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final state = SooktaAppState()
+      ..setLanguage(AppLanguage.th)
+      ..saveProfile(
+        const UserProfile(
+          profileId: 'profile-history-empty-filter',
+          farmerId: 'FARM-HISTORY-EMPTY',
+          name: 'ชาวสวนทดสอบ',
+        ),
+      );
+    addTearDown(state.dispose);
+
+    await _saveRecord(
+      state,
+      activity: SooktaActivity.pruning,
+      activityName: 'การตัดแต่งกิ่ง',
+      beforeScore: 4,
+      afterScore: 3,
+      beforeRisk: RiskLevel.medium,
+      afterRisk: RiskLevel.low,
+    );
+
+    await tester.pumpWidget(
+      AppStateScope(
+        state: state,
+        child: const MaterialApp(
+          home: HistoryTab(text: AppText(AppLanguage.th)),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    await tester.tap(find.text('เสี่ยงสูง'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('แสดง 0 จาก 1 ครั้ง'), findsOneWidget);
+    expect(find.text('ไม่พบประวัติตามตัวกรองนี้'), findsOneWidget);
+    expect(
+      find.textContaining('ชาวสวนทดสอบ • การตัดแต่งกิ่ง'),
+      findsNothing,
+    );
+
+    final exportButton = tester.widget<IconButton>(
+      find.widgetWithIcon(IconButton, Icons.download_outlined),
+    );
+    expect(exportButton.onPressed, isNull);
+  });
 }
 
 Future<void> _saveRecord(

@@ -349,6 +349,80 @@ void main() {
     );
   });
 
+  test('builds selected history CSV rows with matching farmer profiles', () {
+    final exported = [
+      EvaluationHistoryRecord(
+        id: 101,
+        farmerProfileId: 'profile-selected-a',
+        farmerId: 'FARM-A',
+        farmerName: 'สมหญิง',
+        activity: SooktaActivity.fertilizing,
+        activityName: 'การใส่ปุ๋ย',
+        dateTime: DateTime(2026, 7, 11, 8),
+        scoreBefore: 8,
+        scoreAfter: 4,
+        riskBefore: RiskLevel.high,
+        riskAfter: RiskLevel.medium,
+        economicLoss: 12000,
+        moneySaved: 5000,
+        selectedSuggestions: const ['แบ่งน้ำหนักปุ๋ย'],
+        bodyPartRisks: const {BodyPart.trunk: RiskLevel.high},
+      ),
+      EvaluationHistoryRecord(
+        id: 103,
+        farmerProfileId: 'profile-selected-b',
+        farmerId: 'FARM-B',
+        farmerName: 'สมชาย',
+        activity: SooktaActivity.harvesting,
+        activityName: 'การเก็บเกี่ยว',
+        dateTime: DateTime(2026, 7, 11, 9),
+        scoreBefore: 7,
+        scoreAfter: 5,
+        riskBefore: RiskLevel.high,
+        riskAfter: RiskLevel.medium,
+        economicLoss: 9000,
+        moneySaved: 2500,
+        selectedSuggestions: const ['พักเป็นช่วง'],
+        bodyPartRisks: const {BodyPart.arms: RiskLevel.high},
+      ),
+    ];
+
+    final csv = AssessmentExportService.buildAllHistoryCsv(
+      records: exported,
+      profilesByRecordId: const {
+        101: UserProfile(
+          profileId: 'profile-selected-a',
+          farmerId: 'FARM-A',
+          name: 'สมหญิง',
+          role: 'เจ้าของสวน',
+          location: 'แปลงเหนือ',
+        ),
+        103: UserProfile(
+          profileId: 'profile-selected-b',
+          farmerId: 'FARM-B',
+          name: 'สมชาย',
+          role: 'ผู้ช่วยเก็บเกี่ยว',
+          location: 'แปลงใต้',
+        ),
+      },
+    );
+
+    final rows = _allHistoryDataRows(csv);
+    expect(rows, hasLength(2));
+    expect(rows.map((row) => row['Record ID']), ['101', '103']);
+    expect(rows.map((row) => row['Farmer ID']), ['FARM-A', 'FARM-B']);
+    expect(rows.map((row) => row['ชื่อผู้ใช้']), ['สมหญิง', 'สมชาย']);
+    expect(rows.map((row) => row['บทบาท/หน้าที่']), [
+      'เจ้าของสวน',
+      'ผู้ช่วยเก็บเกี่ยว',
+    ]);
+    expect(rows.map((row) => row['พื้นที่ทำงาน']), ['แปลงเหนือ', 'แปลงใต้']);
+    expect(rows.map((row) => row['Specific Task']), [
+      'การใส่ปุ๋ย',
+      'การเก็บเกี่ยว',
+    ]);
+  });
+
   test('exports trend level from the latest seven before-improvement records',
       () {
     final records = [
