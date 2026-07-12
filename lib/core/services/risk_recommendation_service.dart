@@ -9,8 +9,13 @@ enum FarmerRecommendationCategory {
 }
 
 class FarmerRecommendation {
-  const FarmerRecommendation({required this.category, required this.text});
+  const FarmerRecommendation({
+    required this.sourceKey,
+    required this.category,
+    required this.text,
+  });
 
+  final String sourceKey;
   final FarmerRecommendationCategory category;
   final String text;
 }
@@ -72,7 +77,15 @@ class RiskRecommendationService {
           ? 'งอเข่าและรักษาหลังให้ตรงขณะยก'
           : 'Bend the knees and keep the back straight',
     };
+    final sourceKey = switch (activity) {
+      SooktaActivity.transplanting => 'act_avoid_bend',
+      SooktaActivity.fertilizing || SooktaActivity.transport => 'act_use_legs',
+      SooktaActivity.pesticide => 'act_extra_spray_switch',
+      SooktaActivity.pruning => 'act_reduce_arm_raise',
+      SooktaActivity.harvesting => 'act_harvest_move_closer',
+    };
     return FarmerRecommendation(
+      sourceKey: sourceKey,
       category: FarmerRecommendationCategory.posture,
       text: text,
     );
@@ -98,7 +111,16 @@ class RiskRecommendationService {
       SooktaActivity.transport =>
         thai ? 'ลดน้ำหนักกระสอบต่อครั้ง' : 'Reduce sack weight per trip',
     };
+    final sourceKey = switch (activity) {
+      SooktaActivity.transplanting => 'act_transplant_raise_bed',
+      SooktaActivity.fertilizing => 'act_fert_split_load',
+      SooktaActivity.pesticide => 'act_reduce_load_tool',
+      SooktaActivity.pruning => 'act_avoid_twist',
+      SooktaActivity.harvesting => 'act_harvest_empty_often',
+      SooktaActivity.transport => 'act_transport_clear_path',
+    };
     return FarmerRecommendation(
+      sourceKey: sourceKey,
       category: FarmerRecommendationCategory.riskReduction,
       text: text,
     );
@@ -115,6 +137,7 @@ class RiskRecommendationService {
         thai ? 'พัก 10 นาทีทุกชั่วโมง' : 'Rest 10 minutes every hour',
     };
     return FarmerRecommendation(
+      sourceKey: 'act_rest_stretch',
       category: FarmerRecommendationCategory.restRotation,
       text: text,
     );
@@ -142,7 +165,16 @@ class RiskRecommendationService {
           ? 'ใช้รถเข็นล้อใหญ่หรือรถลาก'
           : 'Use a large-wheel cart or trolley',
     };
+    final sourceKey = switch (activity) {
+      SooktaActivity.transplanting => 'act_transplant_low_stool',
+      SooktaActivity.fertilizing => 'act_extra_fert_cart',
+      SooktaActivity.pesticide => 'act_spray_extension',
+      SooktaActivity.pruning => 'act_extra_prune_tool',
+      SooktaActivity.harvesting => 'act_reduce_load_tool',
+      SooktaActivity.transport => 'act_use_cart_distance',
+    };
     return FarmerRecommendation(
+      sourceKey: sourceKey,
       category: FarmerRecommendationCategory.workloadSupport,
       text: text,
     );
@@ -165,7 +197,15 @@ class RiskRecommendationService {
           ? 'สลับนั่ง ยืน และเดิน'
           : 'Alternate sitting, standing, and walking',
     };
+    final sourceKey = switch (part) {
+      BodyPart.neck => 'act_adj_eye_level',
+      BodyPart.trunk => 'act_avoid_twist',
+      BodyPart.arms => 'act_reduce_arm_raise',
+      BodyPart.wrists => 'act_adj_wrist',
+      BodyPart.legs => 'act_iso_job_rotation',
+    };
     return FarmerRecommendation(
+      sourceKey: sourceKey,
       category: FarmerRecommendationCategory.posture,
       text: text,
     );

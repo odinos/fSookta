@@ -19,6 +19,34 @@ import '../../widgets/tts_button.dart';
 import 'evaluation_menu_screen.dart';
 import 'final_result_screen.dart';
 
+String _recommendationCategoryTitle(
+  FarmerRecommendationCategory category,
+  bool thai,
+) {
+  return switch (category) {
+    FarmerRecommendationCategory.posture =>
+      thai ? 'ท่าทางที่ควรปรับ' : 'Posture to adjust',
+    FarmerRecommendationCategory.riskReduction =>
+      thai ? 'วิธีลดความเสี่ยง' : 'Ways to reduce risk',
+    FarmerRecommendationCategory.restRotation =>
+      thai ? 'การพักหรือสลับงาน' : 'Rest or task rotation',
+    FarmerRecommendationCategory.workloadSupport =>
+      thai ? 'อุปกรณ์ช่วยลดภาระงาน' : 'Tools or workload support',
+  };
+}
+
+IconData _recommendationCategoryIcon(
+  FarmerRecommendationCategory category,
+) {
+  return switch (category) {
+    FarmerRecommendationCategory.posture => Icons.accessibility_new_outlined,
+    FarmerRecommendationCategory.riskReduction =>
+      Icons.health_and_safety_outlined,
+    FarmerRecommendationCategory.restRotation => Icons.timer_outlined,
+    FarmerRecommendationCategory.workloadSupport => Icons.construction_outlined,
+  };
+}
+
 class InitialRiskScreen extends StatefulWidget {
   const InitialRiskScreen({
     required this.payload,
@@ -43,7 +71,12 @@ class _InitialRiskScreenState extends State<InitialRiskScreen> {
     final thai = (state.language ?? AppLanguage.th) == AppLanguage.th;
     final strings = SooktaStrings(thai ? SooktaLocale.th : SooktaLocale.en);
     final before = widget.payload.before;
-    final suggestions = _suggestionsFor(before, widget.payload.activity);
+    final suggestions = RiskRecommendationService.farmerRecommendations(
+      activity: widget.payload.activity,
+      riskLevel: before.riskLevel,
+      bodyPartRisks: before.bodyPartRisks,
+      thai: thai,
+    );
     final impact = EconomicImpactService.estimate(
       overallRisk: before.riskLevel,
       dailyIncome: state.dailyIncome.toDouble(),
@@ -113,70 +146,98 @@ class _InitialRiskScreenState extends State<InitialRiskScreen> {
               thai: thai,
             ),
             const SizedBox(height: 16),
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Text(
-                      thai
-                          ? 'เลือกวิธีลดความเสี่ยง'
-                          : 'Choose risk-reduction actions',
-                      style: const TextStyle(
-                          fontSize: 16, fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      thai
-                          ? 'แตะเลือกเฉพาะข้อที่ทำได้จริง ระบบจะคำนวณคะแนนหลังปรับให้ทันที'
-                          : 'Tap only the actions you can really do. The app recalculates the after score immediately.',
-                      style: const TextStyle(color: Colors.black54),
-                    ),
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: SooktaTtsButton(
-                        thai: thai,
-                        text: thai
-                            ? 'เลือกวิธีลดความเสี่ยง แตะเลือกเฉพาะข้อที่ทำได้จริง ระบบจะคำนวณคะแนนหลังปรับให้ทันที'
-                            : 'Choose risk-reduction actions. Tap only the actions you can really do. The app recalculates the after score immediately.',
-                        size: 38,
+            Column(
+              key: const ValueKey('risk-action-groups'),
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  thai
+                      ? 'เลือกวิธีลดความเสี่ยง'
+                      : 'Choose risk-reduction actions',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  thai
+                      ? 'เลือกทีละข้อ เฉพาะวิธีที่ทำได้จริง'
+                      : 'Choose one action at a time, only when practical.',
+                  style: const TextStyle(color: Colors.black54),
+                ),
+                const SizedBox(height: 12),
+                for (final category in FarmerRecommendationCategory.values)
+                  Card(
+                    key: ValueKey('risk-action-group-${category.name}'),
+                    margin: const EdgeInsets.only(bottom: 12),
+                    color: const Color(0xFFFFFBF0),
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(
+                                _recommendationCategoryIcon(category),
+                                color: SooktaColors.darkGreen,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  _recommendationCategoryTitle(
+                                    category,
+                                    thai,
+                                  ),
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const Divider(height: 20),
+                          for (final item in suggestions.where(
+                            (item) => item.category == category,
+                          ))
+                            Builder(builder: (context) {
+                              final action = _actionFor(item.sourceKey);
+                              return CheckboxListTile(
+                                key: ValueKey(
+                                  'risk-action-${item.sourceKey}',
+                                ),
+                                value: selectedKeys.contains(item.sourceKey),
+                                onChanged: (value) {
+                                  setState(() {
+                                    if (value == true) {
+                                      selectedKeys.add(item.sourceKey);
+                                    } else {
+                                      selectedKeys.remove(item.sourceKey);
+                                    }
+                                  });
+                                },
+                                title: Text(item.text),
+                                subtitle: Text(
+                                  thai
+                                      ? 'ลดคะแนนได้ประมาณ ${action.scoreReduction} จุด'
+                                      : 'About ${action.scoreReduction} point reduction',
+                                ),
+                                secondary: SooktaTtsButton(
+                                  thai: thai,
+                                  text: item.text,
+                                  size: 34,
+                                ),
+                                controlAffinity:
+                                    ListTileControlAffinity.leading,
+                                contentPadding: EdgeInsets.zero,
+                              );
+                            }),
+                        ],
                       ),
                     ),
-                    const SizedBox(height: 8),
-                    ...suggestions.map((key) {
-                      final action = _actionFor(key);
-                      return CheckboxListTile(
-                        value: selectedKeys.contains(key),
-                        onChanged: (value) {
-                          setState(() {
-                            if (value == true) {
-                              selectedKeys.add(key);
-                            } else {
-                              selectedKeys.remove(key);
-                            }
-                          });
-                        },
-                        title: Text(strings.get(key)),
-                        subtitle: Text(
-                          thai
-                              ? 'คาดว่าลดคะแนน ${action.scoreReduction} จุด • ลดความเสี่ยง ${action.partLabels(thai: true)}'
-                              : 'Estimated score reduction ${action.scoreReduction} • Targets ${action.partLabels(thai: false)}',
-                        ),
-                        secondary: SooktaTtsButton(
-                          thai: thai,
-                          text: thai
-                              ? '${strings.get(key)} คาดว่าลดคะแนน ${action.scoreReduction} จุด ลดความเสี่ยง ${action.partLabels(thai: true)}'
-                              : '${strings.get(key)}. Estimated score reduction ${action.scoreReduction}. Targets ${action.partLabels(thai: false)}.',
-                          size: 34,
-                        ),
-                        controlAffinity: ListTileControlAffinity.leading,
-                        contentPadding: EdgeInsets.zero,
-                      );
-                    }),
-                  ],
-                ),
-              ),
+                  ),
+              ],
             ),
             const SizedBox(height: 16),
             _RiskSummaryCard(
@@ -278,23 +339,6 @@ class _InitialRiskScreenState extends State<InitialRiskScreen> {
         ),
       ),
     );
-  }
-
-  List<String> _suggestionsFor(ErgoResult result, SooktaActivity activity) {
-    final keys = <String>{
-      ...RiskRecommendationService.activityKeys(
-        activity: activity,
-        riskLevel: result.riskLevel,
-      ),
-      ...RiskRecommendationService.bodyMapKeys(
-        bodyPartRisks: result.bodyPartRisks,
-        activity: activity,
-        overallRisk: result.riskLevel,
-      ),
-      ...result.suggestionKeys,
-    };
-    if (keys.isEmpty) keys.add('act_rest_stretch');
-    return keys.toList();
   }
 
   ErgoResult _simulateAfter(ErgoResult before) {

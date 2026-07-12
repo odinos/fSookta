@@ -47,6 +47,30 @@ void main() {
     );
     await tester.pump();
 
+    for (final category in const [
+      'posture',
+      'riskReduction',
+      'restRotation',
+      'workloadSupport',
+    ]) {
+      expect(
+        find.byKey(ValueKey('risk-action-group-$category')),
+        findsOneWidget,
+      );
+    }
+    expect(
+      find.textContaining('ลดน้ำหนักปุ๋ยต่อครั้ง ใช้สายพาน'),
+      findsNothing,
+    );
+    final actionTitles = tester
+        .widgetList<Text>(find.descendant(
+          of: find.byKey(const ValueKey('risk-action-groups')),
+          matching: find.byType(Text),
+        ))
+        .map((widget) => widget.data ?? '')
+        .where((text) => text.isNotEmpty);
+    expect(actionTitles.every((text) => text.length <= 70), isTrue);
+
     expect(find.text('ตรวจสอบข้อมูลก่อนบันทึก'), findsOneWidget);
     expect(
       find.textContaining('การใส่ปุ๋ย', skipOffstage: false),
