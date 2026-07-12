@@ -14,6 +14,7 @@ Verify every requirement in the source document against the current Flutter appl
 - Preserve the current illustrated activity-selection screen and avoid unrelated redesign.
 - Keep the farmer-facing experience simple while retaining technical data for staff and research exports.
 - Preserve the existing uncommitted work and build on it without reverting unrelated changes.
+- Support portrait orientation only on iOS and Android phones and tablets; landscape orientation must be disabled at the platform level.
 - Treat automated checks, simulator/tablet layout checks, and physical-device UAT as separate evidence layers.
 - Report hardware or automation blockers as blockers; do not convert incomplete manual checks into passes.
 
@@ -32,7 +33,7 @@ The verification layer consists of focused unit/widget regression tests, existin
 - Persist drafts after meaningful form changes and restore the latest matching draft after relaunch.
 - Identify drafts by farmer profile, activity, and assessment date.
 - Persist draft media into application-owned storage so temporary picker paths survive relaunch.
-- Keep the final assessment action visible and tappable on phone and tablet layouts in portrait and landscape.
+- Keep the final assessment action visible and tappable on phone and tablet layouts in portrait.
 - Bind farmer avatars to profile IDs and show a deterministic default avatar when no image exists.
 
 ### 2. Image Selection and Validation
@@ -104,7 +105,8 @@ The verification layer consists of focused unit/widget regression tests, existin
 
 ### Layout and Builds
 
-- Exercise phone, iPad/tablet, portrait, and landscape sizes through widget/integration coverage.
+- Exercise phone and iPad/tablet portrait sizes through widget/integration coverage.
+- Verify iOS and Android platform configuration permits portrait orientation only and does not rotate the app into landscape.
 - Build Android and iOS artifacts using the project toolchain.
 - Treat successful compilation as build evidence, not functional UAT.
 
@@ -113,17 +115,18 @@ The verification layer consists of focused unit/widget regression tests, existin
 Run on every connected supported physical device, prioritizing one Android phone and one iPhone/iPad when available:
 
 1. Install and launch the current build.
-2. Create or switch between at least two farmer profiles and verify avatar isolation.
-3. Start an assessment, enter data, terminate/relaunch, and resume the correct draft.
-4. Change activity mid-assessment and verify the warning and chosen clear/draft behavior.
-5. Select four images together, replace and remove one image, and verify per-slot previews.
-6. Try an unusable or multi-person image and verify actionable rejection.
-7. Complete an assessment and verify the final action is tappable and unobstructed.
-8. Verify simplified farmer results, expandable technical details, body map, and risk-specific recommendations.
-9. Listen to required Thai TTS prompts and confirm they are concise and understandable.
-10. Filter trend/history and export by month/activity; inspect required metadata.
-11. Relaunch offline and verify saved records, drafts, images, and assessment flow remain available.
-12. Capture screenshots, logs, exported samples, device/build versions, passes, failures, and blockers in a dated UAT report.
+2. Rotate the device in both directions and verify the application remains in portrait orientation.
+3. Create or switch between at least two farmer profiles and verify avatar isolation.
+4. Start an assessment, enter data, terminate/relaunch, and resume the correct draft.
+5. Change activity mid-assessment and verify the warning and chosen clear/draft behavior.
+6. Select four images together, replace and remove one image, and verify per-slot previews.
+7. Try an unusable or multi-person image and verify actionable rejection.
+8. Complete an assessment and verify the final action is tappable and unobstructed.
+9. Verify simplified farmer results, expandable technical details, body map, and risk-specific recommendations.
+10. Listen to required Thai TTS prompts and confirm they are concise and understandable.
+11. Filter trend/history and export by month/activity; inspect required metadata.
+12. Relaunch offline and verify saved records, drafts, images, and assessment flow remain available.
+13. Capture screenshots, logs, exported samples, device/build versions, passes, failures, and blockers in a dated UAT report.
 
 Hardware-dependent checks such as audible voice quality, native permission dialogs, camera behavior, and share sheets require human-observable device evidence. If automation cannot perform them, the report will mark them `PENDING-MANUAL` rather than `PASS`.
 
@@ -132,6 +135,7 @@ Hardware-dependent checks such as audible voice quality, native permission dialo
 - Every source requirement has a matrix row with status and evidence.
 - No confirmed requirement gap remains without an implementation or documented external blocker.
 - Static analysis reports no issues and the full automated suite passes.
+- The app remains portrait-only on iOS and Android phones and tablets when the physical device is rotated.
 - Android and iOS build verification completes for the available toolchain.
 - Physical-device UAT is attempted on all connected supported devices and produces a dated evidence report.
 - The final report distinguishes `PASS`, `FAIL`, `BLOCKED`, `NOT AVAILABLE`, and `PENDING-MANUAL` accurately.
