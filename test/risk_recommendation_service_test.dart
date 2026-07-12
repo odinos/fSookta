@@ -5,6 +5,28 @@ import 'package:fsookta/core/models/evaluation_models.dart';
 import 'package:fsookta/core/services/risk_recommendation_service.dart';
 
 void main() {
+  test('returns concise recommendations with explicit categories', () {
+    final items = RiskRecommendationService.farmerRecommendations(
+      activity: SooktaActivity.fertilizing,
+      riskLevel: RiskLevel.high,
+      bodyPartRisks: const {BodyPart.trunk: RiskLevel.high},
+      thai: true,
+    );
+
+    expect(
+      items.map((item) => item.category).toSet(),
+      containsAll(FarmerRecommendationCategory.values),
+    );
+    for (final category in FarmerRecommendationCategory.values) {
+      expect(
+        items.where((item) => item.category == category).length,
+        inInclusiveRange(1, 2),
+      );
+    }
+    expect(items.map((item) => item.text), contains('ลดน้ำหนักปุ๋ยต่อครั้ง'));
+    expect(items.every((item) => item.text.length <= 70), isTrue);
+  });
+
   test('returns document-based recommendations by activity and risk level', () {
     expect(
       RiskRecommendationService.activityKeys(

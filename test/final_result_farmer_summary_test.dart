@@ -65,9 +65,31 @@ void main() {
     );
     expect(find.text('คำแนะนำตามกิจกรรมและความเสี่ยง'), findsOneWidget);
     expect(find.textContaining('ลดน้ำหนักปุ๋ยต่อครั้ง'), findsOneWidget);
-    expect(find.textContaining('หลีกเลี่ยงการก้มต่อเนื่อง'), findsOneWidget);
+    expect(find.text('ใช้เท้าหมุนตัวแทนการบิดเอว'), findsOneWidget);
     expect(find.text('การพักหรือสลับงาน'), findsOneWidget);
-    expect(find.text('อุปกรณ์หรือวิธีช่วยลดภาระงาน'), findsOneWidget);
+    expect(find.text('อุปกรณ์ช่วยลดภาระงาน'), findsOneWidget);
+    for (final category in const [
+      'posture',
+      'riskReduction',
+      'restRotation',
+      'workloadSupport',
+    ]) {
+      final group = find.byKey(ValueKey('recommendation-group-$category'));
+      expect(group, findsOneWidget);
+      expect(
+        find.descendant(
+          of: group,
+          matching: find.byWidgetPredicate(
+            (widget) =>
+                widget.key is ValueKey<String> &&
+                (widget.key! as ValueKey<String>)
+                    .value
+                    .startsWith('recommendation-action-$category-'),
+          ),
+        ),
+        findsAtLeastNWidgets(1),
+      );
+    }
     final farmerGuidance = tester
         .widgetList<Text>(find.descendant(
           of: find.byKey(const ValueKey('farmer-guidance-card')),
@@ -75,8 +97,7 @@ void main() {
         ))
         .map((widget) => widget.data ?? '')
         .where((text) =>
-            text.contains('ลดน้ำหนักปุ๋ย') ||
-            text.contains('หลีกเลี่ยงการก้ม'));
+            text.contains('ลดน้ำหนักปุ๋ย') || text.contains('ใช้เท้าหมุนตัว'));
     expect(farmerGuidance, isNotEmpty);
     expect(
       farmerGuidance.every((text) => text.length <= 70),

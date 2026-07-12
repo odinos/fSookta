@@ -1,8 +1,175 @@
 import '../models/assessment_session.dart';
 import '../models/evaluation_models.dart';
 
+enum FarmerRecommendationCategory {
+  posture,
+  riskReduction,
+  restRotation,
+  workloadSupport,
+}
+
+class FarmerRecommendation {
+  const FarmerRecommendation({required this.category, required this.text});
+
+  final FarmerRecommendationCategory category;
+  final String text;
+}
+
 class RiskRecommendationService {
   const RiskRecommendationService._();
+
+  static List<FarmerRecommendation> farmerRecommendations({
+    required SooktaActivity activity,
+    required RiskLevel riskLevel,
+    required Map<BodyPart, RiskLevel> bodyPartRisks,
+    required bool thai,
+  }) {
+    final items = <FarmerRecommendation>[
+      _activityPosture(activity, thai),
+      _activityRiskReduction(activity, thai),
+      _restAction(riskLevel, thai),
+      _workloadSupport(activity, thai),
+    ];
+    final riskyParts = bodyPartRisks.entries
+        .where((entry) => entry.value != RiskLevel.low)
+        .map((entry) => entry.key)
+        .take(1);
+    for (final part in riskyParts) {
+      items.add(_bodyPosture(part, thai));
+    }
+
+    final seen = <String>{};
+    final counts = <FarmerRecommendationCategory, int>{};
+    return items.where((item) {
+      final key = '${item.category.name}:${item.text}';
+      if (!seen.add(key)) return false;
+      final count = counts[item.category] ?? 0;
+      if (count >= 2) return false;
+      counts[item.category] = count + 1;
+      return true;
+    }).toList(growable: false);
+  }
+
+  static FarmerRecommendation _activityPosture(
+    SooktaActivity activity,
+    bool thai,
+  ) {
+    final text = switch (activity) {
+      SooktaActivity.transplanting =>
+        thai ? 'สลับยืนกับนั่งยองเป็นระยะ' : 'Alternate standing and squatting',
+      SooktaActivity.fertilizing =>
+        thai ? 'หันตัวเข้าหาปุ๋ยก่อนยก' : 'Face the fertilizer before lifting',
+      SooktaActivity.pesticide => thai
+          ? 'สลับข้างที่ถือท่อพ่น'
+          : 'Alternate the side holding the spray wand',
+      SooktaActivity.pruning => thai
+          ? 'หลีกเลี่ยงการยกแขนเหนือไหล่นาน'
+          : 'Avoid keeping arms above shoulder level',
+      SooktaActivity.harvesting => thai
+          ? 'ขยับเข้าใกล้ต้นก่อนเก็บ'
+          : 'Move closer to the plant before picking',
+      SooktaActivity.transport => thai
+          ? 'งอเข่าและรักษาหลังให้ตรงขณะยก'
+          : 'Bend the knees and keep the back straight',
+    };
+    return FarmerRecommendation(
+      category: FarmerRecommendationCategory.posture,
+      text: text,
+    );
+  }
+
+  static FarmerRecommendation _activityRiskReduction(
+    SooktaActivity activity,
+    bool thai,
+  ) {
+    final text = switch (activity) {
+      SooktaActivity.transplanting =>
+        thai ? 'ลดเวลาก้มทำงานต่อเนื่อง' : 'Reduce continuous bending time',
+      SooktaActivity.fertilizing =>
+        thai ? 'ลดน้ำหนักปุ๋ยต่อครั้ง' : 'Reduce fertilizer weight per trip',
+      SooktaActivity.pesticide =>
+        thai ? 'ลดระยะเวลาพ่นต่อเนื่อง' : 'Reduce continuous spraying time',
+      SooktaActivity.pruning => thai
+          ? 'หลีกเลี่ยงการตัดกิ่งในท่าบิดตัว'
+          : 'Avoid twisting while pruning',
+      SooktaActivity.harvesting => thai
+          ? 'หยุดงานเมื่อปวดมือหรือหลัง'
+          : 'Stop when hand or back pain occurs',
+      SooktaActivity.transport =>
+        thai ? 'ลดน้ำหนักกระสอบต่อครั้ง' : 'Reduce sack weight per trip',
+    };
+    return FarmerRecommendation(
+      category: FarmerRecommendationCategory.riskReduction,
+      text: text,
+    );
+  }
+
+  static FarmerRecommendation _restAction(RiskLevel risk, bool thai) {
+    final text = switch (risk) {
+      RiskLevel.low =>
+        thai ? 'เปลี่ยนท่าทุก 30 นาที' : 'Change posture every 30 minutes',
+      RiskLevel.medium =>
+        thai ? 'พัก 5 นาทีทุก 30 นาที' : 'Rest 5 minutes every 30 minutes',
+      RiskLevel.high ||
+      RiskLevel.veryHigh =>
+        thai ? 'พัก 10 นาทีทุกชั่วโมง' : 'Rest 10 minutes every hour',
+    };
+    return FarmerRecommendation(
+      category: FarmerRecommendationCategory.restRotation,
+      text: text,
+    );
+  }
+
+  static FarmerRecommendation _workloadSupport(
+    SooktaActivity activity,
+    bool thai,
+  ) {
+    final text = switch (activity) {
+      SooktaActivity.transplanting => thai
+          ? 'ใช้เก้าอี้เตี้ยหรือเบาะรองนั่ง'
+          : 'Use a low stool or squat cushion',
+      SooktaActivity.fertilizing =>
+        thai ? 'ใช้รถเข็นหรือสายพาน' : 'Use a cart or conveyor',
+      SooktaActivity.pesticide => thai
+          ? 'ใช้รถเข็นหรือหัวฉีดต่อท่อยาว'
+          : 'Use a wheeled aid or long-hose nozzle',
+      SooktaActivity.pruning => thai
+          ? 'ใช้กรรไกรด้ามยาวที่น้ำหนักเบา'
+          : 'Use lightweight long-handled shears',
+      SooktaActivity.harvesting =>
+        thai ? 'วางตะกร้าบนแท่นสูง' : 'Place the basket on a raised stand',
+      SooktaActivity.transport => thai
+          ? 'ใช้รถเข็นล้อใหญ่หรือรถลาก'
+          : 'Use a large-wheel cart or trolley',
+    };
+    return FarmerRecommendation(
+      category: FarmerRecommendationCategory.workloadSupport,
+      text: text,
+    );
+  }
+
+  static FarmerRecommendation _bodyPosture(BodyPart part, bool thai) {
+    final text = switch (part) {
+      BodyPart.neck => thai
+          ? 'หลีกเลี่ยงการก้มหรือเอียงคอนาน'
+          : 'Avoid prolonged neck bending or tilting',
+      BodyPart.trunk => thai
+          ? 'ใช้เท้าหมุนตัวแทนการบิดเอว'
+          : 'Turn with the feet instead of twisting the waist',
+      BodyPart.arms =>
+        thai ? 'วางงานให้ต่ำกว่าระดับไหล่' : 'Keep work below shoulder level',
+      BodyPart.wrists => thai
+          ? 'รักษาข้อมือให้ตรงขณะจับอุปกรณ์'
+          : 'Keep wrists straight while holding tools',
+      BodyPart.legs => thai
+          ? 'สลับนั่ง ยืน และเดิน'
+          : 'Alternate sitting, standing, and walking',
+    };
+    return FarmerRecommendation(
+      category: FarmerRecommendationCategory.posture,
+      text: text,
+    );
+  }
 
   static List<String> activityKeys({
     required SooktaActivity activity,

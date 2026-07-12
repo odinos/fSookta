@@ -148,6 +148,13 @@ class _FinalResultScreenState extends State<FinalResultScreen> {
       before: before,
       strings: strings,
     );
+    final farmerRecommendations =
+        RiskRecommendationService.farmerRecommendations(
+      activity: widget.bundle.activity,
+      riskLevel: before.riskLevel,
+      bodyPartRisks: before.bodyPartRisks,
+      thai: thai,
+    );
 
     return Scaffold(
       appBar: AppBar(
@@ -246,10 +253,7 @@ class _FinalResultScreenState extends State<FinalResultScreen> {
             if (activityRiskRecommendations.isNotEmpty) ...[
               const SizedBox(height: 16),
               _ActivityRiskRecommendationCard(
-                recommendations: _conciseFarmerRecommendations(
-                  activityRiskRecommendations,
-                  thai,
-                ),
+                recommendations: farmerRecommendations,
                 thai: thai,
               ),
             ],
@@ -446,12 +450,23 @@ class _ActivityRiskRecommendationCard extends StatelessWidget {
     required this.thai,
   });
 
-  final List<String> recommendations;
+  final List<FarmerRecommendation> recommendations;
   final bool thai;
 
   @override
   Widget build(BuildContext context) {
-    final groups = _groupRecommendations(recommendations, thai);
+    final groups = FarmerRecommendationCategory.values.map((category) {
+      return _RecommendationGroup(
+        category: category,
+        title: _categoryTitle(category, thai),
+        icon: _categoryIcon(category),
+        items: recommendations
+            .where((item) => item.category == category)
+            .take(2)
+            .map((item) => item.text)
+            .toList(growable: false),
+      );
+    });
     return Card(
       key: const ValueKey('farmer-guidance-card'),
       color: const Color(0xFFFFFBF0),
@@ -492,101 +507,43 @@ class _ActivityRiskRecommendationCard extends StatelessWidget {
       ),
     );
   }
-
-  List<_RecommendationGroup> _groupRecommendations(
-    List<String> items,
-    bool thai,
-  ) {
-    final groups = [
-      _RecommendationGroup(
-        title: thai ? 'ท่าทางที่ควรปรับ' : 'Posture to adjust',
-        icon: Icons.accessibility_new_outlined,
-      ),
-      _RecommendationGroup(
-        title: thai ? 'วิธีลดความเสี่ยง' : 'Ways to reduce risk',
-        icon: Icons.health_and_safety_outlined,
-      ),
-      _RecommendationGroup(
-        title: thai ? 'การพักหรือสลับงาน' : 'Rest or task rotation',
-        icon: Icons.timer_outlined,
-      ),
-      _RecommendationGroup(
-        title:
-            thai ? 'อุปกรณ์หรือวิธีช่วยลดภาระงาน' : 'Tools or workload support',
-        icon: Icons.construction_outlined,
-      ),
-    ];
-    for (final item in items) {
-      final normalized = item.toLowerCase();
-      final index = normalized.contains('พัก') ||
-              normalized.contains('สลับ') ||
-              normalized.contains('break') ||
-              normalized.contains('rotate')
-          ? 2
-          : normalized.contains('อุปกรณ์') ||
-                  normalized.contains('รถเข็น') ||
-                  normalized.contains('แบ่งน้ำหนัก') ||
-                  normalized.contains('tool') ||
-                  normalized.contains('cart') ||
-                  normalized.contains('split')
-              ? 3
-              : normalized.contains('ท่า') ||
-                      normalized.contains('ก้ม') ||
-                      normalized.contains('ยกแขน') ||
-                      normalized.contains('posture') ||
-                      normalized.contains('bend')
-                  ? 0
-                  : 1;
-      groups[index].items.add(item);
-    }
-    return groups.where((group) => group.items.isNotEmpty).map((group) {
-      if (group.items.length > 2) {
-        group.items.removeRange(2, group.items.length);
-      }
-      return group;
-    }).toList();
-  }
 }
 
-List<String> _conciseFarmerRecommendations(
-  List<String> recommendations,
-  bool thai,
-) {
-  final clauses = <String>[];
-  for (final recommendation in recommendations) {
-    if (_looksLikeWeightReference(recommendation, thai)) {
-      clauses.add(thai
-          ? 'ลดน้ำหนักต่อครั้ง และใช้อุปกรณ์ช่วยเมื่อของหนัก'
-          : 'Reduce each load and use handling aids for heavy items');
-      continue;
-    }
-    clauses.addAll(recommendation
-        .split(thai
-            ? RegExp(
-                r'[;,]|\sและ\s|\s+(?=(?:ใช้|จัด|พัก|หลีก|ยืด|หัน|หมุน|สลับ|ปรับ|ลด|ลุก|วาง|ถือ|ให้|เปลี่ยน|หยุด|สวม|ใส่))',
-              )
-            : RegExp(
-                r'[;,]|\sand\s|\s+(?=(?:use|rest|avoid|stretch|turn|rotate|change|reduce|keep|raise|lift|wear|stop|split)\b)',
-                caseSensitive: false,
-              ))
-        .map((part) => part.trim().replaceFirst(RegExp(r'[.]$'), ''))
-        .where((part) => part.length >= 8));
-  }
-  return clauses.toSet().toList(growable: false);
+String _categoryTitle(FarmerRecommendationCategory category, bool thai) {
+  return switch (category) {
+    FarmerRecommendationCategory.posture =>
+      thai ? 'ท่าทางที่ควรปรับ' : 'Posture to adjust',
+    FarmerRecommendationCategory.riskReduction =>
+      thai ? 'วิธีลดความเสี่ยง' : 'Ways to reduce risk',
+    FarmerRecommendationCategory.restRotation =>
+      thai ? 'การพักหรือสลับงาน' : 'Rest or task rotation',
+    FarmerRecommendationCategory.workloadSupport =>
+      thai ? 'อุปกรณ์ช่วยลดภาระงาน' : 'Tools or workload support',
+  };
 }
 
-bool _looksLikeWeightReference(String text, bool thai) {
-  return thai
-      ? text.contains('ชาย 20-45 ปี') || text.contains('หญิง 20-45 ปี')
-      : text.contains('men 20-45 years') || text.contains('women 20-45');
+IconData _categoryIcon(FarmerRecommendationCategory category) {
+  return switch (category) {
+    FarmerRecommendationCategory.posture => Icons.accessibility_new_outlined,
+    FarmerRecommendationCategory.riskReduction =>
+      Icons.health_and_safety_outlined,
+    FarmerRecommendationCategory.restRotation => Icons.timer_outlined,
+    FarmerRecommendationCategory.workloadSupport => Icons.construction_outlined,
+  };
 }
 
 class _RecommendationGroup {
-  _RecommendationGroup({required this.title, required this.icon});
+  const _RecommendationGroup({
+    required this.category,
+    required this.title,
+    required this.icon,
+    required this.items,
+  });
 
+  final FarmerRecommendationCategory category;
   final String title;
   final IconData icon;
-  final List<String> items = [];
+  final List<String> items;
 }
 
 class _RecommendationGroupView extends StatelessWidget {
@@ -601,6 +558,7 @@ class _RecommendationGroupView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DecoratedBox(
+      key: ValueKey('recommendation-group-${group.category.name}'),
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.72),
         borderRadius: BorderRadius.circular(8),
@@ -624,8 +582,11 @@ class _RecommendationGroupView extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 8),
-            for (final item in group.items)
+            for (final (index, item) in group.items.indexed)
               Padding(
+                key: ValueKey(
+                  'recommendation-action-${group.category.name}-$index',
+                ),
                 padding: const EdgeInsets.only(bottom: 6),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -644,6 +605,11 @@ class _RecommendationGroupView extends StatelessWidget {
                     ),
                   ],
                 ),
+              ),
+            if (group.items.isEmpty)
+              Text(
+                thai ? 'ไม่มีคำแนะนำเพิ่มเติม' : 'No additional action',
+                style: const TextStyle(color: Colors.black54),
               ),
           ],
         ),
