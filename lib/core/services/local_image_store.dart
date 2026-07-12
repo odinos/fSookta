@@ -14,6 +14,11 @@ class LocalImageStore {
     if (!source.existsSync()) return sourcePath;
 
     final directory = await getApplicationDocumentsDirectory();
+    if (p.isWithin(directory.path, source.path) ||
+        p.equals(directory.path, source.path)) {
+      return source.path;
+    }
+
     final extension =
         p.extension(source.path).isEmpty ? '.jpg' : p.extension(source.path);
     final fileName =

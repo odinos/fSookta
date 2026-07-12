@@ -1,27 +1,40 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../app/app_state.dart';
 import '../../app/sookta_app.dart';
+import '../../core/models/assessment_session.dart';
 import '../../core/models/evaluation_models.dart';
+import '../../core/services/assessment_export_service.dart';
 import '../../core/services/daily_injury_prediction_service.dart';
 import '../../core/theme/sookta_theme.dart';
 import '../../widgets/responsive_content.dart';
 import 'risk_reduction_potential_screen.dart';
 
-class DailyPredictionScreen extends StatelessWidget {
+class DailyPredictionScreen extends StatefulWidget {
   const DailyPredictionScreen({super.key});
 
   static const routeName = '/daily-prediction';
 
   @override
+  State<DailyPredictionScreen> createState() => _DailyPredictionScreenState();
+}
+
+class _DailyPredictionScreenState extends State<DailyPredictionScreen> {
+  static const _allFarmers = '__all__';
+
+  String _profileFilter = '';
+  SooktaActivity? _activityFilter;
+  String _monthFilter = '';
+
+  @override
   Widget build(BuildContext context) {
     final state = AppStateScope.of(context);
     final thai = (state.language ?? AppLanguage.th) == AppLanguage.th;
-    final profileId = state.profile.profileId;
-    final records =
-        profileId.isEmpty ? state.history : state.historyForFarmer(profileId);
+    final baseRecords = _recordsForProfile(state);
+    final records = _filteredRecords(baseRecords);
 
     return Scaffold(
       appBar: AppBar(
@@ -56,6 +69,37 @@ class DailyPredictionScreen extends StatelessWidget {
               maxWidth: 680,
               padding: const EdgeInsets.all(16),
               children: [
+                Text(
+                  thai
+                      ? 'สรุปแนวโน้มความเสี่ยงจริง'
+                      : 'Actual Risk Trend Summary',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        color: SooktaColors.darkGreen,
+                        fontWeight: FontWeight.w800,
+                      ),
+                ),
+                const SizedBox(height: 12),
+                _TrendFilterCard(
+                  thai: thai,
+                  profileFilter: _effectiveProfileFilter(state),
+                  farmers: state.farmers,
+                  activityFilter: _activityFilter,
+                  monthFilter: _monthFilter,
+                  monthOptions: _monthOptions(baseRecords),
+                  filteredCount: records.length,
+                  onProfileChanged: (value) => setState(() {
+                    _profileFilter = value;
+                    _monthFilter = '';
+                  }),
+                  onActivityChanged: (value) =>
+                      setState(() => _activityFilter = value),
+                  onMonthChanged: (value) =>
+                      setState(() => _monthFilter = value),
+                  onExport: records.isEmpty
+                      ? null
+                      : () => _exportFilteredRecords(state, records, thai),
+                ),
+                const SizedBox(height: 12),
                 if (prediction.chartScores.isNotEmpty)
                   _TrendCard(prediction: prediction, thai: thai),
                 if (prediction.chartScores.isNotEmpty)
@@ -77,6 +121,202 @@ class DailyPredictionScreen extends StatelessWidget {
               ],
             );
           },
+        ),
+      ),
+    );
+  }
+
+  String _effectiveProfileFilter(SooktaAppState state) {
+    if (_profileFilter.isNotEmpty) return _profileFilter;
+    final current = state.profile.profileId;
+    return current.isEmpty ? _allFarmers : current;
+  }
+
+  List<EvaluationHistoryRecord> _recordsForProfile(SooktaAppState state) {
+    final profileFilter = _effectiveProfileFilter(state);
+    if (profileFilter == _allFarmers) return state.history;
+    return state.historyForFarmer(profileFilter);
+  }
+
+  List<EvaluationHistoryRecord> _filteredRecords(
+    List<EvaluationHistoryRecord> records,
+  ) {
+    return records.where((record) {
+      final activityMatches =
+          _activityFilter == null || record.activity == _activityFilter;
+      final monthMatches =
+          _monthFilter.isEmpty || _monthKey(record.dateTime) == _monthFilter;
+      return activityMatches && monthMatches;
+    }).toList(growable: false);
+  }
+
+  List<String> _monthOptions(List<EvaluationHistoryRecord> records) {
+    final months = records.map((record) => _monthKey(record.dateTime)).toSet()
+      ..remove('');
+    final sorted = months.toList(growable: false)
+      ..sort((a, b) => b.compareTo(a));
+    return sorted;
+  }
+
+  String _monthKey(DateTime date) {
+    final month = date.month.toString().padLeft(2, '0');
+    return '${date.year}-$month';
+  }
+
+  Future<void> _exportFilteredRecords(
+    SooktaAppState state,
+    List<EvaluationHistoryRecord> records,
+    bool thai,
+  ) async {
+    final profilesByRecordId = {
+      for (final record in records) record.id: state.profileForRecord(record),
+    };
+    final file = await AssessmentExportService.exportAllHistoryCsv(
+      records: records,
+      profilesByRecordId: profilesByRecordId,
+      thai: thai,
+    );
+    if (!mounted) return;
+    await SharePlus.instance.share(
+      ShareParams(
+        files: [XFile(file.path)],
+        text: thai ? 'ส่งออกข้อมูลแนวโน้มตามตัวกรอง' : 'Filtered trend export',
+      ),
+    );
+  }
+}
+
+class _TrendFilterCard extends StatelessWidget {
+  const _TrendFilterCard({
+    required this.thai,
+    required this.profileFilter,
+    required this.farmers,
+    required this.activityFilter,
+    required this.monthFilter,
+    required this.monthOptions,
+    required this.filteredCount,
+    required this.onProfileChanged,
+    required this.onActivityChanged,
+    required this.onMonthChanged,
+    required this.onExport,
+  });
+
+  final bool thai;
+  final String profileFilter;
+  final List<UserProfile> farmers;
+  final SooktaActivity? activityFilter;
+  final String monthFilter;
+  final List<String> monthOptions;
+  final int filteredCount;
+  final ValueChanged<String> onProfileChanged;
+  final ValueChanged<SooktaActivity?> onActivityChanged;
+  final ValueChanged<String> onMonthChanged;
+  final VoidCallback? onExport;
+
+  @override
+  Widget build(BuildContext context) {
+    final profileItems = <DropdownMenuItem<String>>[
+      DropdownMenuItem(
+        value: _DailyPredictionScreenState._allFarmers,
+        child: Text(thai ? 'ภาพรวมทุกเกษตรกร' : 'All farmers'),
+      ),
+      for (final farmer in farmers)
+        DropdownMenuItem(
+          value: farmer.profileId,
+          child: Text(
+            farmer.name.isEmpty
+                ? (farmer.farmerId.isEmpty ? farmer.profileId : farmer.farmerId)
+                : farmer.name,
+          ),
+        ),
+    ];
+    final selectedProfile =
+        profileItems.any((item) => item.value == profileFilter)
+            ? profileFilter
+            : _DailyPredictionScreenState._allFarmers;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              thai ? 'ตัวกรองแนวโน้มและการส่งออก' : 'Trend filters and export',
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<String>(
+              initialValue: selectedProfile,
+              decoration: InputDecoration(
+                labelText: thai ? 'เกษตรกร/ภาพรวม' : 'Farmer / overview',
+                prefixIcon: const Icon(Icons.person_search_outlined),
+              ),
+              items: profileItems,
+              onChanged: (value) {
+                if (value != null) onProfileChanged(value);
+              },
+            ),
+            const SizedBox(height: 10),
+            DropdownButtonFormField<SooktaActivity?>(
+              initialValue: activityFilter,
+              decoration: InputDecoration(
+                labelText: thai ? 'กิจกรรม' : 'Activity',
+                prefixIcon: const Icon(Icons.category_outlined),
+              ),
+              items: [
+                DropdownMenuItem(
+                  value: null,
+                  child: Text(thai ? 'ทุกกิจกรรม' : 'All activities'),
+                ),
+                for (final activity in SooktaActivity.values)
+                  DropdownMenuItem(
+                    value: activity,
+                    child: Text(activity.label(thai: thai)),
+                  ),
+              ],
+              onChanged: onActivityChanged,
+            ),
+            const SizedBox(height: 10),
+            DropdownButtonFormField<String>(
+              initialValue: monthFilter,
+              decoration: InputDecoration(
+                labelText: thai ? 'เดือน' : 'Month',
+                prefixIcon: const Icon(Icons.calendar_month_outlined),
+              ),
+              items: [
+                DropdownMenuItem(
+                  value: '',
+                  child: Text(thai ? 'ทุกเดือน' : 'All months'),
+                ),
+                for (final month in monthOptions)
+                  DropdownMenuItem(value: month, child: Text(month)),
+              ],
+              onChanged: (value) => onMonthChanged(value ?? ''),
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 10,
+              runSpacing: 8,
+              alignment: WrapAlignment.spaceBetween,
+              children: [
+                Chip(
+                  avatar: const Icon(Icons.filter_alt_outlined, size: 18),
+                  label: Text(
+                    thai
+                        ? 'พบ $filteredCount รายการ'
+                        : '$filteredCount record(s)',
+                  ),
+                ),
+                OutlinedButton.icon(
+                  onPressed: onExport,
+                  icon: const Icon(Icons.ios_share_outlined),
+                  label: Text(
+                    thai ? 'ส่งออกตามตัวกรอง' : 'Export filtered data',
+                  ),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );

@@ -218,7 +218,31 @@ class _InitialRiskScreenState extends State<InitialRiskScreen> {
                 setState(() => preSaveConfirmed = value);
               },
               onEditDetails: () => Navigator.of(context).pop(),
-              onChooseActivity: () {
+              onChooseActivity: () async {
+                final continueChange = await showDialog<bool>(
+                  context: context,
+                  builder: (context) => AlertDialog(
+                    title: Text(
+                      thai ? 'เปลี่ยนกิจกรรม?' : 'Change activity?',
+                    ),
+                    content: Text(
+                      thai
+                          ? 'ข้อมูลที่กรอกไว้ถูกบันทึกเป็นแบบร่างแล้ว หากเลือกกิจกรรมใหม่ ให้กลับมาเปิดแบบร่างเดิมได้จากหน้าเลือกประเภทงาน'
+                          : 'Your current inputs are saved as a draft. If you choose another activity, you can resume this draft from the activity menu.',
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.of(context).pop(false),
+                        child: Text(thai ? 'ยกเลิก' : 'Cancel'),
+                      ),
+                      FilledButton(
+                        onPressed: () => Navigator.of(context).pop(true),
+                        child: Text(thai ? 'เลือกกิจกรรมใหม่' : 'Choose new'),
+                      ),
+                    ],
+                  ),
+                );
+                if (continueChange != true || !context.mounted) return;
                 Navigator.of(context).popUntil(
                   (route) =>
                       route.settings.name == EvaluationMenuScreen.routeName ||

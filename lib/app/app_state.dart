@@ -4,9 +4,11 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'build_info.dart';
 import '../core/models/assessment_session.dart';
 import '../core/models/evaluation_models.dart';
 import '../core/services/economic_impact_service.dart';
+import '../core/services/local_image_store.dart';
 
 enum AppLanguage { th, en }
 
@@ -148,6 +150,10 @@ class SooktaAppState extends ChangeNotifier {
   static const _historyKey = 'sookta.history';
   static const _nextHistoryIdKey = 'sookta.nextHistoryId';
   static const _evaluationDraftKey = 'sookta.evaluationDraft';
+  static const _evaluationDraftsKey = 'sookta.evaluationDrafts';
+  static const _dataSchemaVersionKey = 'sookta.dataSchemaVersion';
+  static const _latestBackupKey = 'sookta.latestBackup';
+  static const _currentDataSchemaVersion = 2;
 
   AppLanguage? _language;
   UserProfile _profile = const UserProfile();
@@ -155,6 +161,7 @@ class SooktaAppState extends ChangeNotifier {
   String? _activeProfileId;
   bool _setupCompleted = false;
   final List<EvaluationHistoryRecord> _history = [];
+  final Map<String, EvaluationDraft> _evaluationDrafts = {};
   EvaluationDraft? _evaluationDraft;
   int _nextHistoryId = 1;
   bool _hydrated = false;
@@ -168,7 +175,17 @@ class SooktaAppState extends ChangeNotifier {
   bool get hydrated => _hydrated;
   bool get hasLanguage => _language != null;
   List<EvaluationHistoryRecord> get history => List.unmodifiable(_history);
-  EvaluationDraft? get evaluationDraft => _evaluationDraft;
+  EvaluationDraft? get evaluationDraft =>
+      evaluationDraftForProfile(_profile.profileId) ?? _evaluationDraft;
+  List<EvaluationDraft> get evaluationDrafts {
+    final drafts = _evaluationDrafts.values.toList(growable: false);
+    drafts.sort((a, b) {
+      final aTime = a.savedAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+      final bTime = b.savedAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+      return bTime.compareTo(aTime);
+    });
+    return drafts;
+  }
 
   Future<void> restore() {
     return _restoreFuture ??= _restore();
@@ -177,6 +194,7 @@ class SooktaAppState extends ChangeNotifier {
   Future<void> _restore() async {
     try {
       final preferences = await SharedPreferences.getInstance();
+      await _backupBeforeSchemaMigration(preferences);
       final languageName = preferences.getString(_languageKey);
       if (languageName != null) {
         _language = AppLanguage.values.cast<AppLanguage?>().firstWhere(
@@ -251,14 +269,41 @@ class SooktaAppState extends ChangeNotifier {
       }
 
       final draftJson = preferences.getString(_evaluationDraftKey);
+      EvaluationDraft? legacyDraft;
       if (draftJson != null) {
         final decoded = jsonDecode(draftJson);
         if (decoded is Map) {
-          _evaluationDraft = EvaluationDraft.fromJson(
+          legacyDraft = EvaluationDraft.fromJson(
             Map<String, Object?>.from(decoded),
           );
         }
       }
+
+      final draftsJson = preferences.getString(_evaluationDraftsKey);
+      if (draftsJson != null) {
+        final decoded = jsonDecode(draftsJson);
+        final draftMaps = decoded is List
+            ? decoded
+            : decoded is Map
+                ? decoded.values
+                : const Iterable<Object?>.empty();
+        for (final item in draftMaps.whereType<Map>()) {
+          final draft = EvaluationDraft.fromJson(
+            Map<String, Object?>.from(item),
+          );
+          _evaluationDrafts[_draftKey(draft)] = draft;
+        }
+      }
+      if (legacyDraft != null) {
+        final enriched = _withActiveDraftMetadata(legacyDraft);
+        _evaluationDrafts.putIfAbsent(_draftKey(enriched), () => enriched);
+      }
+      _evaluationDraft =
+          evaluationDraftForProfile(_profile.profileId) ?? _latestDraftOrNull();
+      await preferences.setInt(
+        _dataSchemaVersionKey,
+        _currentDataSchemaVersion,
+      );
     } catch (_) {
       _language = null;
       _profile = const UserProfile();
@@ -266,6 +311,7 @@ class SooktaAppState extends ChangeNotifier {
       _activeProfileId = null;
       _setupCompleted = false;
       _history.clear();
+      _evaluationDrafts.clear();
       _evaluationDraft = null;
       _nextHistoryId = 1;
     } finally {
@@ -358,15 +404,46 @@ class SooktaAppState extends ChangeNotifier {
         .toList(growable: false);
   }
 
+  EvaluationDraft? evaluationDraftForProfile(
+    String profileId, {
+    SooktaActivity? activity,
+  }) {
+    final drafts = evaluationDrafts.where((draft) {
+      final sameProfile = profileId.isEmpty
+          ? draft.farmerProfileId == null || draft.farmerProfileId!.isEmpty
+          : draft.farmerProfileId == profileId;
+      final sameActivity = activity == null || draft.activity == activity;
+      return sameProfile && sameActivity;
+    }).toList(growable: false);
+    if (drafts.isEmpty) return null;
+    return drafts.first;
+  }
+
   Future<void> saveEvaluationDraft(EvaluationDraft draft) async {
-    _evaluationDraft = draft.copyWith(savedAt: DateTime.now());
+    final persistentImagePaths = <String>[];
+    for (final path in draft.selectedImagePaths) {
+      persistentImagePaths.add(
+        await LocalImageStore.saveImageFile(
+          path,
+          prefix: 'sookta_evaluation_media',
+        ),
+      );
+    }
+    final enriched = _withActiveDraftMetadata(draft).copyWith(
+      selectedImagePaths: persistentImagePaths,
+      savedAt: DateTime.now(),
+    );
+    _evaluationDrafts[_draftKey(enriched)] = enriched;
+    _evaluationDraft = enriched;
     await _persist();
     notifyListeners();
   }
 
-  Future<void> clearEvaluationDraft() async {
-    if (_evaluationDraft == null) return;
-    _evaluationDraft = null;
+  Future<void> clearEvaluationDraft([EvaluationDraft? draft]) async {
+    final target = draft ?? evaluationDraft;
+    if (target == null) return;
+    _evaluationDrafts.remove(_draftKey(target));
+    _evaluationDraft = _latestDraftOrNull();
     await _persist();
     notifyListeners();
   }
@@ -572,11 +649,17 @@ class SooktaAppState extends ChangeNotifier {
     );
     final draftBeforeSave = _evaluationDraft;
     _history.insert(0, record);
-    _evaluationDraft = null;
+    if (draftBeforeSave != null) {
+      _evaluationDrafts.remove(_draftKey(draftBeforeSave));
+    }
+    _evaluationDraft = _latestDraftOrNull();
     try {
       await _persist();
     } catch (_) {
       _history.removeWhere((item) => item.id == record.id);
+      if (draftBeforeSave != null) {
+        _evaluationDrafts[_draftKey(draftBeforeSave)] = draftBeforeSave;
+      }
       _evaluationDraft = draftBeforeSave;
       if (_nextHistoryId == record.id + 1) _nextHistoryId = record.id;
       rethrow;
@@ -635,6 +718,7 @@ class SooktaAppState extends ChangeNotifier {
           : (before.aiRiskAlert!.probability * 100).round(),
       aiAlertLevel: before.aiRiskAlert?.level,
       aiModelSource: before.aiRiskAlert?.modelSource,
+      appVersion: SooktaBuildInfo.label,
       assessmentBreakdown: assessmentBreakdown,
       afterAssessmentBreakdown: afterAssessmentBreakdown,
       photoId: photoImageIndex == null
@@ -691,6 +775,64 @@ class SooktaAppState extends ChangeNotifier {
         jsonEncode(draft.toJson()),
       );
     }
+    await preferences.setString(
+      _evaluationDraftsKey,
+      jsonEncode(
+          _evaluationDrafts.values.map((draft) => draft.toJson()).toList()),
+    );
+    await preferences.setInt(_dataSchemaVersionKey, _currentDataSchemaVersion);
+  }
+
+  Future<void> _backupBeforeSchemaMigration(
+      SharedPreferences preferences) async {
+    final existingVersion = preferences.getInt(_dataSchemaVersionKey) ?? 1;
+    if (existingVersion >= _currentDataSchemaVersion) return;
+    final backup = <String, Object?>{
+      'fromSchemaVersion': existingVersion,
+      'toSchemaVersion': _currentDataSchemaVersion,
+      'createdAt': DateTime.now().toIso8601String(),
+      _profileKey: preferences.getString(_profileKey),
+      _farmersKey: preferences.getString(_farmersKey),
+      _activeProfileIdKey: preferences.getString(_activeProfileIdKey),
+      _historyKey: preferences.getString(_historyKey),
+      _nextHistoryIdKey: preferences.getInt(_nextHistoryIdKey),
+      _evaluationDraftKey: preferences.getString(_evaluationDraftKey),
+      _evaluationDraftsKey: preferences.getString(_evaluationDraftsKey),
+    };
+    final backupKey =
+        'sookta.backup.schema.$existingVersion.${DateTime.now().microsecondsSinceEpoch}';
+    await preferences.setString(backupKey, jsonEncode(backup));
+    await preferences.setString(_latestBackupKey, backupKey);
+  }
+
+  EvaluationDraft _withActiveDraftMetadata(EvaluationDraft draft) {
+    return draft.copyWith(
+      farmerProfileId: draft.farmerProfileId ?? _profile.profileId,
+      farmerId: draft.farmerId ?? _profile.farmerId,
+      farmerName: draft.farmerName ?? _profile.name,
+      assessmentDateKey: draft.assessmentDateKey ?? _todayKey(),
+      appVersion: draft.appVersion ?? SooktaBuildInfo.label,
+    );
+  }
+
+  EvaluationDraft? _latestDraftOrNull() {
+    final drafts = evaluationDrafts;
+    return drafts.isEmpty ? null : drafts.first;
+  }
+
+  String _draftKey(EvaluationDraft draft) {
+    final profileId = draft.farmerProfileId?.trim();
+    final profilePart =
+        profileId == null || profileId.isEmpty ? 'no-profile' : profileId;
+    final datePart = draft.assessmentDateKey ?? _todayKey();
+    return '$profilePart|${draft.activity.name}|$datePart';
+  }
+
+  String _todayKey() {
+    final now = DateTime.now();
+    final month = now.month.toString().padLeft(2, '0');
+    final day = now.day.toString().padLeft(2, '0');
+    return '${now.year}-$month-$day';
   }
 
   UserProfile _ensureProfileId(UserProfile profile) {
@@ -731,6 +873,7 @@ class EvaluationHistoryRecord {
     this.aiRiskPercent,
     this.aiAlertLevel,
     this.aiModelSource,
+    this.appVersion,
     this.assessmentBreakdown,
     this.afterAssessmentBreakdown,
     this.photoId,
@@ -771,6 +914,7 @@ class EvaluationHistoryRecord {
   final int? aiRiskPercent;
   final AiAlertLevel? aiAlertLevel;
   final String? aiModelSource;
+  final String? appVersion;
   final AssessmentBreakdown? assessmentBreakdown;
   final AssessmentBreakdown? afterAssessmentBreakdown;
   final String? photoId;
@@ -814,6 +958,7 @@ class EvaluationHistoryRecord {
       'aiRiskPercent': aiRiskPercent,
       'aiAlertLevel': aiAlertLevel?.name,
       'aiModelSource': aiModelSource,
+      'appVersion': appVersion,
       'assessmentBreakdown': assessmentBreakdown?.toJson(),
       'afterAssessmentBreakdown': afterAssessmentBreakdown?.toJson(),
       'photoId': photoId,
@@ -863,6 +1008,7 @@ class EvaluationHistoryRecord {
       aiRiskPercent: json['aiRiskPercent'] as int?,
       aiAlertLevel: _aiAlertFromName(json['aiAlertLevel'] as String?),
       aiModelSource: json['aiModelSource'] as String?,
+      appVersion: json['appVersion'] as String?,
       assessmentBreakdown: _assessmentBreakdownFromJson(
         json['assessmentBreakdown'],
       ),

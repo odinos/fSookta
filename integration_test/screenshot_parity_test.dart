@@ -125,7 +125,7 @@ void main() {
     await _dragUntilVisible(tester, find.text('จุดเสี่ยงที่พบ'));
     await _shot(binding, tester, '12_final_result_body_map');
 
-    final record = state.saveEvaluation(
+    final record = await state.saveEvaluation(
       activityName: SooktaActivity.harvesting.label(thai: true),
       before: before,
       after: after,

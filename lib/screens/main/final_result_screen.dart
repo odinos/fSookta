@@ -447,6 +447,7 @@ class _ActivityRiskRecommendationCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final groups = _groupRecommendations(recommendations, thai);
     return Card(
       color: const Color(0xFFFFFBF0),
       child: Padding(
@@ -477,14 +478,120 @@ class _ActivityRiskRecommendationCard extends StatelessWidget {
               style: const TextStyle(color: Colors.black54, fontSize: 12.5),
             ),
             const SizedBox(height: 12),
-            ...recommendations.map(
-              (item) => Padding(
-                padding: const EdgeInsets.only(bottom: 8),
+            for (final group in groups) ...[
+              _RecommendationGroupView(group: group, thai: thai),
+              const SizedBox(height: 10),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  List<_RecommendationGroup> _groupRecommendations(
+    List<String> items,
+    bool thai,
+  ) {
+    final groups = [
+      _RecommendationGroup(
+        title: thai ? 'ท่าทางที่ควรปรับ' : 'Posture to adjust',
+        icon: Icons.accessibility_new_outlined,
+      ),
+      _RecommendationGroup(
+        title: thai ? 'วิธีลดความเสี่ยง' : 'Ways to reduce risk',
+        icon: Icons.health_and_safety_outlined,
+      ),
+      _RecommendationGroup(
+        title: thai ? 'การพักหรือสลับงาน' : 'Rest or task rotation',
+        icon: Icons.timer_outlined,
+      ),
+      _RecommendationGroup(
+        title:
+            thai ? 'อุปกรณ์หรือวิธีช่วยลดภาระงาน' : 'Tools or workload support',
+        icon: Icons.construction_outlined,
+      ),
+    ];
+    for (final item in items) {
+      final normalized = item.toLowerCase();
+      final index = normalized.contains('พัก') ||
+              normalized.contains('สลับ') ||
+              normalized.contains('break') ||
+              normalized.contains('rotate')
+          ? 2
+          : normalized.contains('อุปกรณ์') ||
+                  normalized.contains('รถเข็น') ||
+                  normalized.contains('แบ่งน้ำหนัก') ||
+                  normalized.contains('tool') ||
+                  normalized.contains('cart') ||
+                  normalized.contains('split')
+              ? 3
+              : normalized.contains('ท่า') ||
+                      normalized.contains('ก้ม') ||
+                      normalized.contains('ยกแขน') ||
+                      normalized.contains('posture') ||
+                      normalized.contains('bend')
+                  ? 0
+                  : 1;
+      groups[index].items.add(item);
+    }
+    return groups.where((group) => group.items.isNotEmpty).toList();
+  }
+}
+
+class _RecommendationGroup {
+  _RecommendationGroup({required this.title, required this.icon});
+
+  final String title;
+  final IconData icon;
+  final List<String> items = [];
+}
+
+class _RecommendationGroupView extends StatelessWidget {
+  const _RecommendationGroupView({
+    required this.group,
+    required this.thai,
+  });
+
+  final _RecommendationGroup group;
+  final bool thai;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.72),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFFEDE3B8)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(group.icon, size: 18, color: SooktaColors.darkGreen),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    group.title,
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            for (final item in group.items)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 6),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Icon(Icons.arrow_circle_right_outlined,
-                        size: 18, color: SooktaColors.leafGreen),
+                    const Icon(
+                      Icons.arrow_circle_right_outlined,
+                      size: 18,
+                      color: SooktaColors.leafGreen,
+                    ),
                     const SizedBox(width: 8),
                     Expanded(child: Text(item)),
                     SooktaTtsButton(
@@ -495,7 +602,6 @@ class _ActivityRiskRecommendationCard extends StatelessWidget {
                   ],
                 ),
               ),
-            ),
           ],
         ),
       ),
@@ -672,6 +778,11 @@ class _FarmerFinalSummaryCard extends StatelessWidget {
             ),
             const SizedBox(height: 6),
             _FarmerSummaryLine(
+              icon: Icons.accessibility_new_outlined,
+              text: _mainBodyRiskText(before.bodyPartRisks, thai),
+            ),
+            const SizedBox(height: 6),
+            _FarmerSummaryLine(
               icon: Icons.task_alt,
               text: thai ? 'ควรทำต่อ: $nextAction' : 'Next action: $nextAction',
             ),
@@ -732,6 +843,25 @@ String _riskLabel(RiskLevel risk, bool thai) {
     RiskLevel.high => 'High risk',
     RiskLevel.veryHigh => 'Very high risk',
   };
+}
+
+String _mainBodyRiskText(Map<BodyPart, RiskLevel> bodyPartRisks, bool thai) {
+  final risky = bodyPartRisks.entries
+      .where((entry) => entry.value != RiskLevel.low)
+      .toList(growable: false);
+  if (risky.isEmpty) {
+    return thai
+        ? 'ยังไม่พบส่วนร่างกายที่เสี่ยงเด่น'
+        : 'No dominant risky body part was found.';
+  }
+  final sorted = risky.toList()
+    ..sort((a, b) => b.value.index.compareTo(a.value.index));
+  final labels = sorted
+      .take(3)
+      .map((entry) =>
+          '${bodyPartLabel(entry.key, thai)} ${riskLevelText(entry.value, thai)}')
+      .join(', ');
+  return thai ? 'จุดที่ควรระวัง: $labels' : 'Body areas to watch: $labels';
 }
 
 String _farmerResultSpeechText({

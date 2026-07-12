@@ -62,7 +62,7 @@ class _ScreenshotHarnessAppState extends State<ScreenshotHarnessApp> {
   final appState = SooktaAppState();
   late final ErgoResult before;
   late final ErgoResult after;
-  late final EvaluationHistoryRecord record;
+  EvaluationHistoryRecord? record;
   var index = _initialScreenIndex;
   Timer? timer;
 
@@ -99,7 +99,18 @@ class _ScreenshotHarnessAppState extends State<ScreenshotHarnessApp> {
         ),
       )
       ..saveAvatarAndFinish(SooktaAssets.female01);
-    record = appState.saveEvaluation(
+    unawaited(_seedHistoryRecord());
+    if (_autoAdvance) {
+      timer = Timer.periodic(const Duration(seconds: 4), (_) {
+        _disableDebugPaint();
+        if (!mounted) return;
+        setState(() => index = (index + 1) % _screens.length);
+      });
+    }
+  }
+
+  Future<void> _seedHistoryRecord() async {
+    final seededRecord = await appState.saveEvaluation(
       activityName: SooktaActivity.harvesting.label(thai: true),
       before: before,
       after: after,
@@ -114,13 +125,8 @@ class _ScreenshotHarnessAppState extends State<ScreenshotHarnessApp> {
           'ลดการยกแขนเหนือไหล่',
       ],
     );
-    if (_autoAdvance) {
-      timer = Timer.periodic(const Duration(seconds: 4), (_) {
-        _disableDebugPaint();
-        if (!mounted) return;
-        setState(() => index = (index + 1) % _screens.length);
-      });
-    }
+    if (!mounted) return;
+    setState(() => record = seededRecord);
   }
 
   @override
@@ -132,6 +138,7 @@ class _ScreenshotHarnessAppState extends State<ScreenshotHarnessApp> {
 
   List<_HarnessScreen> get _screens {
     final text = const AppText(AppLanguage.th);
+    final historyRecord = record;
     return [
       const _HarnessScreen(
         '02_language_first_run',
@@ -200,11 +207,15 @@ class _ScreenshotHarnessAppState extends State<ScreenshotHarnessApp> {
       ),
       _HarnessScreen(
         '13_history_list',
-        HistoryTab(text: text, key: ValueKey(record.id)),
+        historyRecord == null
+            ? const SizedBox.shrink()
+            : HistoryTab(text: text, key: ValueKey(historyRecord.id)),
       ),
       _HarnessScreen(
         '14_history_detail_top',
-        HistoryDetailScreen(historyId: record.id),
+        historyRecord == null
+            ? const SizedBox.shrink()
+            : HistoryDetailScreen(historyId: historyRecord.id),
       ),
     ];
   }

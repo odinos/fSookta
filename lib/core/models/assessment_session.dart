@@ -390,6 +390,11 @@ class EvaluationDraft {
   const EvaluationDraft({
     required this.activity,
     required this.jobType,
+    this.farmerProfileId,
+    this.farmerId,
+    this.farmerName,
+    this.assessmentDateKey,
+    this.appVersion,
     this.selectedImagePaths = const [],
     this.selectedToolId = '',
     this.durationHours = 1,
@@ -410,6 +415,11 @@ class EvaluationDraft {
 
   final SooktaActivity activity;
   final JobType jobType;
+  final String? farmerProfileId;
+  final String? farmerId;
+  final String? farmerName;
+  final String? assessmentDateKey;
+  final String? appVersion;
   final List<String> selectedImagePaths;
   final String selectedToolId;
   final double durationHours;
@@ -430,6 +440,11 @@ class EvaluationDraft {
   EvaluationDraft copyWith({
     SooktaActivity? activity,
     JobType? jobType,
+    String? farmerProfileId,
+    String? farmerId,
+    String? farmerName,
+    String? assessmentDateKey,
+    String? appVersion,
     List<String>? selectedImagePaths,
     String? selectedToolId,
     double? durationHours,
@@ -450,6 +465,11 @@ class EvaluationDraft {
     return EvaluationDraft(
       activity: activity ?? this.activity,
       jobType: jobType ?? this.jobType,
+      farmerProfileId: farmerProfileId ?? this.farmerProfileId,
+      farmerId: farmerId ?? this.farmerId,
+      farmerName: farmerName ?? this.farmerName,
+      assessmentDateKey: assessmentDateKey ?? this.assessmentDateKey,
+      appVersion: appVersion ?? this.appVersion,
       selectedImagePaths: selectedImagePaths ?? this.selectedImagePaths,
       selectedToolId: selectedToolId ?? this.selectedToolId,
       durationHours: durationHours ?? this.durationHours,
@@ -475,6 +495,11 @@ class EvaluationDraft {
     return {
       'activity': activity.name,
       'jobType': jobType.name,
+      'farmerProfileId': farmerProfileId,
+      'farmerId': farmerId,
+      'farmerName': farmerName,
+      'assessmentDateKey': assessmentDateKey,
+      'appVersion': appVersion,
       'selectedImagePaths': selectedImagePaths,
       'selectedToolId': selectedToolId,
       'durationHours': durationHours,
@@ -509,6 +534,11 @@ class EvaluationDraft {
     return EvaluationDraft(
       activity: activity,
       jobType: jobType,
+      farmerProfileId: json['farmerProfileId'] as String?,
+      farmerId: json['farmerId'] as String?,
+      farmerName: json['farmerName'] as String?,
+      assessmentDateKey: json['assessmentDateKey'] as String?,
+      appVersion: json['appVersion'] as String?,
       selectedImagePaths: (json['selectedImagePaths'] as List?)
               ?.whereType<String>()
               .toList(growable: false) ??

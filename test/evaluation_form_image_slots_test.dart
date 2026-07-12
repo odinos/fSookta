@@ -101,6 +101,47 @@ void main() {
     expect(find.textContaining('ถ่ายเพิ่มให้ครบ 4 มุม'), findsOneWidget);
   });
 
+  testWidgets('restores video-frame draft media without reducing it to photos',
+      (tester) async {
+    final state = SooktaAppState()..setLanguage(AppLanguage.th);
+    addTearDown(state.dispose);
+
+    await state.saveEvaluationDraft(
+      const EvaluationDraft(
+        activity: SooktaActivity.harvesting,
+        jobType: JobType.reba,
+        selectedImagePaths: [
+          'video-frame-1.jpg',
+          'video-frame-2.jpg',
+          'video-frame-3.jpg',
+          'video-frame-4.jpg',
+          'video-frame-5.jpg',
+          'video-frame-6.jpg',
+        ],
+        selectedToolId: 'basket_mid_10_15kg',
+      ),
+    );
+
+    tester.view.physicalSize = const Size(1080, 5000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      AppStateScope(
+        state: state,
+        child: const MaterialApp(
+          home: EvaluationFormScreen(activity: SooktaActivity.harvesting),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('ภาพครบ 6 จาก 8 มุม'), findsOneWidget);
+    expect(find.text('เฟรมวิดีโอที่ 1'), findsOneWidget);
+    expect(find.text('เฟรมวิดีโอที่ 6'), findsOneWidget);
+  });
+
   testWidgets('shows retake guidance when selected images are not ready',
       (tester) async {
     final state = SooktaAppState()..setLanguage(AppLanguage.th);

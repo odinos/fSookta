@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 
 import '../../app/app_state.dart';
+import '../../app/build_info.dart';
 import '../models/assessment_session.dart';
 import '../models/assessment_reference_sources.dart';
 import '../models/economic_impact_models.dart';
@@ -106,6 +107,10 @@ class AssessmentExportService {
       [
         thai ? 'วันที่ประเมิน' : 'Assessment date',
         (record?.dateTime ?? DateTime.now()).toIso8601String(),
+      ],
+      [
+        thai ? 'เวอร์ชันแอปที่ใช้ประเมิน' : 'Assessment app version',
+        record?.appVersion ?? SooktaBuildInfo.label,
       ],
       [thai ? 'รหัสผู้เข้าร่วมวิจัย' : 'Farmer ID', profile.farmerId],
       [thai ? 'กิจกรรม' : 'Activity', bundle.activityName],
@@ -251,6 +256,10 @@ class AssessmentExportService {
         thai ? 'วันที่ประเมิน' : 'Assessment date',
         record.dateTime.toIso8601String()
       ],
+      [
+        thai ? 'เวอร์ชันแอปที่ใช้ประเมิน' : 'Assessment app version',
+        record.appVersion ?? '-',
+      ],
       [thai ? 'รหัสผู้เข้าร่วมวิจัย' : 'Farmer ID', profile.farmerId],
       [thai ? 'กิจกรรม' : 'Activity', record.activityName],
       [
@@ -347,6 +356,7 @@ class AssessmentExportService {
         'assessment_scope_note',
         'calculation_standard_note',
         'Record ID',
+        'App Version',
         'Farmer ID',
         thai ? 'ชื่อผู้ใช้' : 'Name',
         thai ? 'บทบาท/หน้าที่' : 'Role',
@@ -584,6 +594,7 @@ class AssessmentExportService {
       AssessmentReferenceSources.scopeNoteEn,
       AssessmentReferenceSources.calculationStandardNoteEn,
       record.id,
+      record.appVersion ?? '-',
       userId,
       profile.name.isEmpty ? (record.farmerName ?? '-') : profile.name,
       profile.role.isEmpty ? (record.farmerRole ?? '-') : profile.role,

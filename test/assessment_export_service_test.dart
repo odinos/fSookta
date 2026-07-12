@@ -140,6 +140,7 @@ void main() {
 
     expect(csv.startsWith('\uFEFF'), isTrue);
     expect(csv, contains('การเก็บเกี่ยว'));
+    expect(csv, contains('เวอร์ชันแอปที่ใช้ประเมิน'));
     expect(csv, contains('Worksheet Template Data Input for Application'));
     expect(csv, contains('Farmer ID'));
     expect(csv, contains('FARM-001'));
@@ -488,9 +489,11 @@ void main() {
       'expertComments': 'Expert reviewed from field photo',
       'photoId': 'photo-42-main',
       'photoTimestamp': '2026-06-24T10:29:58',
+      'appVersion': '1.3.6+21',
     });
 
     expect(record.toJson()['photoId'], 'photo-42-main');
+    expect(record.toJson()['appVersion'], '1.3.6+21');
     expect(
       record.toJson()['photoTimestamp'],
       '2026-06-24T10:29:58.000',
@@ -519,6 +522,7 @@ void main() {
     expect(row['expert_comments'], 'Expert reviewed from field photo');
     expect(row['photo_id'], 'photo-42-main');
     expect(row['photo_timestamp'], '2026-06-24T10:29:58.000');
+    expect(row['App Version'], '1.3.6+21');
   });
 
   test('exports separate REBA and ISO after scores from after breakdown', () {

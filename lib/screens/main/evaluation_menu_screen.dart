@@ -18,7 +18,9 @@ class EvaluationMenuScreen extends StatelessWidget {
     final state = AppStateScope.of(context);
     final language = state.language ?? AppLanguage.th;
     final thai = language == AppLanguage.th;
-    final draft = state.evaluationDraft;
+    final drafts = state.evaluationDrafts
+        .where((draft) => draft.farmerProfileId == state.profile.profileId)
+        .toList(growable: false);
 
     return Scaffold(
       appBar: AppBar(
@@ -56,15 +58,15 @@ class EvaluationMenuScreen extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  if (draft != null) ...[
-                    _DraftResumeCard(
-                      draft: draft,
+                  if (drafts.isNotEmpty) ...[
+                    _DraftResumeList(
+                      drafts: drafts,
                       thai: thai,
-                      onResume: () => Navigator.of(context).pushNamed(
+                      onResume: (draft) => Navigator.of(context).pushNamed(
                         EvaluationFormScreen.routeName,
                         arguments: draft.activity,
                       ),
-                      onClear: () => state.clearEvaluationDraft(),
+                      onClear: (draft) => state.clearEvaluationDraft(draft),
                     ),
                     const SizedBox(height: 16),
                   ],
@@ -112,6 +114,46 @@ class EvaluationMenuScreen extends StatelessWidget {
   }
 }
 
+class _DraftResumeList extends StatelessWidget {
+  const _DraftResumeList({
+    required this.drafts,
+    required this.thai,
+    required this.onResume,
+    required this.onClear,
+  });
+
+  final List<EvaluationDraft> drafts;
+  final bool thai;
+  final ValueChanged<EvaluationDraft> onResume;
+  final ValueChanged<EvaluationDraft> onClear;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          thai ? 'แบบร่างล่าสุด' : 'Latest drafts',
+          style: const TextStyle(
+            color: SooktaColors.darkGreen,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        const SizedBox(height: 8),
+        for (final draft in drafts.take(3)) ...[
+          _DraftResumeCard(
+            draft: draft,
+            thai: thai,
+            onResume: () => onResume(draft),
+            onClear: () => onClear(draft),
+          ),
+          const SizedBox(height: 8),
+        ],
+      ],
+    );
+  }
+}
+
 class _DraftResumeCard extends StatelessWidget {
   const _DraftResumeCard({
     required this.draft,
@@ -129,9 +171,10 @@ class _DraftResumeCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final activityName = draft.activity.label(thai: thai);
     final imageCount = draft.selectedImagePaths.length;
+    final date = draft.assessmentDateKey ?? '-';
     final detail = thai
-        ? '$activityName • รูป $imageCount/4'
-        : '$activityName • $imageCount/4 photos';
+        ? '$activityName • วันที่ $date • รูป $imageCount/4'
+        : '$activityName • $date • $imageCount/4 photos';
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(12),
@@ -148,7 +191,11 @@ class _DraftResumeCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  thai ? 'แบบร่างล่าสุด' : 'Latest draft',
+                  draft.farmerName?.isNotEmpty == true
+                      ? (thai
+                          ? 'แบบร่าง: ${draft.farmerName}'
+                          : 'Draft: ${draft.farmerName}')
+                      : (thai ? 'แบบร่าง' : 'Draft'),
                   style: const TextStyle(
                     color: SooktaColors.darkGreen,
                     fontWeight: FontWeight.w800,

@@ -23,8 +23,9 @@ class SooktaTtsButton extends StatefulWidget {
 class _SooktaTtsButtonState extends State<SooktaTtsButton> {
   // Keep the rate close to the engine's natural voice. Very slow speech can make
   // some Thai/Android voices sound stretched or robotic.
-  static const _thaiRate = 0.43;
+  static const _thaiRate = 0.46;
   static const _englishRate = 0.50;
+  static const _thaiPitch = 0.97;
   static const _iosEnglishPitch = 1.03;
 
   late final FlutterTts _tts;
@@ -63,8 +64,13 @@ class _SooktaTtsButtonState extends State<SooktaTtsButton> {
     final languageResult = await _configureVoice();
     _debug('volume=$volumeResult voiceOrLanguage=$languageResult');
     await _tts.setSpeechRate(widget.thai ? _thaiRate : _englishRate);
-    await _tts
-        .setPitch(Platform.isIOS && !widget.thai ? _iosEnglishPitch : 1.0);
+    await _tts.setPitch(
+      widget.thai
+          ? _thaiPitch
+          : Platform.isIOS
+              ? _iosEnglishPitch
+              : 1.0,
+    );
     await _tts.awaitSpeakCompletion(true);
     _tts.setStartHandler(() {
       _debug('start speaking');
@@ -246,15 +252,17 @@ class _SooktaTtsButtonState extends State<SooktaTtsButton> {
 
   String _speechText(String raw, bool thai) {
     var text = raw
+        .replaceAll(RegExp(r'[\r\n]+'), '. ')
         .replaceAll(RegExp(r'https?:\/\/\S+'), '')
-        .replaceAll(RegExp(r'\s+'), ' ')
         .replaceAll('•', '. ')
+        .replaceAll(RegExp(r'[:：;；]'), '. ')
         .replaceAll('→', thai ? ' ไปเป็น ' : ' to ')
         .replaceAll('->', thai ? ' ไปเป็น ' : ' to ')
         .replaceAll('/', thai ? ' และ ' : ' and ')
+        .replaceAll(RegExp(r'\s+'), ' ')
         .trim();
     if (thai) {
-      text = text
+      text = _replaceThaiPercent(text)
           .replaceAll('REBA', 'รีบา')
           .replaceAll('ISO11228', 'ไอ เอส โอ หนึ่ง หนึ่ง สอง สอง แปด')
           .replaceAll('ISO 11228', 'ไอ เอส โอ หนึ่ง หนึ่ง สอง สอง แปด')
@@ -276,7 +284,18 @@ class _SooktaTtsButtonState extends State<SooktaTtsButton> {
           .replaceAll('MoveNet', 'Move Net')
           .replaceAll('H/V', 'H and V');
     }
-    return text;
+    return text
+        .replaceAll(RegExp(r'\s+([.,])'), r'$1')
+        .replaceAll(RegExp(r'([.]){2,}'), '.')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
+  }
+
+  String _replaceThaiPercent(String text) {
+    return text.replaceAllMapped(
+      RegExp(r'(\d+(?:\.\d+)?)\s*%'),
+      (match) => 'ร้อยละ ${match.group(1)}',
+    );
   }
 
   void _showTtsError() {
