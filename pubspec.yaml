@@ -44,6 +44,7 @@ flutter:
     - assets/images/manual_pages/
     - assets/documents/sookta_user_manual.pdf
     - assets/ml/movenet_thunder.tflite
+    - assets/ml/movenet_multipose_lightning.tflite
     - assets/ml/daily_injury_logistic_model.json
     - assets/models/ergo_process_detail.json
     - assets/models/joint_feature_schema.json

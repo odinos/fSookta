@@ -17,7 +17,7 @@ Status meanings:
 | 1.3 | Final assessment action works on tablet | DEVICE-ONLY | Final action is inside scrollable responsive result flow; approved design now requires portrait only | `final_result_farmer_summary_test.dart`, `final_result_breakdown_capture_test.dart`; portrait contract added in Task 2 | Pending phone/tablet portrait UAT |
 | 1.4 | Farmer profile image remains isolated per farmer ID | PASS | `UserProfile.avatarAsset` persists inside each profile; active profile consumers read that profile only; null image uses default person icon | Profile serialization/state coverage in `widget_test.dart` and `app_state_evaluation_persistence_test.dart` | Pending two-farmer UAT |
 | 2.1 | Select up to four images together; preview, replace, and remove independently | PASS | `evaluation_form_screen.dart` uses `pickMultiImage`, four slots, slot replacement, and removal | `evaluation_form_image_slots_test.dart` | Pending gallery UAT |
-| 2.2 | Reject multiple-person, unclear, or incomplete-body images and identify bad slots | GAP | Unreadable/low-landmark images are identified per slot, but bundled MoveNet Thunder is a single-pose model and cannot count multiple people | `evaluation_form_image_slots_test.dart` covers unreadable slot feedback; no multiple-person detector test exists | Pending after implementation |
+| 2.2 | Reject multiple-person, unclear, or incomplete-body images and identify bad slots | PASS | `multi_person_pose_detector.dart` runs bundled MoveNet MultiPose Lightning before the existing single-pose assessment; invalid slots receive an X and explicit replacement guidance | `multi_person_pose_detector_test.dart`, `evaluation_form_image_slots_test.dart` | Pending real-photo UAT |
 | 2.3 | Simple farmer AI result with expandable staff/research detail | PASS | `initial_risk_screen.dart` and `final_result_screen.dart` separate farmer summary from technical expansion; history/export retain technical output | `final_result_farmer_summary_test.dart`, `final_result_breakdown_capture_test.dart` | Pending visual UAT |
 | 3.1 | Consistent visible TTS on important screens | DEVICE-ONLY | Shared `TtsButton` used across onboarding, activity, assessment, result, history/help surfaces | Widget suite exercises TTS controls | Pending screen audit and listening UAT |
 | 3.2 | Concise action-oriented speech | PASS | `tts_button.dart` normalizes phrasing/rate; result and activity screens provide short text | `tts_button_voice_quality_test.dart`, `final_result_farmer_summary_test.dart` | Pending listening UAT |
@@ -34,8 +34,8 @@ Status meanings:
 
 ## Confirmed Implementation Work
 
-1. Lock iOS and Android phones/tablets to portrait orientation.
-2. Add a reliable multiple-person detector before pose assessment, while retaining the existing per-slot unreadable/landmark validation.
+1. Physical-device validation of the portrait-only platform configuration.
+2. Physical-device validation of multi-person rejection with real photos.
 
 ## Baseline Evidence
 

@@ -14,6 +14,7 @@ import '../../core/models/assessment_session.dart';
 import '../../core/models/evaluation_models.dart';
 import '../../core/services/ergo_calculator.dart';
 import '../../core/services/firebase_telemetry_service.dart';
+import '../../core/services/multi_person_pose_detector.dart';
 import '../../core/services/pose_estimation_service.dart';
 import '../../core/services/video_frame_extraction_service.dart';
 import '../../core/theme/sookta_theme.dart';
@@ -43,6 +44,7 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
   final verticalController = TextEditingController(text: '75');
   final transportController = TextEditingController(text: '4');
   final imagePicker = ImagePicker();
+  final multiPersonDetector = MultiPersonPoseDetector();
   final poseService = PoseEstimationService();
   final videoFrameService = const VideoFrameExtractionService();
   risk_ml.JointFeatureSchema? jointFeatureSchema;
@@ -54,6 +56,8 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
   final latestPoseEstimates = <PoseEstimate>[];
   final latestFrameAnalyses = <PoseRebaFrameAnalysis>[];
   final latestFrameTimestampMs = <int>[];
+  final latestUnreadableImageIndexes = <int>{};
+  final latestMultiPersonImageIndexes = <int>{};
   var selectedDurationHours = 1.0;
   var selectedFrequency = 0.2;
   var selectedStaticHoldLevel = 0;
@@ -101,11 +105,21 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
     super.didChangeDependencies();
     if (draftApplied) return;
     draftApplied = true;
-    final draft = AppStateScope.of(context).evaluationDraft;
+    final state = AppStateScope.of(context);
+    final draft = state.evaluationDraftForProfile(
+      state.profile.profileId,
+      activity: widget.activity,
+    );
     if (draft == null || draft.activity != widget.activity) return;
     hydratingDraft = true;
     _applyEvaluationDraft(draft);
     hydratingDraft = false;
+    if (_hasExistingMedia(selectedImagePaths)) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        unawaited(_applyPoseEstimates());
+      });
+    }
   }
 
   void _applyActivityDefaults() {
@@ -186,7 +200,9 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
         : widget.activity.defaultToolOption.id;
     selectedImagePaths
       ..clear()
-      ..addAll(draft.selectedImagePaths.take(4));
+      ..addAll(
+        draft.selectedImagePaths.take(VideoFrameExtractionService.maxFrames),
+      );
     selectedDurationHours = draft.durationHours;
     selectedFrequency = draft.frequency;
     selectedStaticHoldLevel = draft.staticHoldLevel;
@@ -208,6 +224,7 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
     latestPoseEstimates.clear();
     latestFrameAnalyses.clear();
     latestFrameTimestampMs.clear();
+    latestUnreadableImageIndexes.clear();
   }
 
   EvaluationDraft _currentDraft() {
@@ -237,7 +254,30 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
     draftSaveTimer?.cancel();
     draftSaveTimer = Timer(const Duration(milliseconds: 350), () {
       if (!mounted) return;
-      unawaited(AppStateScope.of(context).saveEvaluationDraft(_currentDraft()));
+      unawaited(_saveDraftNow());
+    });
+  }
+
+  Future<void> _saveDraftNow() async {
+    if (!mounted || hydratingDraft) return;
+    draftSaveTimer?.cancel();
+    final state = AppStateScope.of(context);
+    await state.saveEvaluationDraft(_currentDraft());
+    if (!mounted) return;
+
+    final savedDraft = state.evaluationDraftForProfile(
+      state.profile.profileId,
+      activity: widget.activity,
+    );
+    if (savedDraft == null || savedDraft.activity != widget.activity) return;
+    final savedPaths = savedDraft.selectedImagePaths
+        .take(VideoFrameExtractionService.maxFrames)
+        .toList(growable: false);
+    if (_sameStringList(selectedImagePaths, savedPaths)) return;
+    setState(() {
+      selectedImagePaths
+        ..clear()
+        ..addAll(savedPaths);
     });
   }
 
@@ -250,6 +290,7 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
     horizontalController.dispose();
     verticalController.dispose();
     transportController.dispose();
+    multiPersonDetector.dispose();
     poseService.dispose();
     xGBoostPredictor?.dispose();
     super.dispose();
@@ -313,6 +354,7 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
               onSlotTap: _pickGalleryForSlot,
               onSlotRemove: _removeImageAt,
               imageQualityIssues: imageQualityIssues,
+              unreadableImageIndexes: latestUnreadableImageIndexes,
               thai: thai,
             ),
             const SizedBox(height: 16),
@@ -562,7 +604,18 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
   }
 
   Future<void> _pickGalleryPhoto() async {
-    await _pickGalleryForSlot(-1);
+    final remaining = 4 - selectedImagePaths.length;
+    if (remaining <= 0) return;
+    final photos = await imagePicker.pickMultiImage(imageQuality: 92);
+    if (photos.isEmpty) return;
+    for (final photo in photos.take(remaining)) {
+      await _addImage(photo.path, analyzeImmediately: false);
+    }
+    unawaited(FirebaseTelemetryService.logImageAdded(
+      source: 'gallery_multi',
+      imageCount: selectedImagePaths.length,
+    ));
+    await _applyPoseEstimates();
   }
 
   Future<void> _pickGalleryForSlot(int slotIndex) async {
@@ -617,6 +670,7 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
       latestPoseEstimates.clear();
       latestFrameAnalyses.clear();
       latestFrameTimestampMs.clear();
+      latestUnreadableImageIndexes.clear();
     });
 
     try {
@@ -639,6 +693,7 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
         source: source,
         imageCount: selectedImagePaths.length,
       ));
+      _scheduleDraftSave();
     } on PlatformException catch (error) {
       if (!mounted) return;
       setState(() {
@@ -676,7 +731,11 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
         : 'Video analysis failed. Use a clear worker-posture video that is 20 seconds or shorter.';
   }
 
-  Future<void> _addImage(String path, {int slotIndex = -1}) async {
+  Future<void> _addImage(
+    String path, {
+    int slotIndex = -1,
+    bool analyzeImmediately = true,
+  }) async {
     if (selectedImagePaths.length >= 4 &&
         (slotIndex < 0 || slotIndex >= selectedImagePaths.length)) {
       return;
@@ -699,9 +758,10 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
       latestPoseEstimates.clear();
       latestFrameAnalyses.clear();
       latestFrameTimestampMs.clear();
+      latestUnreadableImageIndexes.clear();
     });
     _scheduleDraftSave();
-    await _applyPoseEstimates();
+    if (analyzeImmediately) await _applyPoseEstimates();
   }
 
   Future<void> _removeImageAt(int index) async {
@@ -717,6 +777,7 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
       latestPoseEstimates.clear();
       latestFrameAnalyses.clear();
       latestFrameTimestampMs.clear();
+      latestUnreadableImageIndexes.clear();
     });
     _scheduleDraftSave();
     if (selectedImagePaths.isNotEmpty) {
@@ -737,9 +798,27 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
 
     try {
       final estimates = <PoseEstimate>[];
-      for (final path in selectedImagePaths) {
+      final unreadableIndexes = <int>{};
+      final multiPersonIndexes = <int>{};
+      for (var i = 0; i < selectedImagePaths.length; i += 1) {
+        final path = selectedImagePaths[i];
+        final personCount = await multiPersonDetector.countPeopleFromFile(path);
+        if (personCount == null ||
+            MultiPersonPoseDetector.requiresSinglePersonReplacement(
+              personCount,
+            )) {
+          unreadableIndexes.add(i + 1);
+          if (personCount != null && personCount > 1) {
+            multiPersonIndexes.add(i + 1);
+          }
+          continue;
+        }
         final estimate = await poseService.estimatePoseFromFile(path);
-        if (estimate != null) estimates.add(estimate);
+        if (estimate == null) {
+          unreadableIndexes.add(i + 1);
+        } else {
+          estimates.add(estimate);
+        }
       }
 
       if (!mounted) return;
@@ -750,6 +829,12 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
           poseAssessmentReady = false;
           latestPoseEstimates.clear();
           latestFrameAnalyses.clear();
+          latestUnreadableImageIndexes
+            ..clear()
+            ..addAll(unreadableIndexes);
+          latestMultiPersonImageIndexes
+            ..clear()
+            ..addAll(multiPersonIndexes);
           latestXGBoostAlert = null;
           latestMotionSummary = null;
           poseStatus = thai
@@ -772,6 +857,12 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
           latestFrameAnalyses
             ..clear()
             ..addAll(frameAnalyses);
+          latestUnreadableImageIndexes
+            ..clear()
+            ..addAll(unreadableIndexes);
+          latestMultiPersonImageIndexes
+            ..clear()
+            ..addAll(multiPersonIndexes);
           latestXGBoostAlert = xgbAlert;
           latestMotionSummary = motionSummary;
           rebaInput = inferred;
@@ -795,6 +886,12 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
           latestFrameAnalyses
             ..clear()
             ..addAll(frameAnalyses);
+          latestUnreadableImageIndexes
+            ..clear()
+            ..addAll(unreadableIndexes);
+          latestMultiPersonImageIndexes
+            ..clear()
+            ..addAll(multiPersonIndexes);
           latestXGBoostAlert = xgbAlert;
           latestMotionSummary = motionSummary;
           rebaInput = inferred;
@@ -825,6 +922,12 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
           latestFrameAnalyses
             ..clear()
             ..addAll(frameAnalyses);
+          latestUnreadableImageIndexes
+            ..clear()
+            ..addAll(unreadableIndexes);
+          latestMultiPersonImageIndexes
+            ..clear()
+            ..addAll(multiPersonIndexes);
           latestXGBoostAlert = xgbAlert;
           latestMotionSummary = motionSummary;
           rebaInput = inferred;
@@ -854,10 +957,16 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
         latestMotionSummary = null;
         latestPoseEstimates.clear();
         latestFrameAnalyses.clear();
+        latestUnreadableImageIndexes.clear();
         poseStatus = _poseAnalysisErrorText(thai, e);
       });
     } finally {
-      if (mounted) setState(() => poseBusy = false);
+      if (mounted) {
+        setState(() => poseBusy = false);
+        if (selectedImagePaths.isNotEmpty) {
+          unawaited(_saveDraftNow());
+        }
+      }
     }
   }
 
@@ -983,6 +1092,9 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
 
     if (!mounted) return;
 
+    await _saveDraftNow();
+    if (!mounted) return;
+
     Navigator.of(context).pushNamed(
       InitialRiskScreen.routeName,
       arguments: InitialRiskPayload(
@@ -1075,6 +1187,23 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
       issues.add(thai
           ? 'ยังอ่านท่าทางไม่ได้ ถ่ายใหม่ให้เห็นศีรษะ หลัง แขน มือ ขา และเท้า'
           : 'Posture is not readable yet. Retake the photo so the head, back, arms, hands, legs, and feet are visible.');
+    }
+    if (latestUnreadableImageIndexes.isNotEmpty) {
+      final labels = latestUnreadableImageIndexes.toList()..sort();
+      issues.add(thai
+          ? 'รูปที่ ${labels.join(', ')} ใช้ประเมินไม่ได้ กรุณาเปลี่ยนเฉพาะรูปที่มีเครื่องหมาย X'
+          : 'Photo ${labels.join(', ')} cannot be assessed. Replace only the photo marked with X.');
+    }
+    if (latestMultiPersonImageIndexes.isNotEmpty) {
+      final labels = latestMultiPersonImageIndexes.toList()..sort();
+      issues.add(thai
+          ? 'รูปที่ ${labels.join(', ')} มีมากกว่า 1 คน กรุณาเปลี่ยนเป็นรูปที่มีผู้ถูกประเมินเพียง 1 คน'
+          : 'Photo ${labels.join(', ')} contains more than one person. Replace it with a photo of only the assessed worker.');
+    }
+    if (selectedImagePaths.isNotEmpty) {
+      issues.add(thai
+          ? 'ควรใช้รูปที่มีผู้ถูกประเมินเพียง 1 คน หากมีคนอื่นอยู่ในภาพให้เปลี่ยนรูปก่อนประเมิน'
+          : 'Use a photo with only one assessed worker. Replace photos that include other people before assessment.');
     }
     return issues;
   }
@@ -1732,6 +1861,7 @@ class _ImageSlots extends StatelessWidget {
     required this.onSlotTap,
     required this.onSlotRemove,
     required this.imageQualityIssues,
+    required this.unreadableImageIndexes,
     required this.thai,
   });
 
@@ -1744,6 +1874,7 @@ class _ImageSlots extends StatelessWidget {
   final ValueChanged<int> onSlotTap;
   final ValueChanged<int> onSlotRemove;
   final List<String> imageQualityIssues;
+  final Set<int> unreadableImageIndexes;
   final bool thai;
 
   @override
@@ -1777,8 +1908,8 @@ class _ImageSlots extends StatelessWidget {
             SooktaTtsButton(
               thai: thai,
               text: thai
-                  ? 'ถ่ายรูป หรือถ่ายวิดีโอไม่เกินยี่สิบวินาที ให้เห็นคนทำงานชัดเจน เห็นศีรษะ หลัง แขน มือ ขา และเท้าได้มากที่สุด ระบบจะสุ่มภาพจากวิดีโอไม่เกินแปดเฟรม สรุปการเคลื่อนไหว และเลือกท่าที่เสี่ยงที่สุดมาประเมิน ถ้าระบบอ่านท่าทางไม่ได้ ให้ถ่ายใหม่หรือเลือกไฟล์ใหม่'
-                  : 'Take photos, or record a video up to twenty seconds. Show the worker clearly, including the head, back, arms, hands, legs, and feet as much as possible. The app samples up to eight video frames, summarizes motion, and assesses the riskiest posture. If the app cannot read the posture, retake or choose another file.',
+                  ? 'ถ่ายหรือเลือกรูปให้เห็นคนทำงานชัดเจน 1 ถึง 4 รูป หากมีเครื่องหมาย X ให้เปลี่ยนรูปนั้น'
+                  : 'Take or choose one to four clear worker photos. Replace any photo marked with X.',
               size: 36,
             ),
           ],
@@ -1823,6 +1954,7 @@ class _ImageSlots extends StatelessWidget {
                 final filled = index < imagePaths.length;
                 final enabled = filled || index == imagePaths.length;
                 final spec = slotSpecs[index];
+                final unreadable = unreadableImageIndexes.contains(index + 1);
                 return InkWell(
                   onTap: enabled ? () => onSlotTap(index) : null,
                   borderRadius: BorderRadius.circular(8),
@@ -1836,8 +1968,11 @@ class _ImageSlots extends StatelessWidget {
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(
                         color: filled
-                            ? SooktaColors.leafGreen
+                            ? unreadable
+                                ? Colors.red.shade600
+                                : SooktaColors.leafGreen
                             : Colors.grey.shade300,
+                        width: unreadable ? 2 : 1,
                       ),
                     ),
                     child: ClipRRect(
@@ -1873,6 +2008,42 @@ class _ImageSlots extends StatelessWidget {
                               thai: thai,
                             ),
                           ),
+                          if (filled && unreadable)
+                            Positioned(
+                              left: 6,
+                              top: 6,
+                              child: DecoratedBox(
+                                decoration: BoxDecoration(
+                                  color: Colors.red.shade700,
+                                  borderRadius: BorderRadius.circular(999),
+                                ),
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 4,
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(
+                                        Icons.close,
+                                        color: Colors.white,
+                                        size: 14,
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        thai ? 'ใช้ไม่ได้' : 'Retake',
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
                           if (filled)
                             Positioned(
                               right: 6,
@@ -2172,36 +2343,40 @@ class _ImageSlotOverlay extends StatelessWidget {
         padding: const EdgeInsets.all(10),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(
               spec.title,
-              maxLines: 2,
+              maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 color: foreground,
                 fontWeight: FontWeight.w800,
-                fontSize: 13,
+                fontSize: 12,
               ),
             ),
-            const SizedBox(height: 4),
             Text(
               status,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 color: foreground,
                 fontWeight: FontWeight.w700,
-              ),
-            ),
-            const Spacer(),
-            Text(
-              spec.hint,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: filled ? Colors.white70 : Colors.black54,
                 fontSize: 11,
               ),
             ),
-            const SizedBox(height: 6),
+            Flexible(
+              child: Text(
+                spec.hint,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: filled ? Colors.white70 : Colors.black54,
+                  fontSize: 10,
+                  height: 1.1,
+                ),
+              ),
+            ),
             Row(
               children: [
                 Icon(
@@ -3527,4 +3702,19 @@ class _ScoreSlider extends StatelessWidget {
       ],
     );
   }
+}
+
+bool _sameStringList(List<String> left, List<String> right) {
+  if (left.length != right.length) return false;
+  for (var index = 0; index < left.length; index++) {
+    if (left[index] != right[index]) return false;
+  }
+  return true;
+}
+
+bool _hasExistingMedia(List<String> paths) {
+  for (final path in paths) {
+    if (File(path).existsSync()) return true;
+  }
+  return false;
 }
