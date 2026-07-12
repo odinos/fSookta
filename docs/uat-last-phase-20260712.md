@@ -8,7 +8,7 @@ Authoritative requirement matrix: `docs/last-phase-requirement-matrix-20260712.m
 
 The code-level requirement audit covers all 19 source requirements. Static analysis passed and the full automated suite passed 102 tests. Portrait-only platform configuration and multiple-person photo rejection were added with regression coverage.
 
-Physical-device UAT could not be completed in this run. An iPhone was initially visible to Flutter, but iOS build/install tooling stalled and CoreDeviceService timed out; the phone was no longer visible through libimobiledevice after the attempt. No physical Android device or physical tablet was connected. Hardware-dependent rows therefore remain `BLOCKED`, `NOT AVAILABLE`, or `PENDING-MANUAL` and are not reported as passed.
+Physical-device UAT resumed on the connected iPhone. Signed Profile builds were installed and launched through CoreDevice. Orientation, two-farmer avatar isolation, draft/activity flows, four-photo handling, multi-person rejection, the assessment bypass used for uploaded-video UAT, and explicitly categorized short recommendations have been user-observed as passed. Android UAT has not started, as requested, and remaining iPhone listening/export/offline checks stay pending.
 
 ## Environment
 
@@ -32,21 +32,21 @@ Physical-device UAT could not be completed in this run. An iPhone was initially 
 | Android debug build | PARTIAL PASS | Fresh APK created; command did not return the normal completion line |
 | Android APK portrait contract | PASS | APK manifest reports `screenOrientation="1"` |
 | Android ML assets | PASS | APK contains MultiPose Lightning and SinglePose Thunder assets |
-| iOS no-codesign build | BLOCKED | No fresh artifact; Xcode/CoreDevice tooling stalled |
+| iOS signed Profile build | PASS | Fresh `App.framework` built at 22:57:57 in `/private/tmp/fSookta-ios-uat-risk-groups`; signature verified, installed, and launched through CoreDevice |
 
 ## Physical UAT Checklist
 
 | UAT step | iPhone | Android | Tablet |
 | --- | --- | --- | --- |
-| Install and launch current build | BLOCKED | NOT AVAILABLE | NOT AVAILABLE |
-| Rotate both directions; app remains portrait | BLOCKED | NOT AVAILABLE | NOT AVAILABLE |
-| Two farmers and avatar isolation | BLOCKED | NOT AVAILABLE | NOT AVAILABLE |
-| Terminate/relaunch and resume correct draft | BLOCKED | NOT AVAILABLE | NOT AVAILABLE |
-| Change activity and retain draft | BLOCKED | NOT AVAILABLE | NOT AVAILABLE |
-| Select four photos; replace/remove one | BLOCKED | NOT AVAILABLE | NOT AVAILABLE |
-| Reject real multi-person photo | BLOCKED | NOT AVAILABLE | NOT AVAILABLE |
-| Final assessment button unobstructed | BLOCKED | NOT AVAILABLE | NOT AVAILABLE |
-| Farmer summary and expandable staff detail | BLOCKED | NOT AVAILABLE | NOT AVAILABLE |
+| Install and launch current build | PASS | NOT AVAILABLE | NOT AVAILABLE |
+| Rotate both directions; app remains portrait | PASS | NOT AVAILABLE | NOT AVAILABLE |
+| Two farmers and avatar isolation | PASS | NOT AVAILABLE | NOT AVAILABLE |
+| Terminate/relaunch and resume correct draft | PASS | NOT AVAILABLE | NOT AVAILABLE |
+| Change activity and retain draft | PASS | NOT AVAILABLE | NOT AVAILABLE |
+| Select four photos; replace/remove one | PASS | NOT AVAILABLE | NOT AVAILABLE |
+| Reject real multi-person photo | PASS | NOT AVAILABLE | NOT AVAILABLE |
+| Final assessment button unobstructed | PASS (UAT bypass) | NOT AVAILABLE | NOT AVAILABLE |
+| Farmer summary, four categorized action groups, and expandable staff detail | PASS | NOT AVAILABLE | NOT AVAILABLE |
 | Thai TTS listening quality | PENDING-MANUAL | NOT AVAILABLE | NOT AVAILABLE |
 | Filter month/activity and inspect export | BLOCKED | NOT AVAILABLE | NOT AVAILABLE |
 | Offline relaunch | BLOCKED | NOT AVAILABLE | NOT AVAILABLE |
@@ -54,14 +54,11 @@ Physical-device UAT could not be completed in this run. An iPhone was initially 
 ## Tooling Blockers
 
 1. Android Gradle created a fresh APK but did not return its normal final completion message.
-2. iOS build did not produce a fresh `Runner.app` before the attempt was stopped.
-3. `xcrun devicectl` timed out waiting for CoreDeviceService.
-4. The iPhone install attempt reached `Installing com.kdev.sookta to iPhone...` but did not complete.
-5. After the install attempt, `ideviceinfo` reported the iPhone as not found.
-6. No Android physical device was visible through ADB, and no physical tablet was connected.
+2. Incremental Xcode builds reused an older Flutter `App.framework`; the verified UAT build was rebuilt in a fresh derived-data directory before installation.
+3. No Android physical device was visible through ADB, and no physical tablet was connected.
 
 ## Required Manual Continuation
 
-Reconnect and unlock the iPhone, trust the Mac, keep the device awake, and confirm it appears in both Flutter and CoreDevice. Connect and authorize an Android device through ADB. Then repeat the physical checklist above, using a real single-person photo and a real multiple-person photo, listening to Thai TTS, inspecting the native share/export result, and rotating each device to verify portrait lock.
+Continue the remaining iPhone checks for Thai TTS listening quality, month/activity filtering and exported-file inspection, and offline relaunch. Start Android only after the iPhone checklist is complete and the user connects and authorizes an Android device through ADB.
 
 The evidence summary is stored at `docs/uat_evidence_20260712_last_phase/device-and-build-summary.txt`.
