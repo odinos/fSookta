@@ -1,0 +1,45 @@
+Sookta last-phase UAT evidence summary
+Date: 2026-07-12
+App version: 1.3.6+21
+Git revision at device attempt: a6adbab
+
+AUTOMATED VERIFICATION
+- flutter analyze --no-pub: PASS, No issues found
+- flutter test --no-pub: PASS, 102 tests
+- focused requirement suite: PASS, 25 tests
+
+ANDROID BUILD
+- Command: flutter build apk --debug --no-pub
+- Result: PARTIAL PASS
+- Fresh artifact: build/app/outputs/flutter-apk/app-debug.apk
+- Artifact timestamp: 2026-07-12 18:37:10
+- Artifact size: 309,758,450 bytes
+- APK contains assets/ml/movenet_multipose_lightning.tflite (9,585,276 bytes)
+- APK contains assets/ml/movenet_thunder.tflite (25,025,596 bytes)
+- APK manifest inspection: MainActivity android:screenOrientation="1" (portrait)
+- Limitation: Gradle produced the fresh artifact but did not return the normal completion line before the wait was stopped.
+
+IOS BUILD
+- Command: flutter build ios --debug --no-codesign --no-pub
+- Result: BLOCKED
+- No fresh Runner.app was created; the existing Runner.app was dated 2026-07-07.
+- CoreDeviceService later timed out while listing devices.
+
+PHYSICAL DEVICES
+- Initially detected: iPhone, UDID 00008030-0008788421F3802E, iOS 26.5
+- Android ADB: no device detected
+- iPhone install command reached "Installing com.kdev.sookta to iPhone..." but did not complete.
+- After the attempt, ideviceinfo reported the iPhone was not found.
+
+PHYSICAL UAT DECISION
+- Orientation rotation: BLOCKED (app not installed in this run)
+- Two-farmer avatar isolation: BLOCKED
+- Draft terminate/relaunch/resume: BLOCKED
+- Change activity warning/draft: BLOCKED
+- Four-photo selection/replace/remove: BLOCKED
+- Multi-person real-photo rejection: BLOCKED
+- Tablet final button: NOT AVAILABLE (no physical tablet connected)
+- Farmer/admin result separation: BLOCKED
+- Thai TTS listening: PENDING-MANUAL
+- Filtered export inspection: BLOCKED
+- Offline relaunch: BLOCKED

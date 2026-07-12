@@ -40,4 +40,7 @@ Status meanings:
 ## Baseline Evidence
 
 - `/Users/kpc/develop/flutter/bin/flutter analyze --no-pub`: PASS on 2026-07-12 (`No issues found!`).
-- `/Users/kpc/develop/flutter/bin/flutter test --no-pub`: PASS on 2026-07-12 (97 tests).
+- `/Users/kpc/develop/flutter/bin/flutter test --no-pub`: PASS on 2026-07-12 (102 tests).
+- Android debug artifact: created on 2026-07-12 at `build/app/outputs/flutter-apk/app-debug.apk`; APK inspection confirms `android:screenOrientation="1"` (portrait) and both MoveNet models are bundled. The Flutter/Gradle command did not return its normal completion line and is reported as `PARTIAL PASS`.
+- iOS no-codesign build: `BLOCKED`; Xcode compilation produced no new artifact before the attempt was stopped, and CoreDeviceService subsequently timed out.
+- Physical-device UAT: `BLOCKED`; Flutter initially detected iPhone `00008030-0008788421F3802E`, but installation did not complete and libimobiledevice then reported the device disconnected. No Android physical device was detected.
