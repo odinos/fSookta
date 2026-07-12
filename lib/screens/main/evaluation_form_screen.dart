@@ -8,6 +8,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../app/app_state.dart';
 import '../../app/sookta_app.dart';
+import '../../app/uat_config.dart';
 import '../../core/ergonomics_risk_prediction/ergonomics_risk_prediction.dart'
     as risk_ml;
 import '../../core/models/assessment_session.dart';
@@ -304,11 +305,17 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
     final activityName = widget.activity.label(thai: thai);
     final validationIssues = _requiredDataIssues(thai);
     final imageQualityIssues = _imageQualityIssues(thai);
-    final canAnalyze = selectedImagePaths.isNotEmpty &&
+    final standardCanAnalyze = selectedImagePaths.isNotEmpty &&
         imageQualityIssues.isEmpty &&
         poseAssessmentReady &&
         !poseBusy &&
         validationIssues.isEmpty;
+    final uatCanBypass = UatConfig.canBypassAssessment(
+      enabled: UatConfig.assessmentBypassEnabled,
+      hasMedia: selectedImagePaths.isNotEmpty,
+      poseBusy: poseBusy,
+    );
+    final canAnalyze = standardCanAnalyze || uatCanBypass;
 
     return Scaffold(
       appBar: AppBar(title: Text(thai ? 'แบบฟอร์มประเมิน' : 'Evaluation Form')),
@@ -328,6 +335,21 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
             if (restoredDraft) ...[
               const SizedBox(height: 8),
               _DraftRestoredNotice(thai: thai),
+            ],
+            if (UatConfig.assessmentBypassEnabled) ...[
+              const SizedBox(height: 8),
+              Card(
+                color: const Color(0xFFFFF3CD),
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Text(
+                    thai
+                        ? 'โหมด UAT: ปุ่มดูผลประเมินจะเปิดเมื่อมีรูปหรือเฟรมจากวิดีโอ แม้ข้อมูลยังไม่ผ่าน validation ครบ ห้ามใช้ผลนี้เป็นข้อมูลวิจัย'
+                        : 'UAT mode: View Assessment is enabled when photo or video-frame media exists, even if validation is incomplete. Do not use this result as research data.',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ),
             ],
             const SizedBox(height: 8),
             _EvaluationVoiceGuide(
@@ -990,7 +1012,12 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
     final state = AppStateScope.of(context);
     final thai = (state.language ?? AppLanguage.th) == AppLanguage.th;
     final validationIssues = _requiredDataIssues(thai);
-    if (validationIssues.isNotEmpty) {
+    final uatBypass = UatConfig.canBypassAssessment(
+      enabled: UatConfig.assessmentBypassEnabled,
+      hasMedia: selectedImagePaths.isNotEmpty,
+      poseBusy: poseBusy,
+    );
+    if (!uatBypass && validationIssues.isNotEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -1002,7 +1029,8 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
       );
       return;
     }
-    if (selectedImagePaths.isEmpty || poseBusy || !poseAssessmentReady) {
+    if (!uatBypass &&
+        (selectedImagePaths.isEmpty || poseBusy || !poseAssessmentReady)) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
