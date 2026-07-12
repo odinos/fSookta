@@ -246,7 +246,10 @@ class _FinalResultScreenState extends State<FinalResultScreen> {
             if (activityRiskRecommendations.isNotEmpty) ...[
               const SizedBox(height: 16),
               _ActivityRiskRecommendationCard(
-                recommendations: activityRiskRecommendations,
+                recommendations: _conciseFarmerRecommendations(
+                  activityRiskRecommendations,
+                  thai,
+                ),
                 thai: thai,
               ),
             ],
@@ -296,6 +299,7 @@ class _FinalResultScreenState extends State<FinalResultScreen> {
             _TechnicalDetailsSection(
               before: before,
               breakdown: widget.bundle.breakdown,
+              detailedRecommendations: activityRiskRecommendations,
               thai: thai,
               exporting: exporting,
               recordReady: recordReady,
@@ -449,6 +453,7 @@ class _ActivityRiskRecommendationCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final groups = _groupRecommendations(recommendations, thai);
     return Card(
+      key: const ValueKey('farmer-guidance-card'),
       color: const Color(0xFFFFFBF0),
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -534,8 +539,46 @@ class _ActivityRiskRecommendationCard extends StatelessWidget {
                   : 1;
       groups[index].items.add(item);
     }
-    return groups.where((group) => group.items.isNotEmpty).toList();
+    return groups.where((group) => group.items.isNotEmpty).map((group) {
+      if (group.items.length > 2) {
+        group.items.removeRange(2, group.items.length);
+      }
+      return group;
+    }).toList();
   }
+}
+
+List<String> _conciseFarmerRecommendations(
+  List<String> recommendations,
+  bool thai,
+) {
+  final clauses = <String>[];
+  for (final recommendation in recommendations) {
+    if (_looksLikeWeightReference(recommendation, thai)) {
+      clauses.add(thai
+          ? 'ลดน้ำหนักต่อครั้ง และใช้อุปกรณ์ช่วยเมื่อของหนัก'
+          : 'Reduce each load and use handling aids for heavy items');
+      continue;
+    }
+    clauses.addAll(recommendation
+        .split(thai
+            ? RegExp(
+                r'[;,]|\sและ\s|\s+(?=(?:ใช้|จัด|พัก|หลีก|ยืด|หัน|หมุน|สลับ|ปรับ|ลด|ลุก|วาง|ถือ|ให้|เปลี่ยน|หยุด|สวม|ใส่))',
+              )
+            : RegExp(
+                r'[;,]|\sand\s|\s+(?=(?:use|rest|avoid|stretch|turn|rotate|change|reduce|keep|raise|lift|wear|stop|split)\b)',
+                caseSensitive: false,
+              ))
+        .map((part) => part.trim().replaceFirst(RegExp(r'[.]$'), ''))
+        .where((part) => part.length >= 8));
+  }
+  return clauses.toSet().toList(growable: false);
+}
+
+bool _looksLikeWeightReference(String text, bool thai) {
+  return thai
+      ? text.contains('ชาย 20-45 ปี') || text.contains('หญิง 20-45 ปี')
+      : text.contains('men 20-45 years') || text.contains('women 20-45');
 }
 
 class _RecommendationGroup {
@@ -613,6 +656,7 @@ class _TechnicalDetailsSection extends StatelessWidget {
   const _TechnicalDetailsSection({
     required this.before,
     required this.breakdown,
+    required this.detailedRecommendations,
     required this.thai,
     required this.exporting,
     required this.recordReady,
@@ -621,6 +665,7 @@ class _TechnicalDetailsSection extends StatelessWidget {
 
   final ErgoResult before;
   final AssessmentBreakdown? breakdown;
+  final List<String> detailedRecommendations;
   final bool thai;
   final bool exporting;
   final bool recordReady;
@@ -658,6 +703,22 @@ class _TechnicalDetailsSection extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                if (detailedRecommendations.isNotEmpty) ...[
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      thai ? 'คำแนะนำฉบับเต็ม' : 'Full recommendations',
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  for (final item in detailedRecommendations)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Text('• $item'),
+                    ),
+                  const SizedBox(height: 4),
+                ],
                 ResearchDisclaimerCard(thai: thai),
                 const SizedBox(height: 12),
                 OutlinedButton.icon(

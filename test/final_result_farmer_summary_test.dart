@@ -66,6 +66,23 @@ void main() {
     expect(find.text('คำแนะนำตามกิจกรรมและความเสี่ยง'), findsOneWidget);
     expect(find.textContaining('ลดน้ำหนักปุ๋ยต่อครั้ง'), findsOneWidget);
     expect(find.textContaining('หลีกเลี่ยงการก้มต่อเนื่อง'), findsOneWidget);
+    expect(find.text('การพักหรือสลับงาน'), findsOneWidget);
+    expect(find.text('อุปกรณ์หรือวิธีช่วยลดภาระงาน'), findsOneWidget);
+    final farmerGuidance = tester
+        .widgetList<Text>(find.descendant(
+          of: find.byKey(const ValueKey('farmer-guidance-card')),
+          matching: find.byType(Text),
+        ))
+        .map((widget) => widget.data ?? '')
+        .where((text) =>
+            text.contains('ลดน้ำหนักปุ๋ย') ||
+            text.contains('หลีกเลี่ยงการก้ม'));
+    expect(farmerGuidance, isNotEmpty);
+    expect(
+      farmerGuidance.every((text) => text.length <= 70),
+      isTrue,
+      reason: farmerGuidance.join(' | '),
+    );
     expect(find.textContaining('รายละเอียดสำหรับเจ้าหน้าที่อยู่ด้านล่าง'),
         findsOneWidget);
     expect(
@@ -82,6 +99,7 @@ void main() {
 
     await tester.tap(find.text('รายละเอียดสำหรับเจ้าหน้าที่และวิชาการ'));
     await tester.pumpAndSettle();
+    expect(find.textContaining('ชาย 20-45 ปี'), findsOneWidget);
     await tester.scrollUntilVisible(
       find.text('จุดเสี่ยงที่พบ'),
       400,
