@@ -47,7 +47,7 @@ Physical-device UAT resumed on the connected iPhone. Signed Profile builds were 
 | Reject real multi-person photo | PASS | NOT AVAILABLE | NOT AVAILABLE |
 | Final assessment button unobstructed | PASS (UAT bypass) | NOT AVAILABLE | NOT AVAILABLE |
 | Farmer summary, four categorized action groups, and expandable staff detail | PASS | NOT AVAILABLE | NOT AVAILABLE |
-| Thai TTS listening quality | PENDING-MANUAL | NOT AVAILABLE | NOT AVAILABLE |
+| Thai TTS listening quality | PASS — user reports pronunciation is much improved and acceptable | NOT AVAILABLE | NOT AVAILABLE |
 | Filter month/activity and inspect export | BLOCKED | NOT AVAILABLE | NOT AVAILABLE |
 | Offline relaunch | BLOCKED | NOT AVAILABLE | NOT AVAILABLE |
 
@@ -59,6 +59,6 @@ Physical-device UAT resumed on the connected iPhone. Signed Profile builds were 
 
 ## Required Manual Continuation
 
-Continue the remaining iPhone checks for Thai TTS listening quality, month/activity filtering and exported-file inspection, and offline relaunch. Start Android only after the iPhone checklist is complete and the user connects and authorizes an Android device through ADB.
+Continue the remaining iPhone checks for month/activity filtering, exported-file inspection, and offline relaunch. Start Android only after the iPhone checklist is complete and the user connects and authorizes an Android device through ADB.
 
 The evidence summary is stored at `docs/uat_evidence_20260712_last_phase/device-and-build-summary.txt`.
