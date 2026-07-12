@@ -48,7 +48,7 @@
 | 1.1 | Change selected activity safely | GAP | pending audit | pending audit | pending UAT |
 ```
 
-- [ ] **Step 2: Audit all 17 numbered source requirements**
+- [ ] **Step 2: Audit all 19 numbered source requirements**
 
 Run:
 
@@ -66,7 +66,7 @@ Run:
 rg -c '^\| [1-6]\.[1-9]' docs/last-phase-requirement-matrix-20260712.md
 ```
 
-Expected: `17`.
+Expected: `19`.
 
 - [ ] **Step 4: Commit the audit only**
 
