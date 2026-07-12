@@ -1,45 +1,57 @@
 Sookta last-phase UAT evidence summary
-Date: 2026-07-12
+Date: 2026-07-12 to 2026-07-13 overnight verification
 App version: 1.3.6+21
-Git revision at device attempt: a6adbab
+Git revision at overnight verification: 0f2705f
 
 AUTOMATED VERIFICATION
-- flutter analyze --no-pub: PASS, No issues found
-- flutter test --no-pub: PASS, 102 tests
-- focused requirement suite: PASS, 25 tests
+- flutter test --no-pub --concurrency=2: PASS, 107 tests, zero failures
+- Focused persistence/export/migration/filter/portrait/recommendation/UAT-gate suite: PASS, 26 tests
+- Focused analyzer for all changed recommendation/result files: PASS, No issues found
+- Full flutter analyze attempt: TOOLING BLOCKED; analysis server became idle without returning a result and was stopped
+- Randomized-order full-suite attempt: TOOLING BLOCKED at compilation before any test; the normal-order full suite had already passed 107 tests
+- A stale build/test_cache caused an earlier compiler stall. The cache was moved intact to /private/tmp/fSookta-test-cache-stalled-20260712-2329; a fresh cache then passed the full suite.
 
-ANDROID BUILD
-- Command: flutter build apk --debug --no-pub
-- Result: PARTIAL PASS
-- Fresh artifact: build/app/outputs/flutter-apk/app-debug.apk
-- Artifact timestamp: 2026-07-12 18:37:10
-- Artifact size: 309,758,450 bytes
-- APK contains assets/ml/movenet_multipose_lightning.tflite (9,585,276 bytes)
-- APK contains assets/ml/movenet_thunder.tflite (25,025,596 bytes)
-- APK manifest inspection: MainActivity android:screenOrientation="1" (portrait)
-- Limitation: Gradle produced the fresh artifact but did not return the normal completion line before the wait was stopped.
+IOS CLEAN BUILD
+- Command: xcodebuild Profile, generic iOS destination, fresh derived-data path, automatic signing, UAT bypass define
+- Derived data: /private/tmp/fSookta-ios-overnight-20260712
+- Result: PASS (exit 0)
+- Fresh App.framework timestamp: 2026-07-12 23:39:16 +07
+- App.framework size: 11,758,720 bytes
+- App.framework SHA-1: 47b2869bbc971af25082d47ecaac87a814834957
+- Runner executable size: 30,682,400 bytes
+- Runner.app total size: 107 MB
+- codesign --verify --deep --strict: PASS
+- Provisioning profile UUID: b7b88c0b-a742-4e9e-b73f-df2ddea37b7d
+- Provisioned iPhone UDID: 00008030-0008788421F3802E
+- Provisioning expiration: 2027-05-16
+- iPhone orientations: UIInterfaceOrientationPortrait only
+- iPad orientations: UIInterfaceOrientationPortrait only
+- Bundle includes MoveNet MultiPose Lightning: 9,585,276 bytes
+- Bundle includes MoveNet Thunder: 25,025,596 bytes
 
-IOS BUILD
-- Command: flutter build ios --debug --no-codesign --no-pub
-- Result: BLOCKED
-- No fresh Runner.app was created; the existing Runner.app was dated 2026-07-07.
-- CoreDeviceService later timed out while listing devices.
+IPHONE DEVICE AUTOMATION
+- CoreDevice ID: ABD658CA-9FDE-5F6E-8228-CFE6D830F4AE
+- iOS version: 26.5
+- Clean Runner.app installation: PASS
+- Automated launch after clean installation: BLOCKED by iOS provisioning trust/security while the device was unattended/offline
+- Local signature, entitlements, provisioning UUID, team ID, bundle ID, expiry, and device inclusion all match the earlier build that launched successfully.
+- No manual trust/network action was requested during unattended verification.
 
-PHYSICAL DEVICES
-- Initially detected: iPhone, UDID 00008030-0008788421F3802E, iOS 26.5
-- Android ADB: no device detected
-- iPhone install command reached "Installing com.kdev.sookta to iPhone..." but did not complete.
-- After the attempt, ideviceinfo reported the iPhone was not found.
+USER-OBSERVED IPHONE UAT
+- Install and launch: PASS
+- Portrait lock: PASS
+- Two-farmer avatar isolation: PASS
+- Draft terminate/relaunch/resume: PASS
+- Change activity and draft behavior: PASS
+- Four-photo selection/replace/remove: PASS
+- Multi-person rejection: PASS
+- Uploaded-video assessment via compile-time UAT bypass: PASS
+- Four explicit short recommendation groups on selection and final screens: PASS
+- Thai TTS: PASS, user reports pronunciation much improved and acceptable
+- Month/activity filtering and export flow: PASS
+- Offline relaunch/persisted data: PENDING-MANUAL; automated persistence-equivalent tests passed
 
-PHYSICAL UAT DECISION
-- Orientation rotation: BLOCKED (app not installed in this run)
-- Two-farmer avatar isolation: BLOCKED
-- Draft terminate/relaunch/resume: BLOCKED
-- Change activity warning/draft: BLOCKED
-- Four-photo selection/replace/remove: BLOCKED
-- Multi-person real-photo rejection: BLOCKED
-- Tablet final button: NOT AVAILABLE (no physical tablet connected)
-- Farmer/admin result separation: BLOCKED
-- Thai TTS listening: PENDING-MANUAL
-- Filtered export inspection: BLOCKED
-- Offline relaunch: BLOCKED
+OTHER PLATFORMS
+- Android physical UAT: not started, per user instruction to finish iPhone first
+- Physical tablet: not available
+- iPad simulator integration runner: TOOLING BLOCKED before tests began despite the simulator being booted and explicitly selected
