@@ -13,7 +13,7 @@ clean_path() {
   esac
 
   case "$clean_root" in
-    */build/native_assets/ios/*.framework|build/native_assets/ios/*.framework)
+    *.app|*.appex|*.framework|*.bundle|*.storyboardc)
       tmp_root="${TMPDIR:-/tmp}/$(basename "$clean_root").clean.$$"
       rm -rf "$tmp_root"
       ditto --norsrc --noextattr "$clean_root" "$tmp_root" 2>/dev/null || true

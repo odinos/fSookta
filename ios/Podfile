@@ -47,11 +47,56 @@ target 'Runner' do
 end
 
 post_install do |installer|
+  pods_metadata_script = <<~'SCRIPT'
+    set -e
+
+    strip_metadata() {
+      target="$1"
+      [ -e "$target" ] || return 0
+      case "$target" in
+        *.app|*.appex|*.framework|*.bundle|*.storyboardc)
+          tmp_root="${TMPDIR:-/tmp}/$(basename "$target").clean.$$"
+          rm -rf "$tmp_root"
+          ditto --norsrc --noextattr "$target" "$tmp_root" 2>/dev/null || true
+          if [ -d "$tmp_root" ]; then
+            rm -rf "$target"
+            mv "$tmp_root" "$target"
+          fi
+          ;;
+      esac
+      find "$target" \( -name '.DS_Store' -o -name '._*' -o -name '__MACOSX' \) -exec rm -rf {} + 2>/dev/null || true
+      find "$target" -exec xattr -c {} \; 2>/dev/null || true
+      find "$target" -exec xattr -d com.apple.FinderInfo {} \; 2>/dev/null || true
+      find "$target" -exec xattr -d com.apple.ResourceFork {} \; 2>/dev/null || true
+      find "$target" -exec xattr -d 'com.apple.fileprovider.fpfs#P' {} \; 2>/dev/null || true
+      find "$target" -exec xattr -d com.apple.provenance {} \; 2>/dev/null || true
+      find "$target" -exec xattr -d com.apple.quarantine {} \; 2>/dev/null || true
+      xattr -c "$target" 2>/dev/null || true
+    }
+
+    strip_metadata "${TARGET_BUILD_DIR}/${FULL_PRODUCT_NAME}"
+    strip_metadata "${CONFIGURATION_BUILD_DIR}/${FULL_PRODUCT_NAME}"
+    strip_metadata "${BUILT_PRODUCTS_DIR}/${FULL_PRODUCT_NAME}"
+  SCRIPT
+
   installer.pods_project.targets.each do |target|
     flutter_additional_ios_build_settings(target)
     target.build_configurations.each do |config|
       config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.0'
     end
+
+    product_type = target.respond_to?(:product_type) ? target.product_type : nil
+    next unless product_type&.include?('framework') ||
+      product_type&.include?('bundle')
+
+    phase_name = '[Sookta] Strip macOS metadata before codesign'
+    target.shell_script_build_phases
+      .select { |phase| phase.name == phase_name }
+      .each { |phase| target.build_phases.delete(phase) }
+    metadata_phase = target.new_shell_script_build_phase(phase_name)
+    metadata_phase.shell_script = pods_metadata_script
+    target.build_phases.delete(metadata_phase)
+    target.build_phases.insert(target.build_phases.length, metadata_phase)
   end
 
   # CocoaPods can generate broken relative paths for Flutter's integration_test
@@ -87,9 +132,16 @@ post_install do |installer|
       next unless flutter_phase
 
       codesign_path = 'export PATH="${SRCROOT}/scripts:${PATH}"'
-      next if flutter_phase.shell_script.include?(codesign_path)
+      flutter_phase.shell_script = "#{codesign_path}\n#{flutter_phase.shell_script}" \
+        unless flutter_phase.shell_script.include?(codesign_path)
+    end
 
-      flutter_phase.shell_script = "#{codesign_path}\n#{flutter_phase.shell_script}"
+    flutter_build_phase = runner_target.shell_script_build_phases
+      .find { |phase| phase.name == 'Run Script' }
+    if flutter_build_phase
+      flutter_build_phase.shell_script =
+        "export PATH=\"${SRCROOT}/scripts:${PATH}\"\n" \
+        "\"${SRCROOT}/scripts/flutter_build_with_metadata_retry\""
     end
 
     phase_name = '[Sookta] Embed TensorFlowLiteC'
@@ -103,6 +155,17 @@ post_install do |installer|
       strip_metadata() {
         target="$1"
         [ -e "$target" ] || return 0
+        case "$target" in
+          *.app|*.appex|*.framework|*.bundle|*.storyboardc)
+            tmp_root="${TMPDIR:-/tmp}/$(basename "$target").clean.$$"
+            rm -rf "$tmp_root"
+            ditto --norsrc --noextattr "$target" "$tmp_root" 2>/dev/null || true
+            if [ -d "$tmp_root" ]; then
+              rm -rf "$target"
+              mv "$tmp_root" "$target"
+            fi
+            ;;
+        esac
         find "$target" \( -name '.DS_Store' -o -name '._*' -o -name '__MACOSX' \) -exec rm -rf {} + 2>/dev/null || true
         find "$target" -exec xattr -c {} \; 2>/dev/null || true
         find "$target" -exec xattr -d com.apple.FinderInfo {} \; 2>/dev/null || true
@@ -152,6 +215,7 @@ post_install do |installer|
       config.build_settings['DEPLOYMENT_POSTPROCESSING'] = 'NO'
       config.build_settings['STRIP_INSTALLED_PRODUCT'] = 'NO'
       config.build_settings['STRIP_STYLE'] = 'debugging'
+      config.build_settings['ENABLE_DEBUG_DYLIB'] = 'NO'
       config.build_settings.delete('OTHER_LDFLAGS')
       config.build_settings['OTHER_LDFLAGS[sdk=iphoneos*]'] =
         "$(inherited) #{tflite_exports} #{tflite_symbols}"

@@ -1,0 +1,58 @@
+#!/bin/sh
+set -eu
+
+strip_metadata() {
+  target="$1"
+  [ -e "$target" ] || return 0
+  case "$target" in
+    *.app|*.appex|*.framework|*.bundle|*.storyboardc)
+      tmp_root="${TMPDIR:-/tmp}/$(basename "$target").clean.$$"
+      rm -rf "$tmp_root"
+      ditto --norsrc --noextattr "$target" "$tmp_root" 2>/dev/null || true
+      if [ -d "$tmp_root" ]; then
+        rm -rf "$target"
+        mv "$tmp_root" "$target"
+      fi
+      ;;
+  esac
+  find "$target" \( -name '.DS_Store' -o -name '._*' -o -name '__MACOSX' \) -exec rm -rf {} + 2>/dev/null || true
+  find "$target" -exec /usr/bin/xattr -c {} \; 2>/dev/null || true
+  find "$target" -exec /usr/bin/xattr -d com.apple.FinderInfo {} \; 2>/dev/null || true
+  find "$target" -exec /usr/bin/xattr -d com.apple.ResourceFork {} \; 2>/dev/null || true
+  find "$target" -exec /usr/bin/xattr -d 'com.apple.fileprovider.fpfs#P' {} \; 2>/dev/null || true
+  find "$target" -exec /usr/bin/xattr -d com.apple.provenance {} \; 2>/dev/null || true
+  find "$target" -exec /usr/bin/xattr -d com.apple.quarantine {} \; 2>/dev/null || true
+  /usr/bin/xattr -c "$target" 2>/dev/null || true
+}
+
+strip_build_metadata() {
+  native_assets_root="${SRCROOT:-}/../build/native_assets/ios"
+  if [ -d "$native_assets_root" ]; then
+    find "$native_assets_root" \( -name '*.framework' -o -name '*.bundle' \) \
+      -exec "$0" --strip-only {} \; 2>/dev/null || true
+  fi
+  strip_metadata "$native_assets_root"
+  strip_metadata "${TARGET_BUILD_DIR:-}/App.framework"
+  strip_metadata "${TARGET_BUILD_DIR:-}/Flutter.framework"
+  strip_metadata "${CONFIGURATION_BUILD_DIR:-}/App.framework"
+  strip_metadata "${CONFIGURATION_BUILD_DIR:-}/Flutter.framework"
+  strip_metadata "${BUILT_PRODUCTS_DIR:-}/App.framework"
+  strip_metadata "${BUILT_PRODUCTS_DIR:-}/Flutter.framework"
+}
+
+if [ "${1:-}" = "--strip-only" ]; then
+  strip_metadata "$2"
+  exit 0
+fi
+
+run_flutter_build() {
+  /bin/sh "$FLUTTER_ROOT/packages/flutter_tools/bin/xcode_backend.sh" build
+}
+
+if run_flutter_build; then
+  exit 0
+fi
+
+echo "Sookta: Flutter iOS build failed; stripping macOS metadata and retrying once." >&2
+strip_build_metadata
+run_flutter_build
