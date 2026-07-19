@@ -6,7 +6,9 @@ strip_metadata() {
   [ -e "$target" ] || return 0
   case "$target" in
     *.app|*.appex|*.framework|*.bundle|*.storyboardc)
-      tmp_root="${TMPDIR:-/tmp}/$(basename "$target").clean.$$"
+      # Xcode may point TMPDIR inside the framework currently being built.
+      # Keep the metadata-free copy outside all build products.
+      tmp_root="/private/tmp/sookta-$(basename "$target").clean.$$"
       rm -rf "$tmp_root"
       ditto --norsrc --noextattr "$target" "$tmp_root" 2>/dev/null || true
       if [ -d "$tmp_root" ]; then

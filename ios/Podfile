@@ -50,12 +50,18 @@ post_install do |installer|
   pods_metadata_script = <<~'SCRIPT'
     set -e
 
+    # Simulator pod products are not code-signed. Avoid replacing a framework
+    # while Xcode is still writing its Info.plist in a parallel build step.
+    if [ "${PLATFORM_NAME:-}" = "iphonesimulator" ]; then
+      exit 0
+    fi
+
     strip_metadata() {
       target="$1"
       [ -e "$target" ] || return 0
       case "$target" in
         *.app|*.appex|*.framework|*.bundle|*.storyboardc)
-          tmp_root="${TMPDIR:-/tmp}/$(basename "$target").clean.$$"
+          tmp_root="/private/tmp/sookta-$(basename "$target").clean.$$"
           rm -rf "$tmp_root"
           ditto --norsrc --noextattr "$target" "$tmp_root" 2>/dev/null || true
           if [ -d "$tmp_root" ]; then
@@ -83,6 +89,9 @@ post_install do |installer|
     flutter_additional_ios_build_settings(target)
     target.build_configurations.each do |config|
       config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.0'
+      config.build_settings[
+        'CODE_SIGNING_ALLOWED[sdk=iphonesimulator*]'
+      ] = 'NO'
     end
 
     product_type = target.respond_to?(:product_type) ? target.product_type : nil
@@ -123,6 +132,21 @@ post_install do |installer|
   # tflite_flutter looks up TensorFlow Lite C symbols through Dart FFI on iOS.
   # TensorFlowLiteC is delivered as static objects, so keep the specific C API
   # symbols that Dart looks up in Runner instead of embedding a runtime framework.
+  frameworks_script = File.join(
+    installer.sandbox.root,
+    'Target Support Files',
+    'Pods-Runner',
+    'Pods-Runner-frameworks.sh',
+  )
+  if File.exist?(frameworks_script)
+    frameworks_contents = File.read(frameworks_script)
+    frameworks_contents.gsub!(
+      '/usr/bin/codesign --force',
+      "'${SRCROOT}/scripts/codesign' --force",
+    )
+    File.write(frameworks_script, frameworks_contents)
+  end
+
   runner_project = Xcodeproj::Project.open(File.expand_path('Runner.xcodeproj', __dir__))
   runner_target = runner_project.targets.find { |target| target.name == 'Runner' }
   if runner_target
@@ -157,7 +181,7 @@ post_install do |installer|
         [ -e "$target" ] || return 0
         case "$target" in
           *.app|*.appex|*.framework|*.bundle|*.storyboardc)
-            tmp_root="${TMPDIR:-/tmp}/$(basename "$target").clean.$$"
+            tmp_root="/private/tmp/sookta-$(basename "$target").clean.$$"
             rm -rf "$tmp_root"
             ditto --norsrc --noextattr "$target" "$tmp_root" 2>/dev/null || true
             if [ -d "$tmp_root" ]; then

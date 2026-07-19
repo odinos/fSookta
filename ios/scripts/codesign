@@ -14,7 +14,9 @@ clean_path() {
 
   case "$clean_root" in
     *.app|*.appex|*.framework|*.bundle|*.storyboardc)
-      tmp_root="${TMPDIR:-/tmp}/$(basename "$clean_root").clean.$$"
+      # Xcode may point TMPDIR inside the framework currently being built.
+      # Keep the metadata-free copy outside all build products.
+      tmp_root="/private/tmp/sookta-$(basename "$clean_root").clean.$$"
       rm -rf "$tmp_root"
       ditto --norsrc --noextattr "$clean_root" "$tmp_root" 2>/dev/null || true
       if [ -d "$tmp_root" ]; then
@@ -61,4 +63,20 @@ for arg in "$@"; do
   clean_path "$arg"
 done
 
-exec /usr/bin/codesign "$@"
+attempt=1
+while [ "$attempt" -le 3 ]; do
+  if /usr/bin/codesign "$@"; then
+    exit 0
+  else
+    status=$?
+  fi
+  if [ "$attempt" -eq 3 ]; then
+    exit "$status"
+  fi
+
+  echo "Sookta: codesign failed after File Provider metadata cleanup; retrying." >&2
+  for arg in "$@"; do
+    clean_path "$arg"
+  done
+  attempt=$((attempt + 1))
+done
