@@ -70,3 +70,6 @@ DerivedData/
 
 # QA screenshot artifacts
 qa/screenshots/
+
+# Local Superpowers visual companion sessions
+.superpowers/
