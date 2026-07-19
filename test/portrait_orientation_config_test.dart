@@ -24,6 +24,15 @@ void main() {
     );
   });
 
+  test('iOS opts out of iPad multitasking for portrait-only support', () {
+    final plist = File('ios/Runner/Info.plist').readAsStringSync();
+
+    expect(
+      plist,
+      contains('<key>UIRequiresFullScreen</key>\n\t<true/>'),
+    );
+  });
+
   test('Android main activity is locked to portrait', () {
     final manifest = File('android/app/src/main/AndroidManifest.xml')
         .readAsStringSync();

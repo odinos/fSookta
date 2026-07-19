@@ -7,7 +7,7 @@ Sookta เป็นแอป Flutter สำหรับงานวิจัย�
 ## สถานะปัจจุบัน
 
 - Flutter app สำหรับ iOS และ Android
-- Version ปัจจุบันใน `pubspec.yaml`: `1.3.6+22`
+- Version ปัจจุบันใน `pubspec.yaml`: `1.3.6+23`
 - Bundle/Application ID: `com.kdev.sookta`
 - รองรับภาษาไทยและอังกฤษ
 - มี Firebase Crashlytics สำหรับ crash reporting
@@ -169,8 +169,8 @@ flutter build ipa --release
 รูปแบบ artifact ที่ควรได้หลัง build store release:
 
 ```text
-outputs/store-builds/1.3.6+22/Sookta-1.3.6+22-android-release.aab
-outputs/store-builds/1.3.6+22/Sookta-1.3.6+22-ios-appstore.ipa
+outputs/store-builds/1.3.6+23/Sookta-1.3.6+23-android-release.aab
+outputs/store-builds/1.3.6+23/Sookta-1.3.6+23-ios-appstore.ipa
 ```
 
 ก่อนส่ง Store ทุกครั้งควรตรวจ:
