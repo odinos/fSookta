@@ -136,6 +136,31 @@ void main() {
     expect(find.text('วิธีประเมินที่ใช้'), findsOneWidget);
   });
 
+  testWidgets('uses the same compact score layout at iPhone and Android widths',
+      (tester) async {
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    for (final width in const <double>[390, 412]) {
+      tester.view.physicalSize = Size(width, 1600);
+      final state = SooktaAppState()..setLanguage(AppLanguage.th);
+      await tester.pumpWidget(
+        AppStateScope(
+          state: state,
+          child: MaterialApp(home: FinalResultScreen(bundle: _bundle())),
+        ),
+      );
+      await tester.pump();
+
+      expect(find.byIcon(Icons.arrow_downward), findsOneWidget,
+          reason: 'phone width $width');
+      expect(find.byIcon(Icons.arrow_forward), findsNothing,
+          reason: 'phone width $width');
+      state.dispose();
+    }
+  });
+
   testWidgets(
       'reads concise farmer guidance from the main result speech button',
       (tester) async {

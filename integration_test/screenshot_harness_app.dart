@@ -170,38 +170,52 @@ class _ScreenshotHarnessAppState extends State<ScreenshotHarnessApp> {
       ),
       const _HarnessScreen(
         '09_evaluation_menu',
-        EvaluationMenuScreen(),
+        KeyedSubtree(
+          key: ValueKey<String>('qa-evaluation-menu'),
+          child: EvaluationMenuScreen(),
+        ),
       ),
       const _HarnessScreen(
         '10_evaluation_form_top',
-        EvaluationFormScreen(activity: SooktaActivity.fertilizing),
+        KeyedSubtree(
+          key: ValueKey<String>('qa-evaluation-form'),
+          child: EvaluationFormScreen(
+            activity: SooktaActivity.fertilizing,
+          ),
+        ),
       ),
       _HarnessScreen(
         '11_initial_risk_top',
-        InitialRiskScreen(
-          payload: InitialRiskPayload(
-            activity: SooktaActivity.harvesting,
-            activityName: SooktaActivity.harvesting.label(thai: true),
-            jobType: JobType.reba,
-            before: before,
-            ergoInput: const ErgoInputData(jobType: JobType.reba),
-            rebaInput: _rebaInput(),
+        KeyedSubtree(
+          key: const ValueKey<String>('qa-initial-risk'),
+          child: InitialRiskScreen(
+            payload: InitialRiskPayload(
+              activity: SooktaActivity.harvesting,
+              activityName: SooktaActivity.harvesting.label(thai: true),
+              jobType: JobType.reba,
+              before: before,
+              ergoInput: const ErgoInputData(jobType: JobType.reba),
+              rebaInput: _rebaInput(),
+            ),
           ),
         ),
       ),
       _HarnessScreen(
         '12_final_result_top',
-        FinalResultScreen(
-          bundle: AssessmentBundle(
-            activity: SooktaActivity.harvesting,
-            activityName: SooktaActivity.harvesting.label(thai: true),
-            jobType: JobType.reba,
-            before: before,
-            after: after,
-            selectedSuggestionKeys: const [
-              'act_avoid_bend',
-              'act_reduce_arm_raise',
-            ],
+        KeyedSubtree(
+          key: const ValueKey<String>('qa-final-result'),
+          child: FinalResultScreen(
+            bundle: AssessmentBundle(
+              activity: SooktaActivity.harvesting,
+              activityName: SooktaActivity.harvesting.label(thai: true),
+              jobType: JobType.reba,
+              before: before,
+              after: after,
+              selectedSuggestionKeys: const [
+                'act_avoid_bend',
+                'act_reduce_arm_raise',
+              ],
+            ),
           ),
         ),
       ),

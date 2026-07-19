@@ -188,7 +188,7 @@ class _FinalResultScreenState extends State<FinalResultScreen> {
                     const SizedBox(height: 16),
                     LayoutBuilder(
                       builder: (context, constraints) {
-                        final compact = constraints.maxWidth < 330;
+                        final compact = constraints.maxWidth < 480;
                         final beforeBlock = _ScoreBlock(
                           label: thai ? 'ก่อนปรับ' : 'Before',
                           score: before.userScore,

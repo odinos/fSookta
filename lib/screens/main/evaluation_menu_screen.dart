@@ -21,6 +21,12 @@ class EvaluationMenuScreen extends StatelessWidget {
     final drafts = state.evaluationDrafts
         .where((draft) => draft.farmerProfileId == state.profile.profileId)
         .toList(growable: false);
+    final contentHeight = (MediaQuery.sizeOf(context).height -
+            MediaQuery.paddingOf(context).vertical -
+            kToolbarHeight -
+            32)
+        .clamp(0.0, double.infinity)
+        .toDouble();
 
     return Scaffold(
       appBar: AppBar(
@@ -31,10 +37,7 @@ class EvaluationMenuScreen extends StatelessWidget {
           maxWidth: 880,
           children: [
             SizedBox(
-              height: MediaQuery.sizeOf(context).height -
-                  MediaQuery.paddingOf(context).vertical -
-                  kToolbarHeight -
-                  32,
+              height: contentHeight,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
