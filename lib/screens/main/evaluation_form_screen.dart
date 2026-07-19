@@ -8,11 +8,11 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../app/app_state.dart';
 import '../../app/sookta_app.dart';
-import '../../app/uat_config.dart';
 import '../../core/ergonomics_risk_prediction/ergonomics_risk_prediction.dart'
     as risk_ml;
 import '../../core/models/assessment_session.dart';
 import '../../core/models/evaluation_models.dart';
+import '../../core/services/assessment_readiness.dart';
 import '../../core/services/ergo_calculator.dart';
 import '../../core/services/firebase_telemetry_service.dart';
 import '../../core/services/multi_person_pose_detector.dart';
@@ -305,17 +305,13 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
     final activityName = widget.activity.label(thai: thai);
     final validationIssues = _requiredDataIssues(thai);
     final imageQualityIssues = _imageQualityIssues(thai);
-    final standardCanAnalyze = selectedImagePaths.isNotEmpty &&
-        imageQualityIssues.isEmpty &&
-        poseAssessmentReady &&
-        !poseBusy &&
-        validationIssues.isEmpty;
-    final uatCanBypass = UatConfig.canBypassAssessment(
-      enabled: UatConfig.assessmentBypassEnabled,
+    final readiness = AssessmentReadiness(
       hasMedia: selectedImagePaths.isNotEmpty,
+      hasImageQualityIssues: imageQualityIssues.isNotEmpty,
+      poseAssessmentReady: poseAssessmentReady,
       poseBusy: poseBusy,
+      requiredDataIssues: validationIssues,
     );
-    final canAnalyze = standardCanAnalyze || uatCanBypass;
 
     return Scaffold(
       appBar: AppBar(title: Text(thai ? 'แบบฟอร์มประเมิน' : 'Evaluation Form')),
@@ -335,21 +331,6 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
             if (restoredDraft) ...[
               const SizedBox(height: 8),
               _DraftRestoredNotice(thai: thai),
-            ],
-            if (UatConfig.assessmentBypassEnabled) ...[
-              const SizedBox(height: 8),
-              Card(
-                color: const Color(0xFFFFF3CD),
-                child: Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Text(
-                    thai
-                        ? 'โหมด UAT: ปุ่มดูผลประเมินจะเปิดเมื่อมีรูปหรือเฟรมจากวิดีโอ แม้ข้อมูลยังไม่ผ่าน validation ครบ ห้ามใช้ผลนี้เป็นข้อมูลวิจัย'
-                        : 'UAT mode: View Assessment is enabled when photo or video-frame media exists, even if validation is incomplete. Do not use this result as research data.',
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                ),
-              ),
             ],
             const SizedBox(height: 8),
             _EvaluationVoiceGuide(
@@ -396,7 +377,7 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
               sustainForce: selectedSustainForce,
               pushPullDistance: selectedPushPullDistance,
               validationIssues: validationIssues,
-              onAnalyze: canAnalyze ? _analyze : null,
+              onAnalyze: readiness.canAnalyze ? _analyze : null,
             ),
             if (latestFrameAnalyses.isNotEmpty) ...[
               const SizedBox(height: 16),
@@ -577,7 +558,7 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
             if (showAdvancedDetails) ...[
               const SizedBox(height: 24),
               FilledButton.icon(
-                onPressed: canAnalyze ? _analyze : null,
+                onPressed: readiness.canAnalyze ? _analyze : null,
                 icon: poseBusy
                     ? const SizedBox(
                         width: 18,
@@ -587,7 +568,7 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
                     : const Icon(Icons.analytics_outlined),
                 label: Text(thai ? 'ดูผลประเมิน' : 'View Assessment'),
               ),
-              if (!canAnalyze) ...[
+              if (!readiness.canAnalyze) ...[
                 const SizedBox(height: 8),
                 Text(
                   poseBusy
@@ -1012,33 +993,26 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
     final state = AppStateScope.of(context);
     final thai = (state.language ?? AppLanguage.th) == AppLanguage.th;
     final validationIssues = _requiredDataIssues(thai);
-    final uatBypass = UatConfig.canBypassAssessment(
-      enabled: UatConfig.assessmentBypassEnabled,
+    final imageQualityIssues = _imageQualityIssues(thai);
+    final readiness = AssessmentReadiness(
       hasMedia: selectedImagePaths.isNotEmpty,
+      hasImageQualityIssues: imageQualityIssues.isNotEmpty,
+      poseAssessmentReady: poseAssessmentReady,
       poseBusy: poseBusy,
+      requiredDataIssues: validationIssues,
     );
-    if (!uatBypass && validationIssues.isNotEmpty) {
+    if (!readiness.canAnalyze) {
+      final guidance = validationIssues.isNotEmpty
+          ? (thai
+              ? 'กรุณาตรวจข้อมูลก่อนประเมิน: ${validationIssues.first}'
+              : 'Check required data before assessment: ${validationIssues.first}')
+          : imageQualityIssues.isNotEmpty
+              ? imageQualityIssues.first
+              : (thai
+                  ? 'ยังประเมินไม่ได้ กรุณาใช้รูปที่เห็นบุคคลและท่าทางชัดเจนก่อน เพื่อหลีกเลี่ยงตัวเลขที่ไม่น่าเชื่อถือ'
+                  : 'Cannot assess yet. Use a clear photo with a readable person posture to avoid unreliable numbers.');
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            thai
-                ? 'กรุณาตรวจข้อมูลก่อนประเมิน: ${validationIssues.first}'
-                : 'Check required data before assessment: ${validationIssues.first}',
-          ),
-        ),
-      );
-      return;
-    }
-    if (!uatBypass &&
-        (selectedImagePaths.isEmpty || poseBusy || !poseAssessmentReady)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            thai
-                ? 'ยังประเมินไม่ได้ กรุณาใช้รูปที่เห็นบุคคลและท่าทางชัดเจนก่อน เพื่อหลีกเลี่ยงตัวเลขที่ไม่น่าเชื่อถือ'
-                : 'Cannot assess yet. Use a clear photo with a readable person posture to avoid unreliable numbers.',
-          ),
-        ),
+        SnackBar(content: Text(guidance)),
       );
       return;
     }
@@ -1227,11 +1201,6 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
       issues.add(thai
           ? 'รูปที่ ${labels.join(', ')} มีมากกว่า 1 คน กรุณาเปลี่ยนเป็นรูปที่มีผู้ถูกประเมินเพียง 1 คน'
           : 'Photo ${labels.join(', ')} contains more than one person. Replace it with a photo of only the assessed worker.');
-    }
-    if (selectedImagePaths.isNotEmpty) {
-      issues.add(thai
-          ? 'ควรใช้รูปที่มีผู้ถูกประเมินเพียง 1 คน หากมีคนอื่นอยู่ในภาพให้เปลี่ยนรูปก่อนประเมิน'
-          : 'Use a photo with only one assessed worker. Replace photos that include other people before assessment.');
     }
     return issues;
   }

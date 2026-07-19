@@ -12,7 +12,7 @@ AUTOMATED VERIFICATION
 - A stale build/test_cache caused an earlier compiler stall. The cache was moved intact to /private/tmp/fSookta-test-cache-stalled-20260712-2329; a fresh cache then passed the full suite.
 
 IOS CLEAN BUILD
-- Command: xcodebuild Profile, generic iOS destination, fresh derived-data path, automatic signing, UAT bypass define
+- Historical command: xcodebuild Profile, generic iOS destination, fresh derived-data path, and automatic signing. This test build was superseded by the production-only gate on 2026-07-19.
 - Derived data: /private/tmp/fSookta-ios-overnight-20260712
 - Result: PASS (exit 0)
 - Fresh App.framework timestamp: 2026-07-12 23:39:16 +07
@@ -45,7 +45,7 @@ USER-OBSERVED IPHONE UAT
 - Change activity and draft behavior: PASS
 - Four-photo selection/replace/remove: PASS
 - Multi-person rejection: PASS
-- Uploaded-video assessment via compile-time UAT bypass: PASS
+- Uploaded-video temporary-path check: HISTORICAL PASS; not accepted as production evidence after 2026-07-19
 - Four explicit short recommendation groups on selection and final screens: PASS
 - Thai TTS: PASS, user reports pronunciation much improved and acceptable
 - Month/activity filtering and export flow: PASS

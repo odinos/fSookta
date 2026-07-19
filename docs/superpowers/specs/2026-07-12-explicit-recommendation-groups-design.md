@@ -26,7 +26,9 @@ The farmer view limits each category to the highest-priority two actions and rem
 - Do not change REBA, ISO, risk scoring, or activity selection logic.
 - Do not remove detailed weight limits or technical recommendations.
 - Keep Thai and English behavior equivalent.
-- Keep portrait-only behavior and the compile-time UAT bypass unchanged.
+- Keep portrait-only behavior. The temporary assessment shortcut from that
+  test round was superseded by the production-only gate design dated
+  2026-07-19.
 - Test on the connected iPhone before continuing Android UAT.
 
 ## Acceptance Criteria

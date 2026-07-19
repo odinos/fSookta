@@ -74,5 +74,16 @@ void main() {
       find.textContaining('ระยะทางขนย้าย ต้องเป็นตัวเลขมากกว่า 0'),
       findsOneWidget,
     );
+
+    final assessmentButtons =
+        tester.widgetList<FilledButton>(find.widgetWithText(
+      FilledButton,
+      'ดูผลประเมิน',
+    ));
+    expect(assessmentButtons, isNotEmpty);
+    expect(
+      assessmentButtons.every((button) => button.onPressed == null),
+      isTrue,
+    );
   });
 }

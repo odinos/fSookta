@@ -53,7 +53,7 @@ Physical-device UAT resumed on the connected iPhone. Signed Profile builds were 
 | Change activity and retain draft | PASS | NOT AVAILABLE | NOT AVAILABLE |
 | Select four photos; replace/remove one | PASS | NOT AVAILABLE | NOT AVAILABLE |
 | Reject real multi-person photo | PASS | NOT AVAILABLE | NOT AVAILABLE |
-| Final assessment button unobstructed | PASS (UAT bypass) | NOT AVAILABLE | NOT AVAILABLE |
+| Final assessment button unobstructed | HISTORICAL PASS — temporary test path; superseded by production gate on 2026-07-19 | NOT AVAILABLE | NOT AVAILABLE |
 | Farmer summary, four categorized action groups, and expandable staff detail | PASS | NOT AVAILABLE | NOT AVAILABLE |
 | Thai TTS listening quality | PASS — user reports pronunciation is much improved and acceptable | NOT AVAILABLE | NOT AVAILABLE |
 | Filter month/activity and inspect export | PASS | NOT AVAILABLE | NOT AVAILABLE |
