@@ -1157,3 +1157,43 @@ function predict(records):
 | Android | manifest; `android/app/build.gradle` | portrait/parity/store evidence |
 
 ## เอกสารอ้างอิง
+
+Chen, T., & Guestrin, C. (2016). XGBoost: A scalable tree boosting system.
+In *Proceedings of the 22nd ACM SIGKDD International Conference on Knowledge
+Discovery and Data Mining* (pp. 785–794).
+https://doi.org/10.1145/2939672.2939785
+
+Google for Developers. (2025, August 25). *Logistic regression*.
+https://developers.google.com/machine-learning/crash-course/logistic-regression
+
+Hignett, S., & McAtamney, L. (2000). Rapid entire body assessment (REBA).
+*Applied Ergonomics, 31*(2), 201–205.
+https://doi.org/10.1016/S0003-6870(99)00039-3
+
+International Labour Organization. (2014). *Ergonomic checkpoints in
+agriculture: Practical and easy-to-implement solutions for improving safety,
+health and working conditions in agriculture* (2nd ed.).
+https://www.ilo.org/resource/training-material/ergonomic-checkpoints-agriculture-practical-and-easy-implement-solutions
+
+International Organization for Standardization. (2007a).
+*ISO 11228-2:2007 Ergonomics—Manual handling—Part 2: Pushing and pulling*.
+https://www.iso.org/standard/26521.html
+
+International Organization for Standardization. (2021).
+*ISO 11228-1:2021 Ergonomics—Manual handling—Part 1: Lifting, lowering and
+carrying*. https://www.iso.org/standard/76820.html
+
+International Organization for Standardization. (2026).
+*ISO 11228-3:2026 Ergonomics—Manual handling—Part 3: Handling of low loads at
+high frequency*. https://www.iso.org/standard/11228-3
+
+Microsoft. (n.d.). *ONNX Runtime mobile*.
+https://onnxruntime.ai/docs/get-started/with-mobile.html
+
+TensorFlow. (n.d.). *MoveNet: Ultra fast and accurate pose detection model*.
+https://www.tensorflow.org/hub/tutorials/movenet
+
+หมายเหตุ: source code ของ Sookta 2.1.0 ยังมีข้อความอ้างอิง
+ISO 11228-3:2007 เดิมเพื่อ trace ผลย้อนหลัง แต่ ISO ระบุว่าฉบับนั้นถูกถอน
+เมื่อ 8 พฤษภาคม 2026 และแทนที่ด้วย ISO 11228-3:2026 การเปลี่ยน registry
+ในรอบถัดไปต้องทบทวน mapping และคำแนะนำกับฉบับใหม่ก่อนอ้างใช้ในงานวิจัย
