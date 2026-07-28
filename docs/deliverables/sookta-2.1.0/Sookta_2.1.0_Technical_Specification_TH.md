@@ -26,9 +26,9 @@
 
 เอกสารนี้กำหนดโครงสร้าง สัญญาข้อมูล ลำดับประมวลผล สูตรคำนวณ model
 contract การจัดเก็บ การส่งออก การตั้งค่า platform และหลักฐานทดสอบของ Sookta
-Application 2.1.0 ในระดับที่ทีมพัฒนาสามารถตรวจสอบ implementation และทีมวิจัย
-สามารถแยกส่วนที่อ้างอิง guideline ออกจากส่วนที่เป็น application adaptation
-หรือ research template ได้
+Application 2.1.0 เพื่อให้ตรวจสอบ implementation และแยกส่วนที่อ้างอิง
+guideline ออกจากส่วนที่เป็น application adaptation หรือ research template
+ได้อย่างชัดเจน
 
 ### 1.2 ขอบเขตระบบ
 
