@@ -369,8 +369,473 @@ flowchart TD
 
 ## 5. วิธีการคำนวณทั้งหมด
 
-ส่วนนี้รวบรวม input สูตร หน่วย threshold output ตัวอย่าง ข้อจำกัด และ
-source mapping ของการคำนวณทุกกลุ่ม
+ส่วนนี้อธิบาย calculation path ที่มีผลต่อคะแนนหรือข้อมูลวิเคราะห์ของผู้ใช้
+โดยใช้ค่าจาก source snapshot เท่านั้น การปัดเศษเป็นจำนวนเต็มเกิดเฉพาะจุดที่
+ระบุ ส่วนค่าภายในยังเป็น `double`
+
+### 5.1 ระดับความเสี่ยงและคะแนนที่ผู้ใช้เห็น
+
+Sookta ใช้คะแนนแสดงผล 1–9 และ `RiskLevel` 4 ระดับเรียงจากต่ำไปสูง:
+`low`, `medium`, `high`, `veryHigh` สีเป็นเพียงการสื่อสารระดับ ไม่ใช่
+probability ช่วงคะแนนหลังเลือกวิธีลดความเสี่ยงคือ 1–3 ต่ำ, 4–6 ปานกลาง,
+7–8 สูง และ 9 สูงมาก
+
+คะแนน REBA ดิบและคะแนนผู้ใช้ไม่เหมือนกัน การแปลงที่ใช้คือ:
+
+| REBA final score | User score | Risk level |
+|---|---|---|
+| 1 | 1 | ต่ำ |
+| 2 | 2 | ต่ำ |
+| 3 | 3 | ต่ำ |
+| 4 | 4 | ปานกลาง |
+| 5 | 5 | ปานกลาง |
+| 6–7 | 6 | ปานกลาง |
+| 8 | 7 | สูง |
+| 9–10 | 8 | สูง |
+| 11 ขึ้นไป | 9 | สูงมาก |
+
+### 5.2 BMI
+
+```text
+weight_kg = น้ำหนักที่ parse ได้จาก profile
+height_m = height_cm / 100
+BMI = weight_kg / (height_m × height_m)
+```
+
+ถ้าน้ำหนักหรือส่วนสูงไม่มีค่า/ไม่มากกว่า 0 ระบบคืน `null` และแสดงว่าไม่มี
+ข้อมูล BMI เกณฑ์ในแอปคือ ต่ำกว่า 18.5 = น้ำหนักต่ำกว่าเกณฑ์, 18.5 ถึงน้อย
+กว่า 23 = ปกติ, ตั้งแต่ 23 = สูงกว่าช่วง Asian BMI และแสดงผลทศนิยม 1 ตำแหน่ง
+
+**ตัวอย่าง:** 60 กก. และ 160 ซม. ได้ `60 / 1.6² = 23.4375` แสดง `23.4`
+และจัดอยู่ใน “สูงกว่าช่วง Asian BMI”
+
+**ข้อจำกัด:** BMI ไม่สะท้อนองค์ประกอบร่างกายและไม่ใช่การวินิจฉัย Sookta ใช้
+เป็นข้อมูลประกอบ profile/feature research template เท่านั้น ไม่ได้เพิ่ม
+คะแนน REBA หรือ ISO โดยตรง
+
+### 5.3 การเตรียมภาพและ landmark
+
+MoveNet Thunder รับภาพที่ resize เป็น 256×256 และคืน 17 landmark แต่ละจุด
+เป็น `(x, y, confidence)` แบบ normalized ค่า confidence เฉลี่ยของบุคคลต้อง
+มากกว่า 0.2 จึงรับ pose และ landmark รายจุดต้องมากกว่า 0.3 จึงถูกใช้คำนวณ
+มุม MultiPose Lightning นับบุคคลที่ person confidence ตั้งแต่ 0.3; ภาพต้อง
+มีบุคคลที่มั่นใจได้เท่ากับ 1 จึงผ่าน single-person gate
+
+ระบบแปลง landmark เป็น feature สำหรับ XGBoost จำนวน `17 × 3 = 51` ค่า
+โดย clamp แต่ละค่าไว้ 0–1 ถ้าจุดหายใช้ค่า missing ตาม schema
+
+#### 5.3.1 เรขาคณิต 2 มิติ
+
+```text
+midpoint_x = Σx / n
+midpoint_y = Σy / n
+
+vertical_angle = atan2(|Δx|, |Δy|) × 180 / π
+horizontal_tilt = atan2(|Δy|, |Δx|) × 180 / π
+
+three_point_angle =
+  มุมเล็กสุด 0–180 องศาระหว่าง vector (p1-p2) และ (p3-p2)
+```
+
+หัวใช้ midpoint ของจมูกและหูที่มองเห็น ไหล่และสะโพกใช้ midpoint ซ้าย–ขวา
+กรณีซ้าย/ขวามีค่าทั้งคู่ ระบบเลือกคะแนนด้านที่เสี่ยงกว่า
+
+#### 5.3.2 เกณฑ์สร้าง REBA input จาก pose
+
+| องค์ประกอบ | เกณฑ์ใน application |
+|---|---|
+| ลำตัว | ≤5° = 1, ≤20° = 2, ≤60° = 3, >60° = 4 |
+| คอ | ≤20° = 1, >20° = 2 |
+| ต้นแขน | ≤20° = 1, ≤45° = 2, ≤90° = 3, >90° = 4 |
+| ปลายแขนที่ข้อศอก | 60–100° = 1, นอกช่วง = 2 |
+| ขา/เข่า | มุมเข่า <150° = 2, อื่น ๆ = 1 |
+| คอเอียงด้านข้าง | เห็นหูสองข้างและ shoulder tilt >12° |
+| คอบิด | confidence หูซ้าย–ขวาต่างกัน >0.35 |
+| ลำตัวเอียง | ความต่าง shoulder tilt กับ hip tilt >12° |
+| ลำตัวบิด | \|shoulder midpoint x − hip midpoint x\| / torso reference width >0.22 |
+| กางต้นแขน | ระยะ x ศอก–ไหล่ >0.09 normalized unit อย่างน้อยหนึ่งข้าง |
+| ยกไหล่ | ตำแหน่ง y ของศอกสูงกว่าไหล่อย่างน้อยหนึ่งข้าง |
+
+คอเอียง/บิดเพิ่ม neck score 1 แต่ไม่เกิน 3 กางแขนและยกไหล่เพิ่ม upper-arm
+score อย่างละ 1 แต่รวมแล้วไม่เกิน 6 ส่วน trunk twist/side flex ถูกเก็บเป็น
+modifier แยก
+
+#### 5.3.3 การประมาณระยะยกจากภาพ
+
+Sookta สมมติความยาว shoulder–hip = 53 ซม. เพื่อสร้าง scale:
+
+```text
+normalized_units_per_cm = distance(shoulder, hip) / 53
+H = |wrist_x - ankle_x| / normalized_units_per_cm, clamp 25–65 cm
+V = (ankle_y - wrist_y) / normalized_units_per_cm, clamp 0–175 cm
+```
+
+นี่เป็นการประมาณจากภาพ 2D ไม่ใช่การวัดด้วยเครื่องมือ ภาพมุมเฉียง ระยะกล้อง
+เลนส์ การบัง landmark และสัดส่วนร่างกายที่ต่างจากสมมติฐาน 53 ซม. ทำให้ H/V
+คลาดเคลื่อนได้ ผู้ใช้จึงต้องตรวจค่ากับงานจริง
+
+### 5.4 Load และ Activity score ที่แบบประเมินเตรียมให้
+
+```text
+load_score = 0 เมื่อ load ≤ 5 kg
+load_score = 1 เมื่อ 5 < load ≤ 15 kg
+load_score = 2 เมื่อ load > 15 kg
+
+activity_score เริ่ม 0
++1 เมื่อ static_hold_level ≥ 2
++1 เมื่อ frequency > 4
++1 เมื่อ frequency ≥ 12 หรือ duration_hours ≥ 4
+clamp 0–3
+```
+
+ค่าดังกล่าวเป็นการประยุกต์ของ Sookta จากข้อมูลเครื่องมือและ workload ใน
+หน้าจอ ไม่ควรตีความว่า pose model วัดน้ำหนัก แรง หรือระยะเวลาจาก pixel ได้
+
+### 5.5 REBA
+
+#### 5.5.1 ลำดับคำนวณ
+
+```text
+adjusted_trunk = trunk + (twist ? 1 : 0) + (side_flex ? 1 : 0)
+adjusted_wrist = wrist + (wrist_twist ? 1 : 0)
+
+table_A = lookup(neck, adjusted_trunk, legs)
+score_A = table_A + load_score
+
+table_B = lookup(lower_arm, upper_arm, adjusted_wrist)
+score_B = table_B + coupling_score
+
+score_C = lookup(score_A, score_B)
+initial_final = score_C + activity_score
+final_score = Sookta_safety_floor(initial_final, inputs), clamp 1–15
+```
+
+Table A, B และ C ใน `ErgoCalculator` เป็น lookup matrix ของ REBA โดย clamp
+index ก่อนค้นหา: neck 1–3, trunk 1–5, leg 1–4, upper arm 1–6, lower arm
+1–2, wrist 1–3 และ score A/B 1–12 การเก็บ matrix ใน code ป้องกันการ
+ประมาณค่าแบบ linear ซึ่งไม่ตรงกับตาราง
+
+**ตัวอย่างพื้นฐาน:** trunk=1, neck=1, legs=1 ให้ Table A=1 และเมื่อ
+load=0 จึง Score A=1; upper/lower/wrist=1 ให้ Table B=1 และ coupling=0
+จึง Score B=1; Table C(1,1)=1, activity=0 ทำให้ final=1, user score=1,
+ความเสี่ยงต่ำ
+
+#### 5.5.2 Sookta safety floors
+
+Safety floor ต่อไปนี้เป็น **การประยุกต์ของ Sookta** ไม่ใช่ REBA ดั้งเดิม:
+
+- adjusted trunk ≥4 ร่วมกับ neck ≥2 และ activity ≥1: final อย่างน้อย 9
+- adjusted trunk ≥4 ร่วมกับอย่างน้อยหนึ่งเงื่อนไขจาก neck ≥2, activity ≥1,
+  legs ≥2 หรือ upper-limb demand: final อย่างน้อย 8
+- adjusted trunk ≥4 โดยไม่มีเงื่อนไขข้างต้น: final อย่างน้อย 6
+- adjusted trunk ≥3 ร่วมกับ neck ≥2, activity ≥1 และ upper-limb demand:
+  final อย่างน้อย 8
+
+`upper-limb demand` หมายถึง upper arm ≥2, lower arm ≥2 หรือ adjusted wrist
+≥2 เหตุผลของ floor คือไม่ให้ภาพก้มลึกถูกสื่อสารเป็นความเสี่ยงต่ำเพราะ
+modifier รองยังไม่ถูกกรอก แต่การ calibration นี้ต้องประเมินความไว/ความ
+จำเพาะกับข้อมูลภาคสนามเพิ่ม
+
+#### 5.5.3 ความเสี่ยงรายส่วน
+
+ระบบสร้าง body-part risk เพื่ออธิบายผล:
+
+```text
+ถ้า part_score ≥ high_threshold → high
+ถ้า part_score ≥ high_threshold - 1 → medium
+อื่น ๆ → low
+```
+
+threshold คือ trunk 4, neck 2, legs 2, arms 3 จากค่าสูงสุดของ upper/lower
+arm และ wrist 2 การแบ่งนี้เป็นชั้นสื่อสารของ Sookta ไม่ใช่คะแนน REBA
+แยกอวัยวะที่ได้รับการรับรอง
+
+### 5.6 งานยก/ขนย้ายแบบประยุกต์จาก ISO 11228-1
+
+```text
+reference_mass = 25 kg เมื่อ gender ไม่ใช่ female
+reference_mass = 20 kg เมื่อ gender เป็น female
+
+H = max(horizontal_distance_cm, 25)
+HM = clamp(25 / H, 0.7, 1.0)
+VM = clamp(1 - 0.003 × |vertical_height_cm - 75|, 0.7, 1.0)
+RWL = reference_mass × VM × HM × FM × DM
+LI = load_weight / RWL
+```
+
+| Frequency (`liftFrequency`) | FM |
+|---|---|
+| ≤0.2 | 1.00 |
+| ≤1.0 | 0.94 |
+| ≤4.0 | 0.84 |
+| ≤6.0 | 0.75 |
+| >6.0 | 0.50 |
+
+| Transport distance | DM |
+|---|---|
+| ≤2 | 1.00 |
+| ≤10 | 0.85 |
+| ≤20 | 0.75 |
+| >20 | 0.60 |
+
+| LI | User score | Risk |
+|---|---|---|
+| ≤0.50 | 1 | ต่ำ |
+| ≤0.75 | 2 | ต่ำ |
+| ≤1.00 | 3 | ต่ำ |
+| ≤1.50 | 4 | ปานกลาง |
+| ≤2.00 | 5 | ปานกลาง |
+| ≤3.00 | 6 | ปานกลาง |
+| ≤4.00 | 7 | สูง |
+| ≤5.00 | 8 | สูง |
+| >5.00 | 9 | สูง |
+
+**ตัวอย่าง:** ชาย, load 15 กก., H=40 ซม., V=75 ซม., frequency=1,
+distance=5 ได้ HM=0.70 หลัง clamp, VM=1.00, FM=0.94, DM=0.85,
+`RWL=13.9825 kg` และ `LI≈1.073` จึง user score 4 และความเสี่ยงปานกลาง
+
+**ขอบเขตการกล่าวอ้าง:** สูตรนี้ได้รับอิทธิพลจากหลัก manual handling และ
+ISO 11228-1 แต่เป็นสูตรประยุกต์ของ Sookta ที่ลดรูป multiplier หลายตัวและใช้
+reference mass ตามเพศใน code จึงไม่ใช่การคำนวณความสอดคล้อง ISO ฉบับเต็ม
+และไม่ควรใช้แทนนักการยศาสตร์
+
+### 5.7 งานดัน–ดึงแบบประยุกต์จาก ISO 11228-2
+
+```text
+ชาย: initial_limit = 25, sustain_limit = 15
+หญิง: initial_limit = 20, sustain_limit = 12
+
+risk_ratio = max(
+  initial_force / initial_limit,
+  sustain_force / sustain_limit
+)
+```
+
+| Ratio | User score | Risk |
+|---|---|---|
+| ≤0.40 | 1 | ต่ำ |
+| ≤0.60 | 2 | ต่ำ |
+| <0.80 | 3 | ต่ำ |
+| 0.80–0.90 | 4 | ปานกลาง |
+| >0.90–1.00 | 5 | ปานกลาง |
+| >1.00–1.20 | 6 | สูง |
+| >1.20–1.50 | 7 | สูง |
+| >1.50–2.00 | 8 | สูง |
+| >2.00 | 9 | สูง |
+
+**ตัวอย่าง:** ชาย initial=20 และ sustain=12 ได้ ratio สูงสุด
+`max(20/25,12/15)=0.8` จึง user score 4 และความเสี่ยงปานกลาง
+
+แรงจากภาพหรือวิดีโอวัดไม่ได้ ผู้ใช้ต้องกรอก/เลือกค่าที่ใกล้เคียงงานจริง
+หน่วยต้องสอดคล้องกับค่า limit ในแอป และสูตรนี้ไม่ครอบคลุมทุกตัวแปรของ
+ISO 11228-2 เช่น handle geometry, floor, acceleration และประชากรอ้างอิง
+
+### 5.8 Combined result และ XGBoost/ONNX guardrail
+
+เมื่องานมีทั้ง REBA และ lifting/push–pull:
+
+```text
+combined_risk = max(REBA risk, ISO-app risk)
+combined_user_score = max(REBA user score, ISO-app user score)
+body_part_risk[part] = max(REBA part risk, ISO-app part risk)
+suggestions = unique(REBA suggestions ∪ ISO suggestions)
+```
+
+ค่า `techScore` ของ combined result ถูกตั้งเท่ากับ user score สูงสุดเพื่อ
+หลีกเลี่ยงการนำ REBA score ดิบกับ ratio คนละหน่วยมาบวกกัน
+
+XGBoost ONNX ใช้ feature 51 ค่าและ threshold probability ตาม model
+configuration: ปานกลาง 0.272727, สูง 0.636364 และสูงมาก 0.909091 ระบบเลือก
+ผล frame ที่มีระดับสูงสุด แล้วเลือก confidence สูงสุดเมื่อระดับเท่ากัน
+
+Guardrail **เพิ่มได้แต่ลดไม่ได้**:
+
+```text
+ถ้า XGBoost risk ≤ formula risk → คง formula result และแนบ alert
+ถ้าสูงกว่า → ยกระดับ risk และ floor user score:
+medium ≥4, high ≥7, veryHigh ≥9
+```
+
+model metadata ระบุ training 298 ตัวอย่าง, holdout 90 และ holdout risk
+accuracy 0.6667 โดยข้อมูลมีเฉพาะ high/veryHigh 236/152 ตัวอย่าง และ
+`calibrationMatchedSampleCount=0` จึงเหมาะกับ research-prototype guardrail
+ไม่ใช่ผลวินิจฉัยหรือหลักฐาน validation ขั้นสุดท้าย หาก ONNX load/inference
+ไม่สำเร็จ ระบบคืน `null` และใช้สูตรหลักต่อ
+
+`RiskAlertModelService` ที่รวม logistic กับ tree แบบเดิมถูกกำกับว่า
+**Deprecated** และไม่ใช่ production assessment path
+
+### 5.9 สรุปการเคลื่อนไหวจากวิดีโอ
+
+วิดีโอไม่เกิน 20 วินาที ถูกสุ่มตัวอย่างสูงสุด 8 frame หาก native channel
+ไม่คืน timestamp ระบบกระจาย timestamp แบบ:
+
+```text
+timestamp_i = round(duration_ms × (i + 1) / (frame_count + 1))
+```
+
+จาก frame ที่ pose อ่านได้:
+
+```text
+ratio = จำนวน frame ที่เข้าเงื่อนไข / readable_frame_count
+sample_rate_fps = sampled_frame_count / duration_seconds
+estimated_risk_seconds = risk_ratio × duration_seconds
+```
+
+frame เป็น high-risk เมื่อ REBA risk ตั้งแต่ high หรือ REBA score ≥7; deep
+trunk เมื่อ trunk flexion ≥60° ระบบเลือก worst posture จาก REBA score สูงสุด
+และหาส่วนร่างกายเด่นจากจำนวน frame ที่เข้าเกณฑ์ของส่วนนั้น
+
+Motion pattern:
+
+- ratio ของ high risk, any segment risk หรือ deep trunk ≥0.75 =
+  `staticHighRiskHold`
+- movement change ≥2 หรือ ratio ใดข้างต้น ≥0.50 =
+  `repeatedRiskMovement`
+- มี frame เสี่ยงอย่างน้อย 1 = `intermittentWorstPosture`
+- ไม่มี = `stableLowRisk`
+
+movement change เพิ่ม 1 เมื่อมุม trunk/neck/upper arm ระหว่าง frame ติดกันมี
+ค่าสูงสุดต่างกัน ≥20° หรือผลรวมความต่าง ≥35° ค่า estimated seconds เป็น
+การคูณสัดส่วนจาก frame ที่สุ่ม ไม่ใช่เวลาที่ตรวจทุก frame จริง
+
+### 5.10 ผลหลังเลือกวิธีลดความเสี่ยง
+
+คำแนะนำแต่ละ key มี `scoreReduction` 1 หรือ 2 และชุด body part ที่เกี่ยวข้อง
+ค่าลดรวมถูก cap ที่ 4:
+
+```text
+reduction = min(Σ selected_action_reduction, 4)
+after_score = clamp(before_user_score - reduction, 1, 9)
+after_tech_score = max(1, before_tech_score - reduction)
+```
+
+ความเสี่ยงหลังปรับใช้ช่วง user score ใน 5.1 และลด body-part risk ที่ action
+กระทบลงหนึ่งระดับ (`veryHigh→high→medium→low`) ต่อการจำลองหนึ่งครั้ง
+
+**ตัวอย่าง:** ก่อนปรับ score 8 เลือก action 2+1+2 คะแนนรวม 5 แต่ cap เป็น 4
+จึงได้ after score 4 และ risk ปานกลาง
+
+ผลนี้คือ **ศักยภาพเมื่อทำตามวิธีที่เลือก** ไม่ใช่การวัดท่าทางหลังปรับจริง
+หากต้องการยืนยันผล ต้องถ่ายสื่อและทำ assessment ใหม่หลังเปลี่ยนวิธีทำงาน
+
+### 5.11 ผลกระทบทางเศรษฐกิจ
+
+#### 5.11.1 ค่า multiplier และวันหยุดงานสมมติ
+
+| Risk | Multiplier | Lost-work days |
+|---|---|---|
+| ต่ำ | 0 | 0 |
+| ปานกลาง | 0.35 | 2 |
+| สูง | 0.75 | 7 |
+| สูงมาก | 1.00 | 30 |
+
+รายได้ต่อวันมาจาก `incomePerYear / 365` เมื่อรายได้ต่อปีมากกว่า 0; calculation
+service ใช้ 350 บาท/วันเมื่อค่าที่ส่งมาไม่มากกว่า 0
+
+#### 5.11.2 สูตรก่อนปรับ
+
+```text
+body_treatment =
+  Σ(body_part_average_cost × body_part_risk_multiplier)
+
+medical_visit = weighted_average(public/private/clinic) × overall_multiplier
+medicine = survey_average_medicine × overall_multiplier
+travel = survey_average_travel × overall_multiplier
+
+lost_income = max(
+  daily_income × assumed_lost_work_days,
+  survey_average_lost_income × overall_multiplier
+)
+
+reduced_income = survey_average_reduced_income × overall_multiplier
+
+total_cost =
+  body_treatment + medical_visit + medicine + travel
+  + lost_income + reduced_income
+```
+
+`compensationCost` คำนวณและเก็บใน breakdown แต่ `totalCost` ไม่รวม
+compensation เพื่อไม่ให้ยอดที่จ่ายชดเชยถูกนับเป็นความเสียหายซ้ำ
+
+ข้อมูลค่าใช้จ่ายถูกฝังเป็น `treatmentCostRecords` และ `bodyAreaCostRecords`
+จากข้อมูลสำรวจของโครงการ แต่ source snapshot ไม่มีเอกสาร provenance
+ภายนอกที่เพียงพอให้ตรวจ population, ปีราคา หรือ sampling method จึงต้อง
+กำกับว่าเป็นค่าประมาณโครงการ ไม่ใช่อัตราค่ารักษามาตรฐานระดับประเทศ
+
+#### 5.11.3 เปรียบเทียบก่อน–หลัง
+
+```text
+score_reduction = max(0, before_score - after_score)
+effective_reduction = min(score_reduction, 4)
+reduction_rate = min(1, 0.28 × effective_reduction)
+after_impact = round(before_impact × (1 - reduction_rate))
+saved = before_impact - after_impact
+```
+
+ยอดถูก clamp ช่วง 0–999,999 บาท **ตัวอย่าง:** before impact 10,000 บาท,
+score 8→5 ลด 3 จุด อัตราลด 84% ได้ after impact 1,600 บาท และ saved
+8,400 บาท ความสัมพันธ์ 28% ต่อจุดเป็น calibration ของ Sookta ไม่ใช่
+หลักฐานว่าการเลือก action จะลดค่าใช้จ่ายจริงในสัดส่วนดังกล่าว
+
+### 5.12 Daily trend และ Logistic Regression
+
+ระบบเรียง transaction ตามเวลาและใช้ **7 รายการล่าสุด** ของเกษตรกร เมื่อยัง
+ไม่ครบ 7 ให้ `insufficient` และ probability=0 เมื่อครบแล้วคำนวณ feature
+normalized 0–1 แยก REBA และ ISO
+
+ตัวอย่าง feature สำคัญ:
+
+- score normalized: `(score-1)/(9-1)` แล้ว clamp 0–1
+- high/very-high/body-part/ISO days: `count / 7`
+- load: average หรือ max กก. หาร 50
+- lifting frequency/hour หาร 720
+- economic impact เฉลี่ยหาร 40,000
+- trend slope: `(last_score-first_score+8)/16`
+- age หาร 80 และ BMI normalized ช่วง 15–35
+- carrying exposure =
+  `0.45×load + 0.25×duration + 0.20×frequency + 0.10×distance`
+- push/pull exposure =
+  `0.60×force_ratio + 0.25×duration + 0.15×distance`
+
+แต่ละองค์ประกอบของ exposure ถูก clamp 0–1 โดย duration หาร 8 ชั่วโมง,
+distance หาร 20 และ carrying frequency ใช้ `(frequency×60)/720`
+
+Logistic Regression:
+
+```text
+logit = intercept + Σ(beta_i × normalized_feature_i)
+p = 1 / (1 + exp(-logit))
+
+overall_probability = max(p_REBA, p_ISO11228)
+```
+
+หน้าแนวโน้มใช้ probability เพื่อแสดงข้อมูลโมเดล แต่ **ระดับที่แจ้งผู้ใช้ใน
+production code ปัจจุบันมาจากจำนวน REBA high-risk records ก่อนปรับ**:
+
+| High-risk count ใน 7 รายการ | Level |
+|---|---|
+| 0–1 | low |
+| 2–3 | watch |
+| 4–5 | high |
+| 6–7 | critical |
+
+Trend direction ใช้ `last score - first score`: ตั้งแต่ +1 = increasing,
+ไม่เกิน −1 = decreasing, ระหว่างนั้น = stable ค่าเฉลี่ยก่อน/หลังและจำนวน
+record ที่ดีขึ้นเป็น descriptive statistics จาก transaction ชุดเดียวกัน
+
+asset `daily_injury_logistic_model.json` ระบุชัดว่า
+`researchTrained: false` และ coefficient เป็น **Research template** ที่รอ
+fit ด้วย maximum likelihood/cross-entropy จาก outcome label อาการ MSD
+จริง ค่า probability จึงยังห้ามอธิบายเป็นความน่าจะเป็นการบาดเจ็บที่ผ่าน
+validation หรือใช้ตัดสินใจรักษา
+
+### 5.13 ขอบเขตของ “การคำนวณทั้งหมด”
+
+ส่วนนี้ครอบคลุม calculation ที่เปลี่ยนคะแนน ระดับ ความเสี่ยง ประมาณการ
+และ research feature ของ application ไม่รวมเลขลำดับ record, การจัดวางกราฟ
+บน canvas, timestamp ชื่อไฟล์ หรือจำนวนแถว CSV ซึ่งเป็นการคำนวณเพื่อแสดงผล/
+จัดการไฟล์และไม่เปลี่ยนสาระการประเมิน
 
 ## 6. Guideline และการอ้างอิง
 
@@ -398,11 +863,50 @@ configuration
 
 ## ภาคผนวก B ตารางตัวแปร
 
-ภาคผนวกนี้รวบรวมสัญลักษณ์ หน่วย ช่วงค่า และแหล่งที่มาของตัวแปร
+| ตัวแปร | ความหมาย | หน่วย/ช่วง | แหล่งใน application |
+|---|---|---|---|
+| `BMI` | ดัชนีมวลกาย | kg/m² | `UserProfile.bmi` |
+| `x,y` | พิกัด normalized ของ landmark | 0–1 | MoveNet output |
+| `confidence` | ความมั่นใจ landmark/person | 0–1 | MoveNet output |
+| `H` | ระยะแนวนอนมือ–ฐานอ้างอิง | ซม.; app clamp 25–65 | pose estimate หรือผู้ใช้ตรวจ |
+| `V` | ความสูงแนวตั้งมือ | ซม.; app clamp 0–175 | pose estimate หรือผู้ใช้ตรวจ |
+| `HM` | horizontal multiplier | 0.7–1.0 | `calculateLiftingRisk` |
+| `VM` | vertical multiplier | 0.7–1.0 | `calculateLiftingRisk` |
+| `FM` | frequency multiplier | 0.5–1.0 | ตารางใน `calculateLiftingRisk` |
+| `DM` | distance multiplier | 0.6–1.0 | ตารางใน `calculateLiftingRisk` |
+| `RWL` | recommended weight limit ในสูตร app | กก. | ผลคูณ reference mass และ multiplier |
+| `LI` | lifting index ของสูตร app | ratio ≥0 | `load_weight / RWL` |
+| `initial_force` | แรงเริ่มดัน/ดึง | หน่วยเดียวกับ limit ใน app | ผู้ใช้เลือก/กรอก |
+| `sustain_force` | แรงต่อเนื่อง | หน่วยเดียวกับ limit ใน app | ผู้ใช้เลือก/กรอก |
+| `risk_ratio` | อัตราส่วนแรงสูงสุด | ratio ≥0 | `calculatePushPullRisk` |
+| `score_A/B/C` | คะแนน lookup ระหว่างคำนวณ REBA | integer | REBA tables ใน `ErgoCalculator` |
+| `user_score` | คะแนนสื่อสารหน้า UI | 1–9 | mapping ตามวิธีประเมิน |
+| `risk_multiplier` | ตัวคูณประมาณค่าใช้จ่าย | 0, .35, .75, 1 | `EconomicImpactService` |
+| `reduction_rate` | สัดส่วนลดผลกระทบจำลอง | 0–1 | 0.28 ต่อคะแนน สูงสุด 4 คะแนน |
+| `p_REBA` | probability จาก logistic template ฝั่ง REBA | 0–1 | daily model asset |
+| `p_ISO11228` | probability จาก logistic template ฝั่ง ISO | 0–1 | daily model asset |
+| `high_risk_count` | จำนวน REBA high/veryHigh ก่อนปรับ | 0–7 | latest transaction window |
+| `frame_ratio` | จำนวน frame เข้าเงื่อนไข/อ่านได้ | 0–1 | motion summary |
+| `estimated_risk_seconds` | เวลาประมาณจาก frame sample | วินาที | ratio × duration |
 
 ## ภาคผนวก C Source Mapping
 
-ภาคผนวกนี้เชื่อมโยงหัวข้อกับ file, class, method และ test
+| หัวข้อ | Production source | Regression evidence |
+|---|---|---|
+| BMI | `lib/app/app_state.dart` — `UserProfile.bmi`, `bmiCategoryKey` | ตรวจทางอ้อมใน `assessment_export_service_test.dart` และ `training_data_export_service_test.dart` |
+| Pose confidence/geometry | `lib/core/services/pose_estimation_service.dart`; `ErgoCalculator.analyzeRebaPose` | pose/REBA tests ใน `test/` |
+| Multi-person gate | `lib/core/services/multi_person_pose_detector.dart` | `test/multi_person_pose_detector_test.dart` |
+| REBA tables/floors | `lib/core/services/ergo_calculator.dart` — `calculateRebaScoreBreakdown` | `test/ergo_calculator_test.dart` |
+| Lifting | `ErgoCalculator.calculateLiftingRisk` | `test/ergo_calculator_test.dart` |
+| Push/pull | `ErgoCalculator.calculatePushPullRisk` | `test/ergo_calculator_test.dart` |
+| Combined | `ErgoCalculator.calculateCombinedRebaIsoRisk` | `test/ergo_calculator_test.dart` |
+| Video sampling | `lib/core/services/video_frame_extraction_service.dart` และ native channel ของแต่ละ platform | device UAT และ `evaluation_form_image_slots_test.dart` สำหรับ draft frame |
+| Motion summary | `EvaluationFormScreen._buildMotionSummary` | `training_data_export_service_test.dart` และ `assessment_export_service_test.dart` |
+| XGBoost/ONNX | `XGBoostOnnxPredictor`; `_applyXGBoostGuardrail` | `test/ergonomic_risk_prediction_test.dart`; `test/ml_end_to_end_comprehensive_test.dart` |
+| ผลหลังเลือกคำแนะนำ | `InitialRiskScreen._simulateAfter` | initial-risk/widget tests |
+| Economic impact | `lib/core/services/economic_impact_service.dart` | `test/economic_impact_service_test.dart` |
+| Daily trend/logistic | `lib/core/services/daily_injury_prediction_service.dart` | `test/daily_injury_prediction_service_test.dart` |
+| Deprecated ensemble | `lib/core/services/risk_alert_model_service.dart` | compatibility tests เท่านั้น |
 
 ## เอกสารอ้างอิง
 
