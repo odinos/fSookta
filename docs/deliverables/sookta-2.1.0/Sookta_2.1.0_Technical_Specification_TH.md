@@ -304,12 +304,6 @@ role, location, age, gender, weight, height, BMI และ category ณ เว�
 ทำให้ record ยังอธิบายได้เมื่อ profile ถูกแก้หรือลบ `profileForRecord()`
 พยายามคืน current farmer ก่อน หากไม่พบจึง reconstruct จาก snapshot
 
-## 5. State, Persistence and Schema Migration
-
-<!-- DOCX_DIAGRAM:restore-migration -->
-
-## 6. Domain Models and Serialization Contracts
-
 ## 7. Media Ingestion and Quality Gates
 
 ### 7.1 Supported input

@@ -126,6 +126,14 @@ class SooktaDocumentBuilderTests(unittest.TestCase):
         self.assertEqual(max(widths), widths[3])
         self.assertGreater(widths[3], widths[0])
 
+    def test_seven_column_requirement_matrix_fits_a4_width(self) -> None:
+        widths = _table_widths(7)
+
+        self.assertEqual(sum(widths), A4_CONTENT_WIDTH_DXA)
+        self.assertEqual(len(widths), 7)
+        self.assertGreater(widths[2], widths[0])
+        self.assertGreater(widths[6], widths[3])
+
     def test_numbered_and_bullet_lists_use_word_numbering(self) -> None:
         document = self._build_sample()
         list_paragraphs = [

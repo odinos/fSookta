@@ -297,7 +297,10 @@ def _parse_table(lines: list[str], start_index: int) -> tuple[list[list[str]], i
 
 def _table_widths(column_count: int) -> list[int]:
     """Return fixed A4-width columns, with extra room for traceability evidence."""
-    if column_count == 6:
+    if column_count == 7:
+        ratios = (0.13, 0.14, 0.16, 0.13, 0.15, 0.13, 0.16)
+        widths = [round(A4_CONTENT_WIDTH_DXA * ratio) for ratio in ratios]
+    elif column_count == 6:
         ratios = (0.13, 0.17, 0.15, 0.23, 0.15, 0.17)
         widths = [round(A4_CONTENT_WIDTH_DXA * ratio) for ratio in ratios]
     elif column_count == 5:
@@ -314,7 +317,15 @@ def _add_table(document: DocumentObject, rows: list[list[str]]) -> None:
         return
     column_count = max(len(row) for row in rows)
     widths = _table_widths(column_count)
-    compact_font_size = 8.25 if column_count >= 6 else 9.0 if column_count >= 5 else None
+    compact_font_size = (
+        7.5
+        if column_count >= 7
+        else 8.25
+        if column_count >= 6
+        else 9.0
+        if column_count >= 5
+        else None
+    )
     table = document.add_table(rows=len(rows), cols=column_count)
     table.style = "Table Grid"
     table.alignment = WD_TABLE_ALIGNMENT.CENTER
