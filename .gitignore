@@ -71,5 +71,8 @@ DerivedData/
 # QA screenshot artifacts
 qa/screenshots/
 
+# Generated document diagram staging (images are embedded in the DOCX).
+docs/deliverables/**/.*-diagrams/
+
 # Local Superpowers visual companion sessions
 .superpowers/

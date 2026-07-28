@@ -454,7 +454,7 @@ three_point_angle =
 | คอเอียงด้านข้าง | เห็นหูสองข้างและ shoulder tilt >12° |
 | คอบิด | confidence หูซ้าย–ขวาต่างกัน >0.35 |
 | ลำตัวเอียง | ความต่าง shoulder tilt กับ hip tilt >12° |
-| ลำตัวบิด | \|shoulder midpoint x − hip midpoint x\| / torso reference width >0.22 |
+| ลำตัวบิด | `abs(shoulder_midpoint_x - hip_midpoint_x) / torso_reference_width > 0.22` |
 | กางต้นแขน | ระยะ x ศอก–ไหล่ >0.09 normalized unit อย่างน้อยหนึ่งข้าง |
 | ยกไหล่ | ตำแหน่ง y ของศอกสูงกว่าไหล่อย่างน้อยหนึ่งข้าง |
 

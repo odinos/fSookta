@@ -12,6 +12,7 @@ from tooling.sookta_document_builder import (
     A4_CONTENT_WIDTH_DXA,
     BALANCED_PROFILE,
     DiagramSpec,
+    _table_widths,
     build_docx,
 )
 
@@ -34,14 +35,20 @@ class SooktaDocumentBuilderTests(unittest.TestCase):
 ย่อหน้าภาษาไทยสำหรับตรวจรูปแบบ
 
 - รายการแบบจุด
+  พร้อมข้อความต่อเนื่อง
 - รายการแบบจุดลำดับสอง
 
 1. รายการลำดับเลข
+   พร้อมข้อความต่อเนื่อง
 2. รายการลำดับเลขข้อสอง
 
 | ตัวแปร | ความหมาย |
 |---|---|
 | BMI | ดัชนีมวลกาย |
+
+> **หมายเหตุ:** ข้อความอธิบายสำคัญ
+
+1. รายการเริ่มใหม่
 
 <!-- DOCX_DIAGRAM:test-flow -->
 
@@ -91,6 +98,14 @@ class SooktaDocumentBuilderTests(unittest.TestCase):
         self.assertNotIn("<!-- DOCX_DIAGRAM:test-flow -->", "\n".join(
             paragraph.text for paragraph in document.paragraphs
         ))
+        self.assertIn(
+            "หมายเหตุ: ข้อความอธิบายสำคัญ",
+            [paragraph.text for paragraph in document.paragraphs],
+        )
+        self.assertNotIn(
+            ">",
+            "\n".join(paragraph.text for paragraph in document.paragraphs),
+        )
 
     def test_table_geometry_matches_a4_content_width(self) -> None:
         document = self._build_sample()
@@ -103,19 +118,42 @@ class SooktaDocumentBuilderTests(unittest.TestCase):
         self.assertEqual(sum(grid_widths), A4_CONTENT_WIDTH_DXA)
         self.assertEqual(table.autofit, False)
 
+    def test_wide_traceability_table_prioritizes_source_column(self) -> None:
+        widths = _table_widths(6)
+
+        self.assertEqual(sum(widths), A4_CONTENT_WIDTH_DXA)
+        self.assertEqual(len(widths), 6)
+        self.assertEqual(max(widths), widths[3])
+        self.assertGreater(widths[3], widths[0])
+
     def test_numbered_and_bullet_lists_use_word_numbering(self) -> None:
         document = self._build_sample()
         list_paragraphs = [
             paragraph
             for paragraph in document.paragraphs
-            if paragraph.text.startswith("รายการ")
+            if paragraph.text.strip().startswith("รายการ")
         ]
 
-        self.assertEqual(len(list_paragraphs), 4)
+        self.assertEqual(len(list_paragraphs), 5)
         for paragraph in list_paragraphs:
             self.assertIsNotNone(paragraph._p.pPr)
             self.assertIsNotNone(paragraph._p.pPr.numPr)
             self.assertIsNotNone(paragraph._p.pPr.numPr.numId)
+        self.assertIn(
+            "รายการแบบจุด พร้อมข้อความต่อเนื่อง",
+            [paragraph.text.strip() for paragraph in list_paragraphs],
+        )
+        self.assertIn(
+            "รายการลำดับเลข พร้อมข้อความต่อเนื่อง",
+            [paragraph.text.strip() for paragraph in list_paragraphs],
+        )
+        ordered = [
+            paragraph
+            for paragraph in list_paragraphs
+            if paragraph.style.name == "List Number"
+        ]
+        self.assertEqual(ordered[0]._p.pPr.numPr.numId.val, ordered[1]._p.pPr.numPr.numId.val)
+        self.assertNotEqual(ordered[1]._p.pPr.numPr.numId.val, ordered[2]._p.pPr.numPr.numId.val)
 
     def test_all_styles_set_ascii_hansi_eastasia_and_complex_script_to_sarabun(self) -> None:
         document = self._build_sample()

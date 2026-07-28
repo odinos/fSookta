@@ -24,7 +24,8 @@ _A4_CONTENT_WIDTH_INCHES = A4_CONTENT_WIDTH_DXA / 1440
 _DIAGRAM_MARKER = re.compile(r"^<!--\s*DOCX_DIAGRAM:([a-z0-9-]+)\s*-->$")
 _HEADING = re.compile(r"^(#{1,4})\s+(.+)$")
 _UNORDERED_LIST = re.compile(r"^\s*[-*+]\s+(.+)$")
-_ORDERED_LIST = re.compile(r"^\s*\d+[.)]\s+(.+)$")
+_ORDERED_LIST = re.compile(r"^\s*(\d+)[.)]\s+(.+)$")
+_BLOCKQUOTE = re.compile(r"^>\s?(.*)$")
 _IMAGE = re.compile(r"^!\[([^\]]*)]\(([^)]+)\)$")
 _INLINE_TOKEN = re.compile(
     r"(\*\*.+?\*\*|__.+?__|`.+?`|\*[^*]+?\*|_[^_]+?_|"
@@ -170,6 +171,39 @@ def _set_paragraph_numbering(paragraph, num_id: int, level: int = 0) -> None:
     number_id.val = num_id
 
 
+def _new_numbering_instance(
+    document: DocumentObject,
+    *,
+    template_num_id: int,
+    start: int,
+) -> int:
+    numbering = document.part.numbering_part.element
+    template = next(
+        num
+        for num in numbering.findall(qn("w:num"))
+        if int(num.get(qn("w:numId"))) == template_num_id
+    )
+    abstract_id = template.find(qn("w:abstractNumId")).get(qn("w:val"))
+    new_num_id = max(
+        int(num.get(qn("w:numId")))
+        for num in numbering.findall(qn("w:num"))
+    ) + 1
+
+    num = OxmlElement("w:num")
+    num.set(qn("w:numId"), str(new_num_id))
+    abstract = OxmlElement("w:abstractNumId")
+    abstract.set(qn("w:val"), abstract_id)
+    num.append(abstract)
+    override = OxmlElement("w:lvlOverride")
+    override.set(qn("w:ilvl"), "0")
+    start_override = OxmlElement("w:startOverride")
+    start_override.set(qn("w:val"), str(start))
+    override.append(start_override)
+    num.append(override)
+    numbering.append(num)
+    return new_num_id
+
+
 def _append_page_field(paragraph) -> None:
     run = paragraph.add_run()
     begin = OxmlElement("w:fldChar")
@@ -261,12 +295,26 @@ def _parse_table(lines: list[str], start_index: int) -> tuple[list[list[str]], i
     return rows, index
 
 
+def _table_widths(column_count: int) -> list[int]:
+    """Return fixed A4-width columns, with extra room for traceability evidence."""
+    if column_count == 6:
+        ratios = (0.13, 0.17, 0.15, 0.23, 0.15, 0.17)
+        widths = [round(A4_CONTENT_WIDTH_DXA * ratio) for ratio in ratios]
+    elif column_count == 5:
+        ratios = (0.16, 0.19, 0.20, 0.25, 0.20)
+        widths = [round(A4_CONTENT_WIDTH_DXA * ratio) for ratio in ratios]
+    else:
+        widths = [A4_CONTENT_WIDTH_DXA // column_count] * column_count
+    widths[-1] += A4_CONTENT_WIDTH_DXA - sum(widths)
+    return widths
+
+
 def _add_table(document: DocumentObject, rows: list[list[str]]) -> None:
     if not rows:
         return
     column_count = max(len(row) for row in rows)
-    widths = [A4_CONTENT_WIDTH_DXA // column_count] * column_count
-    widths[-1] += A4_CONTENT_WIDTH_DXA - sum(widths)
+    widths = _table_widths(column_count)
+    compact_font_size = 8.25 if column_count >= 6 else 9.0 if column_count >= 5 else None
     table = document.add_table(rows=len(rows), cols=column_count)
     table.style = "Table Grid"
     table.alignment = WD_TABLE_ALIGNMENT.CENTER
@@ -286,9 +334,14 @@ def _add_table(document: DocumentObject, rows: list[list[str]]) -> None:
             if row_index == 0:
                 _set_cell_shading(cell, "DDEBF7")
             paragraph = cell.paragraphs[0]
-            paragraph.paragraph_format.space_after = Pt(2)
+            paragraph.paragraph_format.space_after = Pt(1 if compact_font_size else 2)
+            if compact_font_size:
+                paragraph.paragraph_format.line_spacing = 1.0
             value = row_values[column_index] if column_index < len(row_values) else ""
             _add_inline_markdown(paragraph, value)
+            if compact_font_size:
+                for run in paragraph.runs:
+                    run.font.size = Pt(compact_font_size)
             if row_index == 0:
                 for run in paragraph.runs:
                     run.bold = True
@@ -456,6 +509,27 @@ def _add_rule(document: DocumentObject) -> None:
     properties.append(borders)
 
 
+def _add_blockquote(document: DocumentObject, text: str) -> None:
+    paragraph = document.add_paragraph()
+    paragraph.paragraph_format.left_indent = Cm(0.6)
+    paragraph.paragraph_format.right_indent = Cm(0.2)
+    properties = paragraph._p.get_or_add_pPr()
+
+    borders = OxmlElement("w:pBdr")
+    left = OxmlElement("w:left")
+    left.set(qn("w:val"), "single")
+    left.set(qn("w:sz"), "16")
+    left.set(qn("w:space"), "8")
+    left.set(qn("w:color"), "4F81BD")
+    borders.append(left)
+    properties.append(borders)
+
+    shading = OxmlElement("w:shd")
+    shading.set(qn("w:fill"), "EEF5FB")
+    properties.append(shading)
+    _add_inline_markdown(paragraph, text)
+
+
 def build_docx(
     markdown_path: Path,
     output_path: Path,
@@ -477,6 +551,7 @@ def build_docx(
     index = 0
     in_code_fence = False
     code_language = ""
+    ordered_num_id: int | None = None
     while index < len(lines):
         raw_line = lines[index]
         line = raw_line.rstrip()
@@ -500,16 +575,19 @@ def build_docx(
             continue
 
         if not stripped:
+            ordered_num_id = None
             index += 1
             continue
 
         if stripped == "<!-- PAGE_BREAK -->":
+            ordered_num_id = None
             document.add_page_break()
             index += 1
             continue
 
         diagram_match = _DIAGRAM_MARKER.match(stripped)
         if diagram_match:
+            ordered_num_id = None
             key = diagram_match.group(1)
             if key not in diagrams:
                 raise KeyError(f"Missing DiagramSpec for marker: {key}")
@@ -518,11 +596,13 @@ def build_docx(
             continue
 
         if stripped.startswith("<!--") and stripped.endswith("-->"):
+            ordered_num_id = None
             index += 1
             continue
 
         heading_match = _HEADING.match(stripped)
         if heading_match:
+            ordered_num_id = None
             level = len(heading_match.group(1))
             text = heading_match.group(2)
             style = "Title" if level == 1 else f"Heading {min(level - 1, 3)}"
@@ -532,28 +612,63 @@ def build_docx(
             continue
 
         if stripped.startswith("|") and stripped.endswith("|"):
+            ordered_num_id = None
             rows, index = _parse_table(lines, index)
             _add_table(document, rows)
             continue
 
         unordered_match = _UNORDERED_LIST.match(line)
         if unordered_match:
+            ordered_num_id = None
+            item_lines = [unordered_match.group(1)]
+            index += 1
+            while index < len(lines):
+                continuation = lines[index]
+                if not continuation.strip() or not continuation[:1].isspace():
+                    break
+                if (
+                    _UNORDERED_LIST.match(continuation)
+                    or _ORDERED_LIST.match(continuation)
+                    or _BLOCKQUOTE.match(continuation.strip())
+                ):
+                    break
+                item_lines.append(continuation.strip())
+                index += 1
             paragraph = document.add_paragraph(style="List Bullet")
             _set_paragraph_numbering(paragraph, num_id=1)
-            _add_inline_markdown(paragraph, unordered_match.group(1))
-            index += 1
+            _add_inline_markdown(paragraph, " ".join(item_lines))
             continue
 
         ordered_match = _ORDERED_LIST.match(line)
         if ordered_match:
-            paragraph = document.add_paragraph(style="List Number")
-            _set_paragraph_numbering(paragraph, num_id=5)
-            _add_inline_markdown(paragraph, ordered_match.group(1))
+            if ordered_num_id is None:
+                ordered_num_id = _new_numbering_instance(
+                    document,
+                    template_num_id=5,
+                    start=int(ordered_match.group(1)),
+                )
+            item_lines = [ordered_match.group(2)]
             index += 1
+            while index < len(lines):
+                continuation = lines[index]
+                if not continuation.strip() or not continuation[:1].isspace():
+                    break
+                if (
+                    _UNORDERED_LIST.match(continuation)
+                    or _ORDERED_LIST.match(continuation)
+                    or _BLOCKQUOTE.match(continuation.strip())
+                ):
+                    break
+                item_lines.append(continuation.strip())
+                index += 1
+            paragraph = document.add_paragraph(style="List Number")
+            _set_paragraph_numbering(paragraph, num_id=ordered_num_id)
+            _add_inline_markdown(paragraph, f"\u00a0{' '.join(item_lines)}")
             continue
 
         image_match = _IMAGE.match(stripped)
         if image_match:
+            ordered_num_id = None
             alt_text, image_reference = image_match.groups()
             image_path = (markdown_path.parent / image_reference).resolve()
             _add_image(document, image_path, alt_text)
@@ -561,11 +676,27 @@ def build_docx(
             continue
 
         if stripped in ("---", "***", "___"):
+            ordered_num_id = None
             _add_rule(document)
             index += 1
             continue
 
+        blockquote_match = _BLOCKQUOTE.match(stripped)
+        if blockquote_match:
+            ordered_num_id = None
+            quote_lines = [blockquote_match.group(1)]
+            index += 1
+            while index < len(lines):
+                next_match = _BLOCKQUOTE.match(lines[index].strip())
+                if next_match is None:
+                    break
+                quote_lines.append(next_match.group(1))
+                index += 1
+            _add_blockquote(document, " ".join(quote_lines))
+            continue
+
         paragraph_lines = [stripped]
+        ordered_num_id = None
         index += 1
         while index < len(lines):
             candidate = lines[index].strip()
@@ -574,6 +705,7 @@ def build_docx(
                 or candidate.startswith(("#", "```", "|", "<!--", "!["))
                 or _UNORDERED_LIST.match(lines[index])
                 or _ORDERED_LIST.match(lines[index])
+                or _BLOCKQUOTE.match(candidate)
                 or candidate in ("---", "***", "___")
             ):
                 break
