@@ -312,17 +312,398 @@ role, location, age, gender, weight, height, BMI และ category ณ เว�
 
 ## 7. Media Ingestion and Quality Gates
 
+### 7.1 Supported input
+
+หน้า `EvaluationFormScreen` รองรับภาพนิ่ง 1–4 ช่องในระดับ state แต่
+production readiness กำหนดให้ครบ 4 มุม วิดีโอรับจากกล้องหรือ gallery
+ความยาวไม่เกิน 20 วินาทีและแยกได้สูงสุด 8 frames หลังรับ media ระบบต้อง
+เรียก pose analysis ใหม่และ invalidate pose/XGBoost result เดิม
+
+ภาพจาก picker/camera และ frame จากวิดีโอถูกอ้างด้วย local path ก่อนบันทึก
+draft จะคัดลอกผ่าน `LocalImageStore.saveImageFile()` ไป application
+Documents directory เพื่อไม่ให้ temporary picker path หาย
+
+### 7.2 Video native contract
+
+`VideoFrameExtractionService` ใช้ `MethodChannel('sookta/video_frames')`
+พร้อม method:
+
+| Method | Request | Response | Validation |
+|---|---|---|---|
+| `getVideoDurationMs` | `{path}` | positive `int` ms | null/≤0 → exception |
+| `extractFrames` | `{path,maxDurationMs,maxFrames}` | duration, paths, timestamps | duration ≤20s และ frame ไม่ว่าง |
+
+ถ้าจำนวน timestamp ไม่เท่าจำนวน frame Dart layer สร้าง timestamp แบบกระจาย
+เท่ากันที่ `duration × (index+1)/(frameCount+1)` native implementation ของ
+iOS และ Android ต้องคืน path ที่ Flutter process อ่านได้
+
+### 7.3 Single-person gate
+
+ทุกภาพผ่าน `MultiPersonPoseDetector.countPeopleFromFile()` ซึ่ง resize เป็น
+256×256 และเรียก `movenet_multipose_lightning.tflite` output รองรับสูงสุด
+6 คน คนหนึ่งนับเมื่อ person score ที่ index 55 ≥0.3
+`requiresSinglePersonReplacement(count)` คืน true เมื่อ count ไม่เท่ากับ 1
+ดังนั้นทั้งศูนย์คนและหลายคนต้องเปลี่ยนภาพ
+
+### 7.4 Pose readability
+
+`PoseEstimationService.estimatePoseFromFile()` decode และ resize 256×256
+โหลด `assets/ml/movenet_thunder.tflite` ด้วย 4 threads และอ่าน output
+`[1,1,17,3]` เป็น `(y,x,score)` ค่า person score คือค่าเฉลี่ย 17 keypoints
+ถ้า ≤0.2 คืน null ส่วนจุดที่ใช้คำนวณมิติยกต้องมี confidence >0.3
+
+### 7.5 Composite readiness
+
+`AssessmentReadiness.canAnalyze` เป็นจริงเมื่อ:
+
+```text
+hasMedia
+AND NOT hasImageQualityIssues
+AND poseAssessmentReady
+AND NOT poseBusy
+AND requiredDataIssues.isEmpty
+```
+
+quality issue รวมภาพไม่ครบ 4 มุม อ่าน pose ไม่ได้ มี unreadable frame หรือ
+มีจำนวนคนไม่เท่ากับหนึ่ง required data issue รวม duration/work days ≤0,
+frequency <0, tool ไม่อยู่ใน activity และค่าระยะ/แรงที่จำเป็นไม่เป็นจำนวนบวก
+ปุ่ม “ดูผลประเมิน” ใน production ผูกกับเงื่อนไขนี้ ไม่มี bypass
+
 ## 8. Assessment Processing Pipeline
 
 <!-- DOCX_DIAGRAM:assessment-sequence -->
 
+### 8.1 Processing sequence
+
+1. รับ/copy media และสร้าง timestamp metadata
+2. ตรวจจำนวนคนทุก frame
+3. เรียก MoveNet Thunder และตัด frame ที่อ่าน pose ไม่ได้
+4. สร้าง 51 joint features ตาม schema เมื่อ loader พร้อม
+5. แปลง pose เป็น `RebaInputData` ต่อ frame
+6. เลือก frame ที่ REBA score สูงสุดเป็น worst posture
+7. สรุป motion สำหรับ source ชนิดวิดีโอ
+8. คำนวณ REBA และ branch ISO-style ตาม `JobType`
+9. รวมผลด้วย maximum-risk rule
+10. ใช้ XGBoost/ONNX เป็น upward-only guardrail เมื่อ inference สำเร็จ
+11. สร้าง `AssessmentBreakdown`, save draft และส่ง `InitialRiskPayload`
+12. ผู้ใช้เลือก action; ระบบจำลอง after result และยืนยันก่อนบันทึก history
+
+### 8.2 Job dispatch
+
+| `JobType` | Primary calculation | ISO-style branch | `AssessmentMethod` |
+|---|---|---|---|
+| `reba` | REBA | ไม่มี | `reba` |
+| `lifting` | REBA | `calculateLiftingRisk` | `rebaIsoCombined` |
+| `pushPull` | REBA | `calculatePushPullRisk` | `rebaIsoCombined` |
+
+activity กำหนด default job type แต่เจ้าหน้าที่สามารถเปลี่ยนได้ จึงห้าม
+อนุมาน method จากชื่อกิจกรรมเพียงอย่างเดียว
+
+### 8.3 Frame aggregation
+
+`_worstFrame()` ใช้ `rebaScore` สูงสุดโดยถ้าเท่ากันคง frame ก่อนหน้า
+motion ratio ใช้ readable frame เป็น denominator:
+
+```text
+ratio = matching_frame_count / readable_frame_count
+sample_rate_fps = sampled_frame_count / duration_seconds
+estimated_seconds = ratio × duration_seconds
+```
+
+movement change เพิ่มหนึ่งเมื่อระหว่าง frame ติดกัน max delta ของ
+trunk/neck/upper-arm ≥20° หรือผลรวม delta ≥35° ค่า estimated seconds เป็น
+การอนุมานจาก sampling ไม่ใช่ continuous measurement
+
 ## 9. Algorithm Specifications
+
+### 9.1 Method contract summary
+
+| Method | Input → Output | Unit/Range | Test |
+|---|---|---|---|
+| `UserProfile.bmi` | profile text → `double?` | kg/m² | app-state/export tests |
+| `analyzeRebaPose` | `Person, RebaInputData` → frame analysis | degree, score | pose/REBA regression |
+| `calculateRebaScoreBreakdown` | REBA input → lookup detail | final 1–15 | `ergo_calculator_test.dart` |
+| `calculateRebaRisk` | REBA input → `ErgoResult` | UI score 1–9 | `ergo_calculator_test.dart` |
+| `calculateLiftingRisk` | ergonomic input → RWL/LI result | kg, ratio | `ergo_calculator_test.dart` |
+| `calculatePushPullRisk` | ergonomic input → force ratio | ratio | `ergo_calculator_test.dart` |
+| `calculateCombinedRebaIsoRisk` | two results → combined | maximum risk/score | calculator/ML tests |
+| `EconomicImpactService.estimate` | risk/income/body map → cost breakdown | บาท | economic tests |
+| `compareBeforeAfter` | before impact/scores → comparison | บาท, 0–1 | economic tests |
+| `featureValuesForWindow` | 7 history records → normalized features | 0–1 | daily prediction tests |
+
+### 9.2 BMI
+
+```text
+weight_kg = parse(profile.weight)
+height_m = parse(profile.height) / 100
+BMI = weight_kg / (height_m × height_m)
+```
+
+คืน null ถ้า parse ไม่ได้หรือค่า ≤0 category คือ <18.5 underweight,
+18.5–<23 normal และ ≥23 above Asian BMI range แสดงทศนิยม 1 ตำแหน่ง BMI
+เป็น profile/research feature ไม่เข้าคะแนน REBA หรือ ISO โดยตรง
+
+### 9.3 Pose geometry to REBA input
+
+จุดที่ confidence ≤0.3 ถือว่าไม่พร้อมสำหรับ geometry helper มุมแนวดิ่ง:
+
+```text
+vertical_angle = atan2(abs(delta_x), abs(delta_y)) × 180 / pi
+horizontal_tilt = atan2(abs(delta_y), abs(delta_x)) × 180 / pi
+three_point_angle = angle ระหว่าง vector (p1-p2) และ (p3-p2), clamp 0–180
+```
+
+threshold:
+
+| Component | Mapping |
+|---|---|
+| trunk | ≤5°→1, ≤20°→2, ≤60°→3, >60°→4 |
+| neck | ≤20°→1, >20°→2; side/twist เพิ่ม 1 สูงสุด 3 |
+| upper arm | ≤20°→1, ≤45°→2, ≤90°→3, >90°→4; abduction/elevation เพิ่มอย่างละ 1 สูงสุด 6 |
+| lower arm | 60–100°→1, นอกช่วง→2 |
+| legs | knee angle <150°→2, อื่น→1 |
+| neck side bending | เห็นสอง ear และ shoulder tilt >12° |
+| trunk side bending | abs(shoulder tilt − hip tilt) >12° |
+| trunk twisting | abs(shoulder midpoint x − hip midpoint x)/torso width >0.22 |
+
+มิติยกประเมิน scale จาก shoulder–hip =53 ซม.:
+
+```text
+units_per_cm = distance(shoulder, hip) / 53
+H = abs(wrist.x - ankle.x) / units_per_cm, clamp 25–65 cm
+V = (ankle.y - wrist.y) / units_per_cm, clamp 0–175 cm
+```
+
+ค่าดังกล่าวเป็น pose estimate ผู้ใช้ต้องตรวจแก้เมื่อภาพ perspective ต่างจาก
+สมมติฐาน
+
+### 9.4 REBA
+
+`calculateRebaScoreBreakdown()` ใช้ lookup matrix:
+
+```text
+adjusted_trunk = trunk + twist_modifier + side_flex_modifier
+adjusted_wrist = wrist + wrist_twist_modifier
+table_A = lookup(neck, adjusted_trunk, legs)
+score_A = table_A + load_score
+table_B = lookup(lower_arm, upper_arm, adjusted_wrist)
+score_B = table_B + coupling_score
+score_C = lookup(score_A, score_B)
+raw_final = score_C + activity_score
+final = apply_Sookta_safety_floors(raw_final), clamp 1–15
+```
+
+lookup index ถูก clamp ตาม matrix: neck 1–3, trunk 1–5, legs 1–4,
+upper arm 1–6, lower arm 1–2, wrist 1–3 และ A/B score 1–12
+
+Sookta safety floors:
+
+- severe trunk ≥4 + neck ≥2 + activity ≥1 → final อย่างน้อย 9
+- severe trunk ≥4 + อย่างน้อยหนึ่งใน neck/activity/legs/upper-limb demand
+  → อย่างน้อย 8
+- severe trunk ≥4 เพียงอย่างเดียว → อย่างน้อย 6
+- adjusted trunk ≥3 + neck + activity + upper-limb demand → อย่างน้อย 8
+
+การ map final score ไป UI: 1→1, 2→2, 3→3, 4→4, 5→5, 6–7→6,
+8→7, 9–10→8, ≥11→9 ความเสี่ยง REBA: ≤3 low, ≤7 medium,
+≤10 high, >10 veryHigh
+
+### 9.5 ISO 11228-1 style lifting/carrying approximation
+
+```text
+reference_mass = 20 kg เมื่อ gender == female, นอกนั้น 25 kg
+H = max(horizontalDist, 25)
+HM = clamp(25/H, 0.7, 1.0)
+VM = clamp(1 - 0.003×abs(verticalHeight-75), 0.7, 1.0)
+FM = 1.00/0.94/0.84/0.75/0.50 ตาม frequency ≤0.2/≤1/≤4/≤6/>6
+DM = 1.00/0.85/0.75/0.60 ตาม distance ≤2/≤10/≤20/>20
+RWL = reference_mass × VM × HM × FM × DM
+LI = loadWeight / RWL; ถ้า RWL≤0 ใช้ 99
+```
+
+LI map ไป user score: ≤0.5→1, ≤0.75→2, ≤1→3, ≤1.5→4,
+≤2→5, ≤3→6, ≤4→7, ≤5→8, >5→9 risk คือ ≤1 low,
+≤3 medium, >3 high
+
+สูตรนี้เป็น mobile screening approximation ใช้ multiplier บางส่วนจาก
+implementation ไม่ใช่ full-standard ISO assessment หรือ certification
+
+### 9.6 ISO 11228-2 style push/pull approximation
+
+```text
+limits male   = initial 25, sustained 15
+limits female = initial 20, sustained 12
+risk_ratio = max(initialForce/initialLimit, sustainForce/sustainLimit)
+```
+
+ratio map ไป user score: ≤0.4→1, ≤0.6→2, <0.8→3, ≤0.9→4,
+≤1→5, ≤1.2→6, ≤1.5→7, ≤2→8, >2→9 risk คือ <0.8 low,
+0.8–1 medium และ >1 high หน่วย force ต้องตรงกับ limit ที่แอปสื่อสาร
+implementation นี้ไม่ครอบคลุมตัวแปรมาตรฐานทุกตัว
+
+### 9.7 Combined result
+
+`calculateCombinedRebaIsoRisk()` เลือก risk และ user score สูงสุด รวม
+body-part map โดยเลือก risk สูงสุดต่อส่วน รวม suggestion key แบบ unique และ
+คำนวณ economic impact ใหม่ `techScore` ของ combined result เท่ากับ
+combined user score เพื่อไม่ผสม REBA raw score กับ LI/force ratio
+
+### 9.8 Simulation หลังเลือก action
+
+แต่ละ recommendation key ลด 1 หรือ 2 คะแนน ผลรวม cap ที่ 4:
+
+```text
+reduction = min(sum(selected_action_reduction), 4)
+after_score = clamp(before_user_score - reduction, 1, 9)
+after_tech_score = max(1, before_tech_score - reduction)
+```
+
+body-part risk ที่ action ครอบคลุมลดลงหนึ่งระดับ และ breakdown ของ REBA/ISO
+ถูกจำลองในแนวเดียวกัน นี่คือ potential impact simulation ไม่ใช่การวัดท่าจริง
+หลังปรับ หากต้องการผลจริงต้องเก็บ media และประเมินใหม่
+
+### 9.9 Economic impact
+
+ถ้า overall risk = low คืนทุกค่าเป็นศูนย์ มิฉะนั้น:
+
+```text
+body_treatment = sum(body_part_average_cost × body_part_risk_multiplier)
+medical_visit = weighted_average(public/private/clinic) × overall_multiplier
+medicine = survey_average_medicine × overall_multiplier
+travel = survey_average_travel × overall_multiplier
+lost_income = max(daily_income × assumed_lost_days,
+                  survey_average_lost_income × overall_multiplier)
+reduced_income = survey_average_reduced_income × overall_multiplier
+total = body_treatment + medical_visit + medicine + travel
+        + lost_income + reduced_income
+```
+
+risk multiplier = low 0, medium 0.35, high 0.75, veryHigh 1.0
+lost days = 0/2/7/30 ตามลำดับ รายได้ต่อวันใช้ `incomePerYear/365` เมื่อ >0
+มิฉะนั้น 350 บาท compensation อยู่ใน breakdown แต่ไม่รวม `totalCost`
+
+การเปรียบเทียบก่อน–หลัง:
+
+```text
+score_reduction = max(0, before_score-after_score)
+effective_reduction = min(score_reduction, 4)
+reduction_rate = min(1, 0.28 × effective_reduction)
+after_impact = round(before_impact × (1-reduction_rate))
+saved = before_impact-after_impact
+```
+
+### 9.10 Daily trend และ Logistic Regression
+
+เรียง record ตามเวลาและใช้ 7 รายการล่าสุด ถ้าน้อยกว่า 7 คืน
+`hasEnoughData=false`, probability 0 และระดับ insufficient เมื่อครบ 7:
+
+```text
+logit = intercept + sum(beta_i × normalized_feature_i)
+p = sigmoid(logit)
+p_overall = max(p_REBA, p_ISO11228) เมื่อ asset มีสองสมการ
+```
+
+อย่างไรก็ตามระดับที่ UI ใช้ใน production มาจากจำนวน REBA high/veryHigh:
+0–1 low, 2–3 watch, 4–5 high, 6–7 critical ไม่ได้ใช้ probability เป็น
+validated injury decision trend = last-first: ≥1 increasing, ≤−1 decreasing,
+นอกนั้น stable
+
+feature หลัก normalize 0–1 ได้แก่ score 1–9, count/7, load/50,
+frequency per hour/720, economic loss/40,000, age/80, BMI 15–35,
+carrying exposure = 0.45 load +0.25 duration +0.20 frequency +0.10 distance
+และ push/pull exposure = 0.60 force ratio +0.25 duration +0.15 distance
 
 ## 10. Machine Learning Assets and Inference Contracts
 
 <!-- DOCX_DIAGRAM:model-contracts -->
 
+### 10.1 Asset registry
+
+| Layer | Asset | Input/Output | Production status |
+|---|---|---|---|
+| Single pose | `assets/ml/movenet_thunder.tflite` | image 256×256 →17 keypoints | production pose input |
+| Multi pose | `assets/ml/movenet_multipose_lightning.tflite` | image 256×256 →≤6 pose rows | production single-person gate |
+| Feature schema | `assets/models/joint_feature_schema.json` | 17×(x,y,score)=51 | production contract |
+| Posture risk | `assets/models/xgboost_model.onnx` | Float32 `[1,51]` → probability/logit | upward-only research guardrail |
+| XGBoost metadata | `assets/models/xgboost_model_metadata.json` | provenance/threshold/metrics | traceability |
+| Daily trend | `assets/ml/daily_injury_logistic_model.json` | 7-record normalized features → probabilities | template; UI level count-based |
+| Legacy posture logistic | `assets/models/logistic_weights.json` | 51→71 engineered features | not packaged/ไม่ใช้ assessment ปัจจุบัน |
+| Deprecated alert ensemble | `assets/ml/risk_alert_models.json` | assessment feature vector | compatibility path ไม่ใช่ production assessment |
+
+### 10.2 Joint feature schema
+
+schema ID `movenet-thunder-v1-17x3-normalized`, feature count 51, order คือ
+landmark index จาก nose ถึง rightAnkle และภายในแต่ละ landmark เป็น x, y,
+score ช่วง 0–1 ค่า missing คือ `[0,0,0]` และ clip to range
+`MoveNetJointFeatureExtractor` ต้อง validate schema ก่อน extract
+
+### 10.3 XGBoost ONNX runtime
+
+`XGBoostOnnxPredictor` โหลด asset ด้วย ONNX Runtime, input name `input`,
+ตรวจ vector ไม่ว่าง จำนวนเท่ากับ schema และทุกค่า finite แล้วสร้าง
+Float32 tensor `[1,featureCount]` หาก output มีอย่างน้อยสองตัวใช้ค่าตัวที่สอง
+เป็น probability มิฉะนั้นใช้ตัวแรก ถ้าค่านอก 0–1 ถือเป็น logit และผ่าน
+sigmoid
+
+threshold default: medium 0.272727, high 0.636364, veryHigh 0.909091
+หน้า form รันทุก frame ที่มี features แล้วเลือกผลที่ risk สูงสุด; ถ้า risk
+เท่ากันเลือก confidence สูงสุด error ใดคืน null เพื่อให้สูตรหลักทำงานต่อ
+
+guardrail:
+
+```text
+ถ้า xgb_risk <= formula_risk: คง result และแนบ alert
+ถ้าสูงกว่า: ยกระดับ risk และ floor score เป็น medium≥4, high≥7, veryHigh≥9
+```
+
+model metadata ระบุ training 298, holdout 90, risk distribution มีเฉพาะ
+high/veryHigh และ holdout risk accuracy 0.6667 จึงห้ามกล่าวอ้างว่า validated
+สำหรับประชากรหรือทำนายการบาดเจ็บ
+
+### 10.4 Daily model contract
+
+asset version `daily-injury-logistic-template-2026-06-14` กำหนดขั้นต่ำ
+7 transactions และสมการ REBA/ISO แยกกัน แต่ `trainingStatus.researchTrained`
+เป็น false เนื่องจากไม่มี confirmed seven-transaction MSD symptom outcome
+coefficients เป็น template จนกว่าจะ fit ด้วย maximum likelihood/
+cross-entropy จาก label จริง
+
+### 10.5 Resource lifecycle
+
+TFLite/ONNX interpreter ถูก cache ต่อ service/predictor instance และมี
+`dispose()` ปิด resource หน้าจอต้องไม่สร้าง model ต่อ frame ONNX input,
+run options และ output ถูก release ใน `finally`; model/session failure
+แปลงเป็น typed exception ใน predictor และถูก UI fallback เป็น formula result
+
 ## 11. Recommendation Engine
+
+### 11.1 Four-category contract
+
+`RiskRecommendationService.farmerRecommendations()` ต้องคืนรายการ action
+ที่อ่านง่ายแยก 4 หมวด:
+
+1. `activityPosture` — ท่าทางเฉพาะกิจกรรม
+2. `riskReduction` — วิธีลด hazard/load/force
+3. `restRecovery` — พัก ฟื้นตัว และ rotation
+4. `workloadSupport` — เครื่องมือ ผู้ช่วย และการจัดงาน
+
+แต่ละ `FarmerRecommendation` มี category, title, detail และ action key
+เนื้อหาขึ้นกับ activity, overall risk และ body-part risk โดย manual-handling
+activity เพิ่ม key ของ ISO-style suggestions
+
+### 11.2 Selection และ deduplication
+
+calculator สร้าง technical suggestion keys จาก input/threshold
+recommendation service แปลงเป็นข้อความไทย/อังกฤษและรวมกับ activity/body map
+key ต้อง unique เพื่อไม่ให้ action เดียวลดคะแนนซ้ำ UI แสดงเป็น 4 cards
+และเก็บ selected key ไว้ใน `AssessmentBundle`/history
+
+### 11.3 Communication constraint
+
+คำแนะนำเป็น risk-control suggestion ไม่ใช่ treatment prescription ควรบอก
+ให้ผู้ใช้ลดแรง/ระยะ/ความถี่ ปรับท่า/เครื่องมือ วางแผนพัก และขอผู้ช่วยตามงาน
+หากมีอาการต้องใช้ช่องทางสุขภาพที่เหมาะสม ไม่ใช้คะแนนจำลองหลังเลือกคำแนะนำ
+แทนการประเมินซ้ำ
 
 ## 12. Draft, History and Export Contracts
 
@@ -405,6 +786,87 @@ role, location, age, gender, weight, height, BMI และ category ณ เว�
 | `EvaluationHistoryRecord` | expert/outcome research fields | nullable | ผู้วิจัยเติมภายหลัง |
 
 ## ภาคผนวก D Algorithm Pseudocode
+
+### D.1 Production assessment
+
+```text
+function assess(form):
+  readiness = validateMediaPoseAndTaskInputs(form)
+  require readiness.canAnalyze
+
+  frames = []
+  for media in form.media:
+    require multiPersonCount(media) == 1
+    pose = MoveNetThunder(media)
+    require pose != null
+    features = extract51Features(pose) if schemaAvailable else []
+    frames += analyzeRebaPose(pose, form.rebaInput, features)
+
+  worst = max(frames, by=rebaScore)
+  reba = calculateRebaRisk(worst.rebaInput)
+  iso = dispatchISO(form.jobType, form.ergoInput)
+  result = iso == null ? reba : combineByMaximum(reba, iso)
+
+  xgb = bestAvailableOnnxAlert(frames)
+  if xgb != null:
+    result = upwardOnlyGuardrail(result, xgb)
+
+  return InitialRiskPayload(result, fullBreakdown)
+```
+
+### D.2 REBA lookup
+
+```text
+function reba(input):
+  trunk = clamp(input.trunk + input.twist + input.sideFlex, 1, 5)
+  wrist = clamp(input.wrist + input.wristTwist, 1, 3)
+  A = tableA[neck][trunk][legs] + input.load
+  B = tableB[lowerArm][upperArm][wrist] + input.coupling
+  raw = tableC[clamp(A,1,12)][clamp(B,1,12)] + input.activity
+  final = clamp(applySooktaSafetyFloors(raw, input), 1, 15)
+  return breakdown(A, B, raw, final, risk(final))
+```
+
+### D.3 Lifting
+
+```text
+function lifting(input):
+  ref = input.gender == female ? 20 : 25
+  HM = clamp(25/max(input.H,25), 0.7, 1)
+  VM = clamp(1-0.003*abs(input.V-75), 0.7, 1)
+  FM = frequencyMultiplier(input.frequency)
+  DM = distanceMultiplier(input.distance)
+  RWL = ref*HM*VM*FM*DM
+  LI = RWL > 0 ? input.load/RWL : 99
+  return mapLiftingIndex(LI)
+```
+
+### D.4 Push/pull
+
+```text
+function pushPull(input):
+  initialLimit = female ? 20 : 25
+  sustainLimit = female ? 12 : 15
+  ratio = max(input.initialForce/initialLimit,
+              input.sustainForce/sustainLimit)
+  return mapForceRatio(ratio)
+```
+
+### D.5 Daily trend
+
+```text
+function predict(records):
+  ordered = sortByDate(records)
+  if ordered.length < 7:
+    return insufficient(probability=0)
+  window = last7(ordered)
+  features = normalizeResearchFeatures(window)
+  pReba = sigmoid(beta0Reba + dot(betaReba, features))
+  pIso = sigmoid(beta0Iso + dot(betaIso, features))
+  count = numberOfRebaHighOrVeryHigh(window)
+  level = count<=1 ? low : count<=3 ? watch : count<=5 ? high : critical
+  return report(level, max(pReba,pIso), researchTrained=false)
+```
 
 ## ภาคผนวก E Requirement-Class-Test-Guideline Matrix
 
