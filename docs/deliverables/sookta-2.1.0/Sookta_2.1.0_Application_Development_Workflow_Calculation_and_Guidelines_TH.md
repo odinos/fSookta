@@ -419,7 +419,9 @@ MoveNet Thunder รับภาพที่ resize เป็น 256×256 แล�
 เป็น `(x, y, confidence)` แบบ normalized ค่า confidence เฉลี่ยของบุคคลต้อง
 มากกว่า 0.2 จึงรับ pose และ landmark รายจุดต้องมากกว่า 0.3 จึงถูกใช้คำนวณ
 มุม MultiPose Lightning นับบุคคลที่ person confidence ตั้งแต่ 0.3; ภาพต้อง
-มีบุคคลที่มั่นใจได้เท่ากับ 1 จึงผ่าน single-person gate
+มีบุคคลที่มั่นใจได้เท่ากับ 1 จึงผ่าน single-person gate แนวคิด 17 keypoints
+และรุ่น Lightning/Thunder สอดคล้องกับเอกสาร MoveNet ทางการ (TensorFlow,
+n.d.) ส่วน threshold เป็นค่าของ Sookta
 
 ระบบแปลง landmark เป็น feature สำหรับ XGBoost จำนวน `17 × 3 = 51` ค่า
 โดย clamp แต่ละค่าไว้ 0–1 ถ้าจุดหายใช้ค่า missing ตาม schema
@@ -493,6 +495,11 @@ clamp 0–3
 
 ### 5.5 REBA
 
+REBA เป็นเครื่องมือวิเคราะห์ท่าทางทั้งร่างกายในภาคสนามที่รวม posture, load,
+coupling และ activity (Hignett & McAtamney, 2000) ตาราง lookup ในแอปอ้าง
+โครงสร้างดังกล่าว แต่ safety floor และการแปลงเป็นคะแนน 1–9 เป็นชั้นของ
+Sookta
+
 #### 5.5.1 ลำดับคำนวณ
 
 ```text
@@ -552,6 +559,9 @@ arm และ wrist 2 การแบ่งนี้เป็นชั้นส�
 
 ### 5.6 งานยก/ขนย้ายแบบประยุกต์จาก ISO 11228-1
 
+ISO 11228-1:2021 ครอบคลุมการยก วางต่ำ และถือขน โดยพิจารณาความเข้ม ความถี่
+และระยะเวลา (International Organization for Standardization [ISO], 2021)
+
 ```text
 reference_mass = 25 kg เมื่อ gender ไม่ใช่ female
 reference_mass = 20 kg เมื่อ gender เป็น female
@@ -601,6 +611,9 @@ reference mass ตามเพศใน code จึงไม่ใช่กา�
 
 ### 5.7 งานดัน–ดึงแบบประยุกต์จาก ISO 11228-2
 
+ISO 11228-2:2007 ให้แนวทางสำหรับการดัน–ดึงด้วยแรงทั้งร่างกายของผู้ใหญ่
+สุขภาพดีภายใต้บริบทที่มาตรฐานกำหนด (ISO, 2007a)
+
 ```text
 ชาย: initial_limit = 25, sustain_limit = 15
 หญิง: initial_limit = 20, sustain_limit = 12
@@ -644,7 +657,10 @@ suggestions = unique(REBA suggestions ∪ ISO suggestions)
 ค่า `techScore` ของ combined result ถูกตั้งเท่ากับ user score สูงสุดเพื่อ
 หลีกเลี่ยงการนำ REBA score ดิบกับ ratio คนละหน่วยมาบวกกัน
 
-XGBoost ONNX ใช้ feature 51 ค่าและ threshold probability ตาม model
+XGBoost เป็นระบบ tree boosting ที่ออกแบบเพื่อประสิทธิภาพและ scalability
+(Chen & Guestrin, 2016) ส่วน ONNX Runtime รองรับ inference บนอุปกรณ์ iOS
+และ Android (Microsoft, n.d.) ใน Sookta, XGBoost ONNX ใช้ feature 51 ค่า
+และ threshold probability ตาม model
 configuration: ปานกลาง 0.272727, สูง 0.636364 และสูงมาก 0.909091 ระบบเลือก
 ผล frame ที่มีระดับสูงสุด แล้วเลือก confidence สูงสุดเมื่อระดับเท่ากัน
 
@@ -801,7 +817,8 @@ normalized 0–1 แยก REBA และ ISO
 แต่ละองค์ประกอบของ exposure ถูก clamp 0–1 โดย duration หาร 8 ชั่วโมง,
 distance หาร 20 และ carrying frequency ใช้ `(frequency×60)/720`
 
-Logistic Regression:
+Logistic Regression ใช้ sigmoid แปลง linear combination เป็นค่า 0–1
+(Google for Developers, 2025):
 
 ```text
 logit = intercept + Σ(beta_i × normalized_feature_i)
@@ -840,26 +857,245 @@ validation หรือใช้ตัดสินใจรักษา
 ## 6. Guideline และการอ้างอิง
 
 ส่วนนี้เชื่อมโยง REBA, ISO 11228, ILO, MoveNet, Logistic Regression,
-XGBoost/ONNX กับ implementation จริงโดยไม่กล่าวอ้างเกินหลักฐาน
+XGBoost/ONNX กับ implementation จริงโดยไม่กล่าวอ้างเกินหลักฐาน คำว่า
+“อ้างอิง” ในเอกสารนี้จึงหมายถึงการนำหลักการหรือโครงสร้างบางส่วนมาใช้
+มิได้หมายความว่า application ได้รับการรับรองมาตรฐานหรือทดแทนการประเมิน
+โดยนักการยศาสตร์
+
+### 6.1 REBA
+
+REBA เป็นวิธีประเมินท่าทางทั่วร่างกายแบบรวดเร็ว ซึ่ง Hignett และ
+McAtamney (2000) เสนอเพื่อช่วยตรวจคัดกรองท่าทางทำงานที่คาดเดาไม่ได้
+และระบุไว้ตั้งแต่บทความต้นฉบับว่ายังต้องมีงานยืนยัน validity เพิ่มเติม
+
+Sookta ใช้โครงสร้าง Group A, Group B, Table A/B/C, load, coupling และ
+activity ตาม REBA สำหรับคำนวณคะแนนฐาน อย่างไรก็ตาม application เพิ่ม
+`Sookta safety floors`, การแปลงคะแนนเป็นช่วง 1–9 และการสื่อสารรายส่วน
+ของร่างกายเอง จึงต้องแยกข้อความอธิบายดังนี้
+
+- คะแนนฐานจากตาราง: **ตรงตามแหล่งอ้างอิงในขอบเขต implementation**
+- pose-to-input และคะแนนขั้นต่ำเพื่อความปลอดภัย: **ประยุกต์สำหรับ Sookta**
+- ผลลัพธ์ทั้งหมด: เป็น ergonomic risk screening ไม่ใช่การวินิจฉัยโรค
+
+### 6.2 ISO 11228
+
+ISO 11228-1:2021 ครอบคลุม lifting, lowering, carrying, holding และ
+moving objects ส่วน ISO 11228-2:2007 ครอบคลุม pushing และ pulling
+(International Organization for Standardization [ISO], 2021, 2007a)
+
+สูตร Sookta สำหรับ lifting และ pushing/pulling เป็นสูตรย่อเพื่อคัดกรอง
+บน mobile application โดยใช้ข้อมูลที่กรอกและค่าประมาณจากภาพ ดังนั้น
+ห้ามเรียกผลว่า “ISO compliance”, “ISO certification” หรือการประเมิน
+ตามมาตรฐานครบทุกขั้นตอน การวัดแรงที่ต้องการความเที่ยงตรงควรใช้เครื่องมือ
+ที่สอบเทียบและผู้ประเมินที่มีความสามารถ
+
+สำหรับงาน repetitive low-load แอปเดิมอ้างอิง ISO 11228-3:2007 ในชั้น
+คำแนะนำเท่านั้น ไม่ได้คำนวณคะแนน ISO 11228-3 โดยตรง ฉบับปี 2007 ถูกถอน
+เมื่อ 8 พฤษภาคม 2026 และถูกแทนที่ด้วย ISO 11228-3:2026 ในเดือนพฤษภาคม
+2026 (ISO, 2026) ดังนั้น registry และข้อความอ้างอิงภายในแอปรุ่นถัดไปควร
+ปรับเป็นฉบับ 2026 หลังผู้วิจัยทบทวน mapping ใหม่
+
+### 6.3 ILO Ergonomic Checkpoints in Agriculture
+
+เอกสาร ILO ฉบับที่สองรวบรวมแนวทางปฏิบัติในงานเกษตร เช่น ลดการก้มลึก
+และเอื้อมไกล วางสิ่งของใกล้ลำตัว ลดระยะขนย้าย ใช้รถเข็นหรือเครื่องมือที่
+เหมาะสม ปรับระดับงาน และจัดเวลาพัก/สลับงาน (International Labour
+Organization [ILO], 2014) Sookta ใช้หลักการเหล่านี้เพื่อสร้างคำแนะนำ
+ภาษาที่ลงมือทำได้ มิได้นำมาใช้เป็นสูตรคะแนน
+
+คำแนะนำใน UI แบ่งสี่หมวดเพื่อให้อ่านง่าย:
+
+1. ปรับท่าทางและระดับงาน
+2. ลดแรง น้ำหนัก และระยะทาง
+3. ปรับเครื่องมือและสภาพแวดล้อม
+4. จัดงาน การพัก และการติดตาม
+
+### 6.4 MoveNet, XGBoost, ONNX และ Logistic Regression
+
+MoveNet ให้ landmark 17 จุดและ confidence สำหรับสร้าง feature ทางเรขาคณิต
+(TensorFlow, n.d.) ไม่ได้ให้ diagnosis หรือคะแนนบาดเจ็บโดยตรง ภาพที่ landmark
+ไม่พร้อมหรือมีหลายบุคคลจึงต้องถูกปฏิเสธก่อนคำนวณ
+
+XGBoost เป็นวิธี gradient tree boosting ที่อ้างอิง Chen และ Guestrin
+(2016) ส่วน ONNX Runtime Mobile เป็น runtime สำหรับเรียกโมเดลบนอุปกรณ์
+(Microsoft, n.d.) ใน Sookta ผล XGBoost เป็น **guardrail ที่ยกระดับความเสี่ยง
+ได้เท่านั้น** และ model artifact ปัจจุบันยังมีข้อจำกัดด้าน class balance
+จึงเป็น research-assisted layer ไม่ใช่ผู้ตัดสินหลัก
+
+Daily Logistic Regression ใช้ sigmoid เพื่อแปลง linear combination เป็น
+ค่า 0–1 (Google for Developers, 2025) แต่ asset ปัจจุบันระบุ
+`researchTrained: false` จึงเป็นเพียง research template ผลที่แสดงใน UI
+ปัจจุบันเป็นระดับจาก `high_risk_count` ไม่ใช่ validated injury probability
+
+### 6.5 Guideline-to-application traceability
+
+| หัวข้อในแอป | สูตร/พฤติกรรม | Guideline/หลักฐาน | Source file/method | Test/UAT | สถานะความสอดคล้อง |
+|---|---|---|---|---|---|
+| REBA base score | Table A/B/C + load/coupling/activity | Hignett & McAtamney (2000) | `ergo_calculator.dart` / `calculateRebaScoreBreakdown` | `ergo_calculator_test.dart` | ตรงตามแหล่งอ้างอิง |
+| Pose-to-REBA | มุม 2 มิติและ threshold ของ Sookta | MoveNet + REBA | `pose_estimation_service.dart`; `analyzeRebaPose` | pose/REBA regression | ประยุกต์สำหรับ Sookta |
+| REBA safety floor | ยกคะแนนขั้นต่ำตามท่าหรือแรงที่เด่น | risk-communication guardrail | `_applySooktaSafetyFloors` | `ergo_calculator_test.dart` | ประยุกต์สำหรับ Sookta |
+| งานยก/ขน | `RWL` และ `LI` แบบย่อ | ISO 11228-1:2021 | `calculateLiftingRisk` | `ergo_calculator_test.dart` | ประยุกต์สำหรับ Sookta |
+| งานดัน–ดึง | force ratio เทียบ limit ในแอป | ISO 11228-2:2007 | `calculatePushPullRisk` | `ergo_calculator_test.dart` | ประยุกต์สำหรับ Sookta |
+| งานซ้ำ | เพิ่มคำแนะนำ recovery/rotation | ISO 11228-3 style | `risk_recommendation_service.dart` | recommendation tests | ประยุกต์สำหรับ Sookta |
+| คำแนะนำเกษตร | สี่หมวด action-oriented | ILO (2014) + ISO mapping | `risk_recommendation_service.dart` | UI/UAT 12 และ 19 ก.ค. 2026 | ประยุกต์สำหรับ Sookta |
+| Landmark | 17 keypoints + confidence gate | MoveNet | `pose_estimation_service.dart` | ML end-to-end tests | ตรงตามแหล่งอ้างอิง |
+| หลายบุคคล | ต้องพบหนึ่งบุคคลที่ผ่าน threshold | application safety gate | `multi_person_pose_detector.dart` | detector test + iPhone UAT | ประยุกต์สำหรับ Sookta |
+| XGBoost guardrail | ยกระดับความเสี่ยงได้อย่างเดียว | Chen & Guestrin (2016) | `xgboost_onnx_predictor.dart`; guardrail | ML prediction tests | รอข้อมูลวิจัยยืนยัน |
+| Daily logistic | sigmoid จากหน้าต่าง 7 records | Logistic Regression | `daily_injury_prediction_service.dart` | daily prediction tests | รอข้อมูลวิจัยยืนยัน |
+| Economic impact | multiplier + 28% ต่อคะแนนที่ลด | สมมติฐานสื่อสารในแอป | `economic_impact_service.dart` | economic impact tests | ประยุกต์สำหรับ Sookta |
+| Deprecated ensemble | compatibility path เดิม | ไม่มีใน production flow | `risk_alert_model_service.dart` | compatibility tests | ไม่ใช่ production path |
+
+### 6.6 กติกาการกล่าวอ้าง
+
+- ใช้คำว่า “ประเมินความเสี่ยงเบื้องต้น” หรือ “risk screening”
+- ไม่ใช้ผลเป็น diagnosis, treatment decision, legal certification หรือ
+  หลักฐานว่าองค์กรผ่าน ISO
+- หากนำผลไปทำวิจัย ให้บันทึก app version, method, input completeness,
+  assessor/context และ outcome label แยกจาก pseudo-label
+- เมื่อเปลี่ยน guideline, threshold หรือ model artifact ต้องปรับ source
+  registry, test, release note และเอกสารนี้พร้อมกัน
 
 ## 7. การจัดเก็บข้อมูลและความเป็นส่วนตัว
 
-ส่วนนี้อธิบายข้อมูลที่เก็บในเครื่อง การกู้คืน state การ export และ telemetry
-ที่เกี่ยวข้อง
+### 7.1 ข้อมูลที่เก็บในเครื่อง
+
+Application ใช้ `SharedPreferences` เก็บภาษา รายชื่อและข้อมูลเกษตรกร
+ผู้ใช้งานที่กำลัง active สถานะ onboarding ประวัติการประเมิน draft แยกตาม
+เกษตรกร/กิจกรรม เลข schema และ backup ก่อน migration ข้อมูลเหล่านี้อยู่ใน
+application sandbox ของระบบปฏิบัติการ
+
+ภาพหรือ frame ที่เลือกจะถูก `LocalImageStore` คัดลอกไปยัง application
+Documents directory เพื่อให้ draft และประวัติอ้างอิงไฟล์ได้ต่อเนื่อง
+source ปัจจุบันไม่แสดงการเข้ารหัสเพิ่มเติมที่ application layer จึงไม่ควร
+กล่าวอ้างว่าไฟล์เหล่านี้ถูกเข้ารหัสโดย Sookta เอง
+
+### 7.2 ข้อมูลในไฟล์ export
+
+CSV สำหรับเจ้าหน้าที่และงานวิจัยอาจมีรหัสผู้เข้าร่วม ชื่อ บทบาท พื้นที่
+อายุ เพศ น้ำหนัก ส่วนสูง BMI รายได้ต่อปี กิจกรรม คะแนน ความเสี่ยง
+คำแนะนำ และผลกระทบทางเศรษฐกิจ ส่วน training export อาจมี record/session
+identifier, pose feature, pseudo-label และช่อง outcome ที่ผู้วิจัยเติมภายหลัง
+
+จึงต้องปฏิบัติต่อไฟล์ export เป็นข้อมูลอ่อนไหว: ใช้ participant code แทนชื่อ
+เมื่อทำได้ จำกัดผู้รับและระยะเวลาเก็บ ส่งผ่านช่องทางที่องค์กรอนุมัติ และ
+ลบสำเนาที่หมดวัตถุประสงค์ การกด share จะส่งไฟล์ออกนอก sandbox ตาม app
+ปลายทางที่ผู้ใช้เลือก ซึ่งอยู่นอกการควบคุมของ Sookta
+
+### 7.3 Analytics และ Crash reporting
+
+เมื่อ Firebase เริ่มทำงานได้ source ปัจจุบันเปิด Analytics และ Crashlytics
+และบันทึก app open, platform/build mode, activity/job/method, risk level,
+score, image count, suggestion count, export type/record count และ crash
+diagnostics จาก event calls ที่ตรวจ ไม่พบการส่งชื่อเกษตรกร รหัสผู้เข้าร่วม
+หรือ media path เป็น parameter โดยตรง
+
+อย่างไรก็ตาม source ปัจจุบันยังไม่มี consent/opt-out control ที่ผู้ใช้มองเห็น
+สำหรับ telemetry และการเปิด collection ถูกกำหนดเป็น `true` หลัง Firebase
+พร้อม ประเด็นนี้เป็น governance gap ที่ควรทบทวนให้สอดคล้อง consent,
+privacy notice, retention และข้อกำหนดของโครงการวิจัยก่อนเก็บข้อมูลภาคสนาม
+
+### 7.4 Data lifecycle ที่แนะนำ
+
+1. ขอความยินยอมและแจ้งวัตถุประสงค์ก่อนสร้าง profile
+2. เก็บเฉพาะข้อมูลที่จำเป็น และใช้ participant code เมื่อทำได้
+3. ตรวจรายชื่อผู้รับก่อน share/export
+4. แยกไฟล์ระบุตัวบุคคลออกจาก training dataset
+5. กำหนด retention และวิธีลบทั้งในเครื่อง สำเนาส่งออก และระบบปลายทาง
+6. บันทึกการเปลี่ยน schema/model เพื่อให้ผลย้อนหลังตรวจสอบได้
 
 ## 8. การทดสอบและหลักฐานตรวจสอบ
 
-ส่วนนี้เชื่อมโยง requirement กับ automated test, UAT และ platform
-configuration
+### 8.1 หลักฐาน automated ปัจจุบัน
+
+| วันที่/ขอบเขต | ผล | ความหมาย |
+|---|---|---|
+| 28 ก.ค. 2026 — Flutter test suite ทั้งหมด | PASS 120/120 | regression baseline ของ source snapshot ที่ใช้ทำเอกสาร |
+| 28 ก.ค. 2026 — calculation/ML focused suite | PASS 52/52 | REBA, economic impact, daily prediction, risk prediction และ ML end-to-end |
+| 28 ก.ค. 2026 — document builder tests | PASS 5/5 | heading, list, table, diagram และ Sarabun DOCX contract |
+| 19 ก.ค. 2026 — production assessment | PASS บน iOS simulator และ Android emulator | gate, MoveNet/TFLite และ navigation โดยไม่มี bypass |
+| 19 ก.ค. 2026 — UI parity/portrait | PASS | โครงหน้าหลักและ portrait-only ตรงกันตามขอบเขตทดสอบ |
+
+Automated test ลดความเสี่ยง regression แต่ไม่ทดแทนการวัดท่าจริง ความแตกต่าง
+ของกล้อง แสง เสื้อผ้า พื้นหลัง อุปกรณ์รุ่นต่าง ๆ หรือการยอมรับของผู้ใช้
+
+### 8.2 Physical iPhone UAT
+
+Physical UAT วันที่ 12 กรกฎาคม 2026 ยืนยัน install/launch, portrait-only,
+avatar ของเกษตรกรสองคน, draft/activity, media สี่ช่อง, การปฏิเสธภาพหลายคน,
+คำแนะนำสี่หมวด, Thai TTS, filter และ export ว่าใช้งานได้ตามที่ผู้ใช้สังเกต
+แต่ปุ่ม assessment ในช่วงนั้นใช้ **temporary bypass สำหรับ uploaded-video
+UAT** จึงไม่ใช่หลักฐานว่า production gate ผ่านครบ
+
+วันที่ 19 กรกฎาคม 2026 มีหลักฐานว่าถอด bypass แล้ว และ production flow ผ่าน
+บน simulator/emulator แต่ iPhone เครื่องจริงอยู่ในสถานะ CoreDevice
+`unavailable` จึงติดตั้งและรันรอบ production ไม่ได้ ข้อสรุปที่ถูกต้อง ณ
+source snapshot นี้คือ:
+
+- implementation, automated test, simulated production flow และ UI parity:
+  **PASS ตามขอบเขต**
+- physical iPhone production flow หลังถอด bypass: **ยังไม่มีหลักฐานปิดครบ**
+- Android เครื่องจริง: **ยังไม่มีหลักฐาน UAT ครบ**
+
+### 8.3 Minimum release/UAT gate
+
+ก่อนประกาศใช้งานภาคสนามหรือ release ถัดไป ควรผ่านอย่างน้อย:
+
+1. ติดตั้ง build ที่ลงนามและมี version/build number ถูกต้อง
+2. ยืนยัน portrait-only บน iPhone/iPad และ Android เป้าหมาย
+3. สร้างเกษตรกรอย่างน้อยสองราย เปลี่ยน avatar และตรวจ data isolation
+4. ปิด/เปิดแอปแล้ว draft และ active farmer ต้องถูกต้อง
+5. ทดสอบภาพจริงสี่มุม วิดีโอ ภาพไม่พร้อม และภาพหลายคน
+6. ผ่าน “ดูผลประเมิน” ด้วย production gate โดยไม่มี bypass
+7. ตรวจคำแนะนำสี่หมวด เสียงไทย ประวัติ filter และ export
+8. ตรวจ offline relaunch, telemetry policy และการลบ/retention ของข้อมูล
+9. ทำ smoke test artifact เดียวกับที่ส่ง Store ไม่ใช่เฉพาะ debug build
 
 ## 9. ข้อจำกัด
 
-ส่วนนี้อธิบายข้อจำกัดของภาพสองมิติ ข้อมูลที่ผู้ใช้กรอก สมมติฐานทางเศรษฐกิจ
-และสถานะการฝึกโมเดล
+1. **ภาพสองมิติ:** ความลึก การบิดตัว การบัง landmark มุมกล้อง แสง เสื้อผ้า
+   และฉากหลังอาจทำให้ pose และระยะยกคลาดเคลื่อน
+2. **Sampling:** ภาพนิ่งไม่แทนทั้งรอบงาน วิดีโอถูกจำกัดเวลาและสุ่มไม่เกิน
+   8 frames จึงอาจพลาดช่วงที่เสี่ยงที่สุด
+3. **ข้อมูลผู้ใช้:** น้ำหนักแรง ความถี่ ระยะทาง รายได้ และค่ารักษาที่กรอก
+   ผิดทำให้ผลผิดตาม
+4. **ISO:** สูตร 11228-1/2 เป็น mobile screening approximation ไม่ใช่
+   full-standard assessment และ 11228-3 ยังเป็น recommendation layer
+5. **REBA:** pose-to-score และ Sookta floors เป็น application adaptation;
+   ควรให้ผู้เชี่ยวชาญตรวจในงานที่มีความเสี่ยงสูง
+6. **XGBoost:** เป็น guardrail จาก research artifact ที่ยังต้องยืนยันด้วย
+   dataset จริงที่สมดุลและแยก train/validation/test เหมาะสม
+7. **Daily logistic:** asset ยังไม่ผ่านการ train จาก outcome จริง จึงห้าม
+   ตีความค่าเป็นความน่าจะเป็นการบาดเจ็บที่ validated
+8. **ผลหลังปรับ:** การลดคะแนนตามจำนวนคำแนะนำเป็น simulation ไม่ใช่ผลจาก
+   การวัดซ้ำหลังปรับงานจริง
+9. **ผลกระทบทางเศรษฐกิจ:** multiplier, lost days และ 28% ต่อคะแนนเป็น
+   สมมติฐานสื่อสาร ไม่ใช่ค่ารักษาหรือรายได้สูญเสียเฉพาะบุคคล
+10. **Privacy:** local storage ไม่มีการเข้ารหัสเพิ่มที่ application layer,
+    CSV มีข้อมูลอ่อนไหว และ telemetry ยังไม่มี visible consent/opt-out
+11. **UAT:** production flow ยังขาดหลักฐาน physical iPhone และ Android
+    เครื่องจริงครบทุก gate หลังยกเลิก bypass
+12. **Guideline lifecycle:** internal registry ยังอ้าง ISO 11228-3:2007
+    ซึ่งถูกแทนที่ด้วยฉบับ 2026 ต้องทบทวนก่อนอ้างอิงในงานวิจัยใหม่
 
 ## ภาคผนวก A คำศัพท์
 
-ภาคผนวกนี้รวบรวมคำศัพท์ไทย/อังกฤษที่ใช้ในเอกสาร
+| คำศัพท์ | ความหมายในเอกสาร |
+|---|---|
+| Application sandbox | พื้นที่ไฟล์/ข้อมูลของแอปที่ระบบปฏิบัติการแยกจากแอปอื่น |
+| Assessment gate | เงื่อนไขที่ต้องผ่านก่อนกดดูผลประเมิน |
+| Draft | ข้อมูลแบบประเมินที่บันทึกไว้แต่ยังไม่จบ transaction |
+| Ergonomic risk screening | การคัดกรองความเสี่ยงทางการยศาสตร์เบื้องต้น |
+| Guardrail | ชั้นป้องกันที่จำกัดหรือยกระดับผลโดยไม่แทนเครื่องคำนวณหลัก |
+| Landmark/keypoint | จุดอ้างอิงตำแหน่งข้อต่อร่างกายในภาพ |
+| Model artifact | ไฟล์โมเดลและ metadata ที่ application โหลดไปใช้ |
+| ONNX | รูปแบบแลกเปลี่ยนโมเดลและ runtime ที่รองรับหลาย platform |
+| Production path | เส้นทางทำงานที่เปิดใช้จริงใน release และไม่มี UAT bypass |
+| REBA | Rapid Entire Body Assessment |
+| RWL | Recommended Weight Limit ในสูตร lifting ของ application |
+| Traceability | ความสามารถเชื่อม requirement/guideline ไปยัง source และ test |
+| Transaction | ผลประเมินที่บันทึกเสร็จหนึ่งรายการ |
+| UAT | User Acceptance Testing |
+| Validated | ผ่านกระบวนการตรวจสอบที่กำหนดด้วยข้อมูลและวิธีที่เหมาะสม |
 
 ## ภาคผนวก B ตารางตัวแปร
 
@@ -910,4 +1146,41 @@ configuration
 
 ## เอกสารอ้างอิง
 
-รายการอ้างอิงใช้รูปแบบ APA 7 และ URL ไปยัง primary/official source
+Chen, T., & Guestrin, C. (2016). XGBoost: A scalable tree boosting system.
+In *Proceedings of the 22nd ACM SIGKDD International Conference on Knowledge
+Discovery and Data Mining* (pp. 785–794).
+https://doi.org/10.1145/2939672.2939785
+
+Google for Developers. (2025, August 25). *Logistic regression*.
+https://developers.google.com/machine-learning/crash-course/logistic-regression
+
+Hignett, S., & McAtamney, L. (2000). Rapid entire body assessment (REBA).
+*Applied Ergonomics, 31*(2), 201–205.
+https://doi.org/10.1016/S0003-6870(99)00039-3
+
+International Labour Organization. (2014). *Ergonomic checkpoints in
+agriculture: Practical and easy-to-implement solutions for improving safety,
+health and working conditions in agriculture* (2nd ed.).
+https://www.ilo.org/resource/training-material/ergonomic-checkpoints-agriculture-practical-and-easy-implement-solutions
+
+International Organization for Standardization. (2007a).
+*ISO 11228-2:2007 Ergonomics—Manual handling—Part 2: Pushing and pulling*.
+https://www.iso.org/standard/26521.html
+
+International Organization for Standardization. (2021).
+*ISO 11228-1:2021 Ergonomics—Manual handling—Part 1: Lifting, lowering and
+carrying*. https://www.iso.org/standard/76820.html
+
+International Organization for Standardization. (2026).
+*ISO 11228-3:2026 Ergonomics—Manual handling—Part 3: Handling of low loads at
+high frequency*. https://www.iso.org/standard/11228-3
+
+Microsoft. (n.d.). *ONNX Runtime mobile*.
+https://onnxruntime.ai/docs/get-started/with-mobile.html
+
+TensorFlow. (n.d.). *MoveNet: Ultra fast and accurate pose detection model*.
+https://www.tensorflow.org/hub/tutorials/movenet
+
+หมายเหตุ: source code ของ Sookta 2.1.0 ยังมีข้อความอ้างอิง
+ISO 11228-3:2007 เดิมเพื่อ trace ผลย้อนหลัง แต่ฉบับนั้นถูกถอนและแทนที่ด้วย
+ISO 11228-3:2026 แล้วตามสถานะ ณ วันที่จัดทำเอกสาร
