@@ -707,15 +707,260 @@ key ต้อง unique เพื่อไม่ให้ action เดียว
 
 ## 12. Draft, History and Export Contracts
 
+### 12.1 Draft lifecycle
+
+form hydrate จาก draft ที่ profile/activity ตรงกันและ copy ค่า media/tool/
+workload/REBA input กลับสู่ controller การเปลี่ยน input ที่สำคัญ schedule
+autosave; การเปลี่ยน media ต้องวิเคราะห์ pose ใหม่ ก่อน persist
+`saveEvaluationDraft()` ย้าย media เข้า Documents directory และประทับ
+`savedAt`
+
+draft ไม่ใช่ history และไม่มีผล final เมื่อ `saveEvaluation()` สำเร็จเท่านั้น
+จึงลบ draft transaction นั้น การล้มเหลวระหว่างเขียน history ต้องคืน draft
+และ history ID ตามเดิม
+
+### 12.2 History identity และ immutability
+
+`_nextHistoryId` เป็น integer monotonic ภายในเครื่อง restore จะบังคับให้มากกว่า
+ID สูงสุดเสมอ record ถูก insert ต้น list เพื่อแสดงล่าสุดก่อน เมื่อ profile
+ถูกเปลี่ยนภายหลัง record เก่ายังคง farmer snapshot และ app version เดิม
+
+History เก็บ before/after results, selected suggestions, body risk,
+AI guardrail metadata, full calculation breakdown, photo trace identifier
+และช่อง research/expert ที่ nullable การแก้ outcome label ไม่ควรแก้
+formula-derived field เดิม
+
+### 12.3 Assessment CSV
+
+`AssessmentExportService` สร้าง UTF-8 CSV พร้อม BOM และ quote ทุก field
+ใน application Documents directory ชื่อไฟล์มี timestamp รองรับ:
+
+- `exportExcelCsv()` — assessment/bundle เดียวแบบอ่านด้วย Excel
+- `exportHistoryRecordCsv()` — history record เดียว
+- `exportAllHistoryCsv()` — flat rows ทุกเกษตรกร
+
+ไฟล์ assessment รวม participant/profile, activity/job, before/after,
+worksheet fields, calculation breakdown, economic detail, body risk,
+recommendation และ reference source ส่วน all-history schema เพิ่ม field
+สำหรับ research trend, photo, task completion, expert REBA และ comments
+`export_schema_version` และ source note ต้องปรากฏใน output
+
+### 12.4 Training export
+
+`TrainingDataExportService.exportTrainingFiles()` สร้างสองไฟล์:
+
+| Dataset | Grain | Eligibility | Label state |
+|---|---|---|---|
+| daily logistic | rolling window 7 transactions ต่อ farmer | จำนวน records ≥7 | outcome columns ว่าง รอ research follow-up |
+| XGBoost pose | หนึ่งแถวต่อ pose frame | `jointFeatures.length == 51` | pseudo-label + ช่อง training/expert label |
+
+จำนวน daily rows ต่อ farmer = `max(0, records−6)` ส่วน XGBoost rows เท่ากับ
+จำนวน frame ที่มี 51 features daily CSV มี 26 primary feature columns และ
+compatibility aliases; outcome เช่น `msd_symptom_present` ต้องเติมภายหลัง
+ห้ามใช้ pseudo-label เป็น clinical ground truth
+
+### 12.5 CSV safety
+
+ทุก cell escape double quote และครอบด้วย quote แต่ source ปัจจุบันไม่ได้
+ระบุ formula-injection neutralization สำหรับค่าที่ผู้ใช้กรอกขึ้นต้นด้วย
+`=`, `+`, `-` หรือ `@` ผู้รับไฟล์จึงต้องเปิดใน environment ที่เชื่อถือได้
+และทีมพัฒนาควรพิจารณา hardening ก่อนใช้ export จาก input ที่ไม่เชื่อถือ
+
 ## 13. Error Handling, Telemetry and Fallback
+
+### 13.1 Error taxonomy
+
+| Failure | Detection | User/runtime behavior |
+|---|---|---|
+| Firebase initialize | exception ใน `_initializeCrashlytics` | report ผ่าน Flutter error channel เท่าที่ทำได้ แล้วเปิด app ต่อโดยไม่มี telemetry |
+| Flutter/platform fatal | installed handlers เมื่อ Firebase ready | ส่ง Crashlytics fatal; zone handler ไม่ทำให้เกิด backend dependency |
+| state parse/restore | catch รอบ `_restore` | reset runtime state เป็นค่าเริ่มต้นและ hydrate |
+| invalid typed route | `is` check | `RouteErrorScreen` หรือ sentinel `-1` |
+| video duration/frame | `VideoFrameExtractionException` | แจ้งเปลี่ยนวิดีโอ/ลดความยาว |
+| unreadable/multi-person pose | null/count !=1 | mark เฉพาะภาพที่ต้องเปลี่ยนและ block readiness |
+| schema/model load | typed exception หรือ catch ใน form | ไม่ใช้ XGBoost; ใช้สูตรหลัก |
+| ONNX malformed input/output | finite/count/output check | catch แล้ว fallback สูตรหลัก |
+| persistence final save | exception จาก `_persist` | rollback history/draft/ID และ rethrow |
+| export/file/share | plugin/file exception | แสดง error โดยหน้าจอผู้เรียก |
+
+### 13.2 Firebase event contract
+
+เมื่อ Firebase app พร้อม `FirebaseTelemetryService.initialize()` เปิด
+Crashlytics/Analytics collection, ติด navigator observer และส่ง `app_start`
+event หลัก:
+
+| Event | Parameters |
+|---|---|
+| `app_start` | platform, build_mode |
+| `assessment_image_added` | source, image_count |
+| `assessment_calculated` | activity, job_type, primary_method, risk_level, score, image_count, uses_iso11228 |
+| `assessment_saved` | activity, before/after risk/score, suggestion_count |
+| `export_created` | export_type, record_count |
+
+key ถูก normalize ให้เป็น `[A-Za-z0-9_]`, ต้องเริ่มด้วยตัวอักษรและยาวไม่เกิน
+40; string value ถูกตัดที่ 100 ตัวอักษร source ปัจจุบันตั้ง collection เป็น
+true เมื่อ Firebase พร้อมและไม่มี user-visible consent/opt-out control
+
+### 13.3 Privacy boundary ของ telemetry
+
+event methods ปัจจุบันไม่ส่งชื่อ farmer, participant code, media path หรือ
+ค่ารักษาโดยตรง แต่ screen route และ crash diagnostics อาจเป็น operational
+metadata การใช้งานวิจัย/production ต้องทบทวน privacy notice, lawful basis,
+retention และการขอความยินยอมให้ตรงกับบริบทจริง
 
 ## 14. Platform Configuration
 
+### 14.1 iOS
+
+| Setting | Source value |
+|---|---|
+| Bundle identifier | `$(PRODUCT_BUNDLE_IDENTIFIER)`; project/release ใช้ `com.kdev.sookta` |
+| Marketing/build | `$(FLUTTER_BUILD_NAME)` / `$(FLUTTER_BUILD_NUMBER)` |
+| Deployment target | iOS 15.0 |
+| Orientation iPhone | `UIInterfaceOrientationPortrait` เท่านั้น |
+| Orientation iPad | `UIInterfaceOrientationPortrait` เท่านั้น |
+| Multitasking | `UIRequiresFullScreen=true` เพื่อรองรับ portrait-only validation |
+| Encryption declaration | `ITSAppUsesNonExemptEncryption=false` |
+| Permissions | Camera, Photo Library, Photo Add, Microphone usage descriptions |
+| Scene | single scene; `UIApplicationSupportsMultipleScenes=false` |
+
+Microphone description ระบุว่าอาจใช้เมื่อ system camera บันทึกวิดีโอ แต่เสียง
+ไม่ใช้ในการประเมิน ergonomic result
+
+### 14.2 Android
+
+| Setting | Source value |
+|---|---|
+| namespace/application ID | `com.kdev.sookta` |
+| SDK | Flutter-provided compile/min/target SDK; verified artifact เดิม target 36 |
+| NDK | `28.2.13676358` |
+| Java/Kotlin | JVM 17 |
+| ABI filters | armeabi-v7a, arm64-v8a, x86_64 |
+| Orientation | `MainActivity android:screenOrientation="portrait"` |
+| Permissions | INTERNET, CAMERA |
+| Camera feature | optional (`required=false`) |
+| Launch mode | `singleTop` |
+| Signing | release keystore จาก `android/key.properties` เมื่อมี |
+
+repository มีทั้ง `build.gradle` และ `build.gradle.kts`; configuration ที่
+ตรวจ artifact ก่อนหน้าตรงกับ Groovy `build.gradle` ซึ่งรองรับ release keystore
+ส่วน `.kts` ยังมี debug-signing placeholder จึงต้องไม่สลับ build script โดย
+ไม่ได้ตั้ง signing ให้ production และควรลด duplicate configuration ในอนาคต
+
+### 14.3 Portrait-only contract
+
+contract มีสามชั้น: iOS plist, Android manifest และ widget/platform regression
+test iPad ต้องใช้ `UIRequiresFullScreen=true`; มิฉะนั้น App Store ต้องการ
+orientation ครบเพื่อ multitasking และจะปฏิเสธ portrait-only bundle
+
 ## 15. Test Architecture and Traceability
+
+### 15.1 Test layers
+
+| Layer | Scope | Evidence pattern |
+|---|---|---|
+| Unit | formula, mappings, schema, model helper | `*_service_test.dart`, `ergo_calculator_test.dart` |
+| Widget/flow | validation, route, grouping, persistence | screen/flow tests |
+| Configuration | orientation, production gate, parity, store version | config/source inspection tests |
+| ML integration | schema, feature, asset load, predictor fallback | `ml_end_to_end_comprehensive_test.dart` |
+| Device UAT | permission, camera/gallery, TTS, native channel, real layout | dated UAT records |
+| Store artifact | IPA/AAB metadata, signing, bundletool/Xcode export | release verification record |
+
+### 15.2 Current verification baseline
+
+หลักฐานที่บันทึกกับ source snapshot: Flutter full suite 120/120, focused
+calculation/ML 52/52 และ production simulator/emulator flow ผ่านเมื่อ
+19 กรกฎาคม 2026 ในการจัดทำ Technical Specification นี้ state/draft/avatar
+targeted suite ผ่าน 8/8 และ media/calculation/ML suite ผ่าน 61/61
+
+Physical iPhone UAT วันที่ 12 กรกฎาคม 2026 ผ่าน install/launch,
+portrait-only, multi-farmer/avatar, draft/activity, media, multi-person,
+recommendation, Thai TTS, history/filter/export แต่การทดสอบผลช่วงนั้นเคยใช้
+temporary uploaded-video bypass หลังถอด bypass แล้วมีหลักฐาน simulator/
+emulator แต่ยังไม่มี physical iPhone production-flow rerun ที่ปิดครบใน
+source evidence Android เครื่องจริงยังไม่มี UAT ครบ
+
+### 15.3 Test data boundary
+
+widget test ใช้ fixture/mocks สำหรับ platform/model บางส่วน จึงยืนยัน
+navigation, validation และ mapping ไม่เท่ากับยืนยัน camera sensor, gallery
+permission, TFLite/ONNX performance หรือไฟล์ native channel บนอุปกรณ์จริง
+Store/UAT gate ต้องทดสอบ artifact เดียวกับที่จะอัปโหลด
 
 ## 16. Build, Versioning, Signing and Store Artifacts
 
+### 16.1 Version sources
+
+Flutter `pubspec.yaml` ณ application source snapshot ระบุ `1.3.7+24`
+โดย build แปลงเป็น iOS `CFBundleShortVersionString/CFBundleVersion` และ
+Android `versionName/versionCode` release/document version ที่ผู้ใช้กำหนด
+สำหรับเอกสารนี้คือ 2.1.0 จึงต้องเปลี่ยนและตรวจ version ใน artifact 2.1.0
+ก่อนอัปโหลดจริง ห้ามสรุปว่า artifact 2.1.0 มีอยู่จากชื่อเอกสารเพียงอย่างเดียว
+
+### 16.2 Release build gates
+
+1. ปิด bypass/debug route และตรวจ production assessment gate
+2. รัน analyze และ full automated suite
+3. ตั้ง version/build ใหม่ที่ Store train ยังเปิด
+4. ตรวจ portrait metadata และ permission strings
+5. Android ต้องมี release keystore และสร้าง signed AAB
+6. iOS ต้อง archive/export ด้วย Apple Distribution profile
+7. เปิด artifact ตรวจ package/bundle ID, version/build, orientation,
+   signing entitlement และ embedded model/assets
+8. smoke/UAT ด้วย artifact เดียวกับที่จะส่ง Store
+9. อัปโหลดและผ่าน server-side validation
+
+### 16.3 Historical artifact evidence
+
+เอกสาร `store-release-verification-1.3.7+24-20260719.md` ระบุ AAB/IPA เดิม
+ผ่าน analyze, 120 tests, bundletool/Xcode export, portrait/full-screen และ
+signing พร้อม hash แต่หลักฐานนี้ผูกกับ 1.3.7+24 ไม่ใช่ 2.1.0 สามารถใช้เป็น
+ขั้นตอนอ้างอิงได้แต่ไม่ใช้แทนการสร้าง/ตรวจ artifact 2.1.0
+
+### 16.4 Secret handling
+
+`android/key.properties`, keystore, certificate private key และ App Store
+credential ต้องอยู่นอก source control เอกสารนี้ไม่บันทึกรหัสผ่านหรือ private
+key signing identity/team/profile ที่เปิดเผยได้ควรบันทึกใน release evidence
+เฉพาะเท่าที่จำเป็น
+
 ## 17. Security, Privacy and Known Limitations
+
+### 17.1 Data at rest และ sharing
+
+profile/history/draft อยู่ใน `SharedPreferences`; media/CSV อยู่ Documents
+directory ภายใน sandbox source ปัจจุบันไม่ใช้ application-layer encryption
+CSV มีข้อมูลระบุตัวบุคคล สุขภาพเชิงคัดกรอง รายได้และงาน เมื่อ share แล้ว
+สำเนาอยู่นอกการควบคุมของ Sookta ต้องใช้ participant code จำกัดผู้รับ
+เข้ารหัสช่องทางส่ง และกำหนด retention/delete policy
+
+### 17.2 Security observations
+
+- ไม่มี authentication หรือ role-based access ภายใน local app
+- ไม่มี server synchronization/remote revoke
+- restore exception reset state แต่ไม่มี UI กู้ backup
+- CSV quote escaping มี แต่ยังไม่มี spreadsheet formula neutralization
+- Firebase collection เปิดเมื่อ initialize สำเร็จโดยไม่มี visible opt-out
+- release signing ขึ้นกับไฟล์ local ที่ต้องจัดการอย่างปลอดภัย
+
+### 17.3 Scientific/clinical limitations
+
+- pose เป็น 2D และไวต่อมุมกล้อง แสง การบังและเสื้อผ้า
+- REBA pose mapping และ safety floors เป็น Sookta adaptation
+- ISO 11228-1/2 เป็นสูตรย่อ ไม่ใช่ full-standard assessment
+- ISO 11228-3 อยู่ใน recommendation layer ไม่ได้คำนวณมาตรฐานฉบับเต็ม
+- XGBoost dataset ไม่สมดุลและไม่มี low/medium ใน matched set ปัจจุบัน
+- daily logistic coefficients ยังไม่ fit จาก confirmed outcome
+- after result เป็น simulation จาก action keys ไม่ใช่ post-intervention measure
+- economic impact เป็น estimate จาก survey/default assumptions ไม่ใช่
+  medical bill หรือ individual compensation
+
+### 17.4 Minimum production/UAT closure
+
+ก่อนประกาศ 2.1.0 พร้อมใช้งานจริงต้องสร้าง signed artifact 2.1.0 และทดสอบ
+physical iPhone production flow หลังถอด bypass ครบทุก gate จากนั้นตรวจ
+Android parity และ physical Android flow โดยเฉพาะ video channel, permissions,
+TFLite/ONNX, Thai TTS, export/share และ rotation lock
 
 ## ภาคผนวก A Route Catalogue
 
@@ -870,6 +1115,45 @@ function predict(records):
 
 ## ภาคผนวก E Requirement-Class-Test-Guideline Matrix
 
+| Requirement | Screen/Service | Class/Method | Automated test | UAT/Config | Guideline | Status |
+|---|---|---|---|---|---|---|
+| first run แยก returning user | Splash/Onboarding | `restore`, startup route | widget/app-state | iPhone 12 ก.ค. | app design | ผ่าน |
+| เกษตรกรหลายคนและ avatar | Farmer Manager | farmer CRUD | farmer avatar test | iPhone 12 ก.ค. | requirement | ผ่าน |
+| draft แยก farmer/activity/date | Evaluation Menu/Form | `_draftKey`, save/restore | draft state/flow | iPhone 12 ก.ค. | data integrity | ผ่าน |
+| 4 มุมและ pose พร้อม | Evaluation Form | `AssessmentReadiness` | readiness/required-data | simulator 19 ก.ค. | capture protocol | ผ่าน simulated |
+| หนึ่งบุคคลต่อภาพ | Evaluation Form | `MultiPersonPoseDetector` | detector/ML tests | iPhone 12 ก.ค. | safety gate | ผ่าน |
+| REBA pose screening | Evaluation Form | `analyzeRebaPose`, REBA | calculator/ML tests | UAT บางส่วน | REBA/MoveNet | Sookta adaptation |
+| งานยก/ขน | Evaluation Form | `calculateLiftingRisk` | calculator tests | simulated | ISO 11228-1 | สูตรย่อ |
+| งานดัน–ดึง | Evaluation Form | `calculatePushPullRisk` | calculator tests | simulated | ISO 11228-2 | สูตรย่อ |
+| XGBoost guardrail | Evaluation Form | predictor/guardrail | ML end-to-end | host runtime | XGBoost/ONNX | research-assisted |
+| คำแนะนำ 4 หมวด | Initial Risk | recommendations | recommendation/UI | iPhone 12 ก.ค. | ILO/ISO mapping | ผ่าน |
+| production result no bypass | Form→Initial Risk | `canAnalyze`, `_analyze` | production config | simulator 19 ก.ค. | release requirement | physical rerun ค้าง |
+| history และ daily trend | History/Daily | save/predict | persistence/daily/history | iPhone 12 ก.ค. | Logistic Regression | trend ผ่าน; model template |
+| export assessment/training | Result/Profile | export services | export tests | iPhone 12 ก.ค. | research protocol | ผ่าน; sensitive CSV |
+| portrait-only iOS/Android | platform config | plist/manifest | portrait config | iPhone + emulator | UI requirement | ผ่าน config |
+| iOS/Android UI parity | shared Flutter UI | widgets/theme | parity test | simulator/emulator | UI requirement | physical Android ค้าง |
+| Store version 2.1.0 | build pipeline | pubspec/artifact metadata | store version test ต้องอัปเดต | ยังไม่มี artifact 2.1.0 ใน snapshot | release control | ต้องสร้าง/ตรวจ |
+
 ## ภาคผนวก F Source Code Index
+
+| Area | Production source | Regression evidence |
+|---|---|---|
+| Bootstrap/telemetry | `lib/main.dart`; `firebase_telemetry_service.dart` | widget/full suite |
+| Navigation | `lib/app/sookta_app.dart`; `route_error_screen.dart` | widget/flow tests |
+| State/persistence | `lib/app/app_state.dart` | app-state/draft tests |
+| Domain contracts | `assessment_session.dart`; `evaluation_models.dart`; `pose_models.dart` | serialization/service tests |
+| Media readiness | `assessment_readiness.dart`; `evaluation_form_screen.dart` | readiness/required-data tests |
+| Image persistence | `local_image_store.dart` | draft state tests |
+| Video frames | `video_frame_extraction_service.dart`; native channel | image-slot/device UAT |
+| Pose/person | `pose_estimation_service.dart`; `multi_person_pose_detector.dart` | detector/ML tests |
+| REBA/ISO-style | `ergo_calculator.dart` | calculator tests |
+| ML schema/predictor | `core/ergonomics_risk_prediction/`; `assets/models/` | ergonomic/ML end-to-end |
+| Recommendation | `risk_recommendation_service.dart` | recommendation tests |
+| Economic impact | `economic_impact_service.dart` | economic impact tests |
+| Daily trend | `daily_injury_prediction_service.dart`; daily asset | daily/ML tests |
+| Assessment export | `assessment_export_service.dart` | assessment export tests |
+| Training export | `training_data_export_service.dart` | training export tests |
+| iOS | `ios/Runner/Info.plist`; `ios/Podfile`; Xcode project | plist/portrait/store evidence |
+| Android | manifest; `android/app/build.gradle` | portrait/parity/store evidence |
 
 ## เอกสารอ้างอิง
