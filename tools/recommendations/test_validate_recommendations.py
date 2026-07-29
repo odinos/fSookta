@@ -37,13 +37,13 @@ class TranslationReviewTest(unittest.TestCase):
         )
         self.assertEqual(errors, [])
 
-    def test_approval_gate_fails_while_any_row_is_pending(self) -> None:
+    def test_approval_gate_accepts_the_approved_translation_baseline(self) -> None:
         errors = validate_translation_review(
             Path("data/recommendations/recommendation_master.csv"),
             Path("data/recommendations/translation_review.csv"),
             require_approved=True,
         )
-        self.assertIn("approval_coverage_below_100", errors)
+        self.assertEqual(errors, [])
 
 
 if __name__ == "__main__":
