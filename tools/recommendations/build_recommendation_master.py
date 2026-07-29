@@ -53,6 +53,14 @@ SOURCE_TEXT_OVERRIDES = {
     "act_harvest_empty_often": "ลดการก้มโดยปรับความสูงตะกร้า",
 }
 
+SOURCE_ACTION_OVERRIDES = {
+    "act_transplant_ref_high": [
+        "ปรับปรุงทันทีโดยยกแปลงเพาะชำให้สูงระดับเอว",
+        "ใช้อุปกรณ์นั่งยองหรือเก้าอี้เตี้ย",
+        "พักทุก 15-20 นาที",
+    ],
+}
+
 SOURCE_LOCATORS = {
     "act_reduce_weight": ("body_map_recommendations", "7-8", "Manual handling"),
     "act_iso_keep_load_close": (
@@ -259,7 +267,8 @@ def build_rows(strings_path: Path) -> list[dict[str, str]]:
         category, activity, body, risk, trigger, source, page = _context(key)
         source_text = SOURCE_TEXT_OVERRIDES.get(key, thai[key])
         section = SOURCE_LOCATORS.get(key, (source, page, key))[2]
-        for order, action in enumerate(_split_actions(source_text), start=1):
+        actions = SOURCE_ACTION_OVERRIDES.get(key, _split_actions(source_text))
+        for order, action in enumerate(actions, start=1):
             rows.append(
                 {
                     "recommendation_id": f"{key}.{order:02d}",
@@ -390,8 +399,8 @@ def write_reports(
             "issue_type": "overlapping_weight_limits",
             "source_a": "body_map_recommendations:p8",
             "source_b": "app_recommendations_v3:p1-3",
-            "conflicting_value": "Body Map uses task limits such as 10/20/25 kg while V3 varies limits by age and sex.",
-            "proposed_action": "keep_context_specific_and_show_stricter_applicable_limit",
+            "conflicting_value": "Body Map กำหนดน้ำหนักตามลักษณะงาน เช่น 10/20/25 กก. แต่เอกสาร V3 กำหนดต่างกันตามอายุและเพศ",
+            "proposed_action": "คงคำแนะนำแยกตามบริบท และเมื่อมีหลายเกณฑ์ให้แสดงค่าที่เข้มงวดกว่าซึ่งตรงกับบริบทของผู้ใช้",
             "approval_status": "pending",
         },
         {
@@ -400,8 +409,8 @@ def write_reports(
             "issue_type": "unsupported_legacy_clause",
             "source_a": "current_app_recommendation_copy",
             "source_b": "body_map_recommendations:p2-3",
-            "conflicting_value": "Legacy text mentions a back-support belt; the approved source recommends raising work and using low-work aids.",
-            "proposed_action": "use_body_map_wording_without_back_support_belt",
+            "conflicting_value": "ข้อความเดิมกล่าวถึงเข็มขัดพยุงหลัง แต่เอกสารหลักแนะนำให้ยกระดับงานและใช้อุปกรณ์ช่วยทำงานใกล้พื้น",
+            "proposed_action": "ใช้ข้อความจาก Body Map และตัดข้อความเรื่องเข็มขัดพยุงหลังออก",
             "approval_status": "pending",
         },
         {
@@ -410,8 +419,8 @@ def write_reports(
             "issue_type": "indirect_source_mapping",
             "source_a": "current_app_recommendation_copy",
             "source_b": "app_recommendations_v3:p2",
-            "conflicting_value": "Legacy text says empty the basket often; V3 directly says raise basket height.",
-            "proposed_action": "use_v3_raise_basket_wording",
+            "conflicting_value": "ข้อความเดิมให้เทตะกร้าบ่อยขึ้น แต่เอกสาร V3 ระบุโดยตรงให้ปรับตะกร้าให้สูงขึ้น",
+            "proposed_action": "ใช้ข้อความตาม V3 ว่าให้ยกหรือปรับความสูงของตะกร้า",
             "approval_status": "pending",
         },
         {
@@ -420,8 +429,8 @@ def write_reports(
             "issue_type": "project_specific_standard_adaptation",
             "source_a": "app_recommendations_v3:p1",
             "source_b": "reba_employee_assessment_worksheet:p1",
-            "conflicting_value": "The age/sex A-F and percentage reductions are project adaptations, not formulas stated on the supplied REBA worksheet.",
-            "proposed_action": "label_as_employer_project_guidance_not_normative_iso_formula",
+            "conflicting_value": "เกณฑ์อายุ/เพศ A-F และสัดส่วนการลดน้ำหนักเป็นการปรับใช้ในโครงการ ไม่ใช่สูตรที่ระบุใน REBA worksheet ที่ได้รับ",
+            "proposed_action": "ระบุว่าเป็นแนวทางเฉพาะโครงการจากผู้ว่าจ้าง ไม่เรียกว่าเป็นสูตรมาตรฐาน ISO โดยตรง",
             "approval_status": "pending",
         },
     ]

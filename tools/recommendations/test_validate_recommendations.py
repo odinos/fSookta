@@ -4,6 +4,7 @@ import unittest
 from tools.recommendations.validate_recommendations import (
     extract_current_recommendation_keys,
     validate_master,
+    validate_translation_review,
 )
 
 
@@ -25,6 +26,24 @@ class RecommendationMasterTest(unittest.TestCase):
         for key in current_keys:
             with self.subTest(key=key):
                 self.assertIn(key, master_text)
+
+
+class TranslationReviewTest(unittest.TestCase):
+    def test_every_master_item_has_one_translation_review_row(self) -> None:
+        errors = validate_translation_review(
+            Path("data/recommendations/recommendation_master.csv"),
+            Path("data/recommendations/translation_review.csv"),
+            require_approved=False,
+        )
+        self.assertEqual(errors, [])
+
+    def test_approval_gate_fails_while_any_row_is_pending(self) -> None:
+        errors = validate_translation_review(
+            Path("data/recommendations/recommendation_master.csv"),
+            Path("data/recommendations/translation_review.csv"),
+            require_approved=True,
+        )
+        self.assertIn("approval_coverage_below_100", errors)
 
 
 if __name__ == "__main__":

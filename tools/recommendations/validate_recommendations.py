@@ -7,6 +7,7 @@ import argparse
 import csv
 import json
 import re
+from collections import Counter
 from pathlib import Path
 
 
@@ -29,6 +30,28 @@ REQUIRED_MASTER_COLUMNS = {
     "record_status",
     "legacy_text_th",
     "legacy_text_en",
+}
+
+REQUIRED_TRANSLATION_COLUMNS = {
+    "recommendation_id",
+    "selection_key",
+    "record_type",
+    "thai_source_text",
+    "english_draft",
+    "translation_style",
+    "numbers_match",
+    "units_match",
+    "timing_match",
+    "urgency_match",
+    "negation_match",
+    "meaning_review",
+    "review_comment",
+    "approval_status",
+    "approved_by",
+    "approved_at",
+    "translation_version",
+    "source_id",
+    "source_page",
 }
 
 
@@ -79,6 +102,83 @@ def validate_master(master_path: Path, registry_path: Path) -> list[str]:
     return errors
 
 
+def _numbers(text: str) -> Counter[str]:
+    return Counter(re.findall(r"\d+(?:\.\d+)?", text))
+
+
+def validate_translation_review(
+    master_path: Path,
+    translation_path: Path,
+    require_approved: bool,
+) -> list[str]:
+    if not master_path.is_file():
+        return [f"missing_master:{master_path}"]
+    if not translation_path.is_file():
+        return [f"missing_translations:{translation_path}"]
+    with master_path.open(encoding="utf-8-sig", newline="") as stream:
+        master_rows = {
+            row["recommendation_id"]: row for row in csv.DictReader(stream)
+        }
+    with translation_path.open(encoding="utf-8-sig", newline="") as stream:
+        reader = csv.DictReader(stream)
+        if reader.fieldnames is None:
+            return ["translation_header:missing"]
+        missing_header = REQUIRED_TRANSLATION_COLUMNS - set(reader.fieldnames)
+        if missing_header:
+            return [f"translation_columns:{sorted(missing_header)}"]
+        translation_rows = list(reader)
+    errors: list[str] = []
+    seen_ids: set[str] = set()
+    for index, row in enumerate(translation_rows, start=2):
+        item_id = row["recommendation_id"]
+        if item_id in seen_ids:
+            errors.append(f"translation_duplicate:{item_id}")
+        seen_ids.add(item_id)
+        master = master_rows.get(item_id)
+        if master is None:
+            errors.append(f"translation_unknown:{item_id}")
+            continue
+        if row["thai_source_text"] != master["thai_source_text"]:
+            errors.append(f"translation_thai_changed:{item_id}")
+        english = row["english_draft"].strip()
+        if not english:
+            errors.append(f"translation_english_empty:{item_id}")
+        if re.search(r"[ก-๙]", english):
+            errors.append(f"translation_english_contains_thai:{item_id}")
+        if _numbers(row["thai_source_text"]) != _numbers(english):
+            errors.append(f"translation_numbers:{item_id}")
+        if row["numbers_match"] == "fail" or row["units_match"] == "fail":
+            errors.append(f"translation_parity:{item_id}")
+        if row["approval_status"] not in {
+            "pending",
+            "needs_revision",
+            "rejected",
+            "approved",
+        }:
+            errors.append(f"translation_status:{index}:{row['approval_status']}")
+    missing_ids = set(master_rows) - seen_ids
+    if missing_ids:
+        errors.append(f"translation_missing:{len(missing_ids)}")
+    if require_approved:
+        approved = sum(
+            row["approval_status"] == "approved" for row in translation_rows
+        )
+        if approved != len(master_rows) or len(translation_rows) != len(master_rows):
+            errors.append("approval_coverage_below_100")
+        if any(
+            row["approval_status"] in {"pending", "needs_revision", "rejected"}
+            for row in translation_rows
+        ):
+            errors.append("approval_rows_unresolved")
+        conflict_path = master_path.parent / "reports" / "conflicts_missing_sources.csv"
+        if conflict_path.is_file():
+            with conflict_path.open(encoding="utf-8-sig", newline="") as stream:
+                conflicts = list(csv.DictReader(stream))
+            if any(row["approval_status"] != "approved" for row in conflicts):
+                errors.append("conflict_rows_pending")
+    return errors
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -91,13 +191,27 @@ def main() -> int:
         type=Path,
         default=Path("data/recommendations/source_registry.json"),
     )
+    parser.add_argument("--translations", type=Path)
+    parser.add_argument("--require-approved", action="store_true")
     args = parser.parse_args()
     errors = validate_master(args.master, args.registry)
+    if args.translations is not None:
+        errors.extend(
+            validate_translation_review(
+                args.master,
+                args.translations,
+                require_approved=args.require_approved,
+            )
+        )
     if errors:
         for error in errors:
             print(error)
         return 1
     print("recommendation_master=PASS")
+    if args.translations is not None:
+        print("translation_review=PASS")
+        if not args.require_approved:
+            print("approval_gate=PENDING_USER_REVIEW")
     return 0
 
 
