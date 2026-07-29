@@ -312,9 +312,7 @@ def validate_approved_catalog_rows(
         errors.append("approved_conflict_report_missing")
         return errors
 
-    expected_conflicts = (
-        REQUIRED_CONFLICT_RECOMMENDATION_IDS & set(master_by_id)
-    )
+    expected_conflicts = REQUIRED_CONFLICT_RECOMMENDATION_IDS
     seen_conflicts: set[str] = set()
     for row in conflict_rows:
         item_id = row.get("recommendation_id", "")

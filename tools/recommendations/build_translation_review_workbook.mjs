@@ -306,24 +306,27 @@ conflicts.getRange("I2:I5").conditionalFormats.add("cellIs", {
 });
 
 const gateAudit = workbook.worksheets.add("Gate Audit");
-gateAudit.getRange("A1:E176").values = [
+gateAudit.getRange("A1:F176").values = [
   [
     "recommendation_id",
     "english_contains_thai",
     "invalid_translation_style",
     "invalid_approved_at",
     "invalid_translation_version",
+    "invalid_units_not_applicable",
   ],
   ...rawTranslationRows
     .slice(1)
-    .map((row) => [row[0], null, null, null, null]),
+    .map((row) => [row[0], null, null, null, null, null]),
 ];
-gateAudit.getRange("B2:E176").formulas = rawTranslationRows
+gateAudit.getRange("B2:F176").formulas = rawTranslationRows
   .slice(1)
   .map((_, index) => {
     const row = index + 2;
+    const thai = `'Translation Review'!D${row}`;
     const english = `'Translation Review'!E${row}`;
     const translationStyle = `'Translation Review'!F${row}`;
+    const unitsMatch = `'Translation Review'!H${row}`;
     const timestamp = `'Translation Review'!P${row}`;
     const version = `'Translation Review'!Q${row}`;
     const year = `VALUE(MID(${timestamp},2,4))`;
@@ -343,13 +346,14 @@ gateAudit.getRange("B2:E176").formulas = rawTranslationRows
       `=IF(OR(${translationStyle}="direct",${translationStyle}="plain_english"),0,1)`,
       `=IFERROR(IF(AND(OR(LEN(${timestamp})=21,LEN(${timestamp})=26),MID(${timestamp},6,1)="-",MID(${timestamp},9,1)="-",MID(${timestamp},12,1)="T",MID(${timestamp},15,1)=":",MID(${timestamp},18,1)=":",${month}>=1,${month}<=12,${day}>=1,${day}<=${lastDay},${hour}>=0,${hour}<=23,${minute}>=0,${minute}<=59,${second}>=0,${second}<=59,OR(AND(LEN(${timestamp})=21,RIGHT(${timestamp},1)="Z"),AND(LEN(${timestamp})=26,OR(MID(${timestamp},21,1)="+",MID(${timestamp},21,1)="-"),MID(${timestamp},24,1)=":",${timezoneHour}>=0,${timezoneHour}<=23,${timezoneMinute}>=0,${timezoneMinute}<=59))),0,1),1)`,
       `=IF(AND(ISNUMBER(${version}),${version}>0,${version}=INT(${version})),0,1)`,
+      `=IF(AND(${unitsMatch}="not_applicable",IFERROR(REGEXTEST(${thai},"(?:\\d+\\s*(?:กก\\.?|กิโลกรัม|ซม\\.?|เมตร|นาที|ปี|คน)|ชั่วโมง)"),TRUE)),1,0)`,
     ];
   });
-styleDataSheet(gateAudit, "A1:E176", "GateAuditTable");
+styleDataSheet(gateAudit, "A1:F176", "GateAuditTable");
 gateAudit.getRange("A:A").format.columnWidth = 34;
-gateAudit.getRange("B:E").format.columnWidth = 28;
-gateAudit.getRange("A2:E176").format.rowHeight = 24;
-gateAudit.getRange("B2:E176").conditionalFormats.add("cellIs", {
+gateAudit.getRange("B:F").format.columnWidth = 28;
+gateAudit.getRange("A2:F176").format.rowHeight = 24;
+gateAudit.getRange("B2:F176").conditionalFormats.add("cellIs", {
   operator: "greaterThan",
   formula: 0,
   format: { fill: red, font: { color: "#990000", bold: true } },
@@ -414,7 +418,7 @@ coverage.getRange("B4:B25").formulas = [
   ["=SUM('Gate Audit'!B2:B176)"],
   ["=SUM('Gate Audit'!C2:C176)"],
   [
-    "=COUNTIF('Translation Review'!G2:G176,\"<>pass\")+COUNTIFS('Translation Review'!H2:H176,\"<>pass\",'Translation Review'!H2:H176,\"<>not_applicable\")+COUNTIF('Translation Review'!I2:I176,\"<>pass\")+COUNTIF('Translation Review'!J2:J176,\"<>pass\")+COUNTIF('Translation Review'!K2:K176,\"<>pass\")+COUNTIF('Translation Review'!L2:L176,\"<>pass\")",
+    "=COUNTIF('Translation Review'!G2:G176,\"<>pass\")+COUNTIFS('Translation Review'!H2:H176,\"<>pass\",'Translation Review'!H2:H176,\"<>not_applicable\")+COUNTIF('Translation Review'!I2:I176,\"<>pass\")+COUNTIF('Translation Review'!J2:J176,\"<>pass\")+COUNTIF('Translation Review'!K2:K176,\"<>pass\")+COUNTIF('Translation Review'!L2:L176,\"<>pass\")+SUM('Gate Audit'!F2:F176)",
   ],
   ["=COUNTBLANK('Translation Review'!O2:O176)"],
   ["=SUM('Gate Audit'!D2:D176)"],
@@ -515,7 +519,7 @@ const previewRanges = [
   ["Master Catalog", "A1:R22"],
   ["Source Register", `A1:H${sourceRows.length + 1}`],
   ["Conflicts", "A1:I5"],
-  ["Gate Audit", "A1:E22"],
+  ["Gate Audit", "A1:F22"],
   ["Coverage", "A1:B27"],
   ["Instructions", "A1:F12"],
 ];

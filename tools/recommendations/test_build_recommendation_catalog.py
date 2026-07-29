@@ -10,6 +10,14 @@ from tools.recommendations.build_recommendation_catalog import build_catalog
 from tools.recommendations.build_recommendation_master import _context
 
 
+REQUIRED_CONFLICT_IDS = (
+    "act_ref_weight_high.01",
+    "act_avoid_bend.01",
+    "act_harvest_empty_often.01",
+    "act_ref_weight_low.01",
+)
+
+
 def _master_row(
     recommendation_id: str,
     *,
@@ -78,8 +86,50 @@ class CatalogGeneratorTest(unittest.TestCase):
         source_registry_version: str | None = None,
         conflict_rows: list[dict[str, str]] | None = None,
     ) -> str:
+        master_rows = deepcopy(master_rows)
+        translation_rows = deepcopy(translation_rows)
+        conflict_rows = deepcopy(conflict_rows or [])
+        repository_master = {
+            row["recommendation_id"]: row
+            for row in self._read_csv(
+                Path("data/recommendations/recommendation_master.csv")
+            )
+        }
+        repository_translations = {
+            row["recommendation_id"]: row
+            for row in self._read_csv(
+                Path("data/recommendations/translation_review.csv")
+            )
+        }
+        repository_conflicts = {
+            row["recommendation_id"]: row
+            for row in self._read_csv(
+                Path(
+                    "data/recommendations/reports/"
+                    "conflicts_missing_sources.csv"
+                )
+            )
+        }
+        master_ids = {row["recommendation_id"] for row in master_rows}
+        translation_ids = {
+            row["recommendation_id"] for row in translation_rows
+        }
+        conflict_ids = {
+            row["recommendation_id"] for row in conflict_rows
+        }
+        for item_id in REQUIRED_CONFLICT_IDS:
+            if item_id not in master_ids:
+                required_master = deepcopy(repository_master[item_id])
+                required_master["catalog_version"] = master_rows[0][
+                    "catalog_version"
+                ]
+                master_rows.append(required_master)
+            if item_id not in translation_ids:
+                translation_rows.append(repository_translations[item_id])
+            if item_id not in conflict_ids:
+                conflict_rows.append(repository_conflicts[item_id])
         kwargs: dict[str, object] = {
-            "conflict_rows": conflict_rows or [],
+            "conflict_rows": conflict_rows,
         }
         if source_registry_version is not None:
             kwargs["source_registry_version"] = source_registry_version

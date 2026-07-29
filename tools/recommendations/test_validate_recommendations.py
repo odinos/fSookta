@@ -327,6 +327,37 @@ class ApprovedCatalogGateTest(unittest.TestCase):
             errors,
         )
 
+    def test_approved_gate_requires_conflict_after_all_inputs_drop_it(
+        self,
+    ) -> None:
+        missing_id = "act_ref_weight_high.01"
+        master_rows = [
+            row
+            for row in deepcopy(self.master_rows)
+            if row["recommendation_id"] != missing_id
+        ]
+        translation_rows = [
+            row
+            for row in deepcopy(self.translation_rows)
+            if row["recommendation_id"] != missing_id
+        ]
+        conflict_rows = [
+            row
+            for row in deepcopy(self.conflict_rows)
+            if row["recommendation_id"] != missing_id
+        ]
+
+        errors = self._validate(
+            master_rows=master_rows,
+            translation_rows=translation_rows,
+            conflict_rows=conflict_rows,
+        )
+
+        self.assertIn(
+            f"approved_conflict_coverage_missing:{missing_id}",
+            errors,
+        )
+
     def test_approved_gate_requires_every_conflict_to_be_approved(
         self,
     ) -> None:
