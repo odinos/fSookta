@@ -76,3 +76,6 @@ docs/deliverables/**/.*-diagrams/
 
 # Local Superpowers visual companion sessions
 .superpowers/
+
+# Local isolated feature worktrees
+.worktrees/
