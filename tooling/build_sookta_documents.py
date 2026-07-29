@@ -1,0 +1,318 @@
+"""Build the controlled Sookta 2.1.0 Word deliverables."""
+
+from __future__ import annotations
+
+import argparse
+from pathlib import Path
+
+from sookta_document_builder import (
+    BALANCED_PROFILE,
+    TECHNICAL_PROFILE,
+    DiagramSpec,
+    build_docx,
+)
+
+
+ROOT = Path(__file__).resolve().parents[1]
+DELIVERABLE_DIR = ROOT / "docs" / "deliverables" / "sookta-2.1.0"
+
+BALANCED_MARKDOWN = (
+    DELIVERABLE_DIR
+    / "Sookta_2.1.0_Application_Development_Workflow_Calculation_and_Guidelines_TH.md"
+)
+BALANCED_DOCX = (
+    DELIVERABLE_DIR
+    / "Sookta_2.1.0_Application_Development_Workflow_Calculation_and_Guidelines_TH.docx"
+)
+TECHNICAL_MARKDOWN = (
+    DELIVERABLE_DIR / "Sookta_2.1.0_Technical_Specification_TH.md"
+)
+TECHNICAL_DOCX = (
+    DELIVERABLE_DIR / "Sookta_2.1.0_Technical_Specification_TH.docx"
+)
+
+
+BALANCED_DIAGRAMS = {
+    "development-lifecycle": DiagramSpec(
+        title="วงจรการสร้าง Sookta Application",
+        nodes=(
+            ("requirements", "Requirement และ guideline"),
+            ("design", "UX/UI และ data flow"),
+            ("flutter", "Flutter implementation"),
+            ("assessment", "Media, assessment และ ML"),
+            ("data", "Persistence, history และ export"),
+            ("tests", "Automated tests"),
+            ("iphone", "UAT บน iPhone จริง"),
+            ("android", "Android parity/UAT"),
+            ("production", "Production configuration"),
+            ("store", "Signed IPA/AAB และ Store validation"),
+        ),
+        edges=(
+            ("requirements", "design", ""),
+            ("design", "flutter", ""),
+            ("flutter", "assessment", ""),
+            ("assessment", "data", ""),
+            ("data", "tests", ""),
+            ("tests", "iphone", ""),
+            ("iphone", "android", ""),
+            ("android", "production", ""),
+            ("production", "store", ""),
+        ),
+    ),
+    "startup-decision": DiagramSpec(
+        title="Startup decision",
+        nodes=(
+            ("open", "เปิด Application"),
+            ("firebase", "เตรียม Firebase แบบ fail-safe"),
+            ("restore", "Splash และ restore local state"),
+            ("decision", "ตรวจ setupCompleted และภาษาที่เลือก"),
+            ("destination", "Main Tabs หรือ Onboarding"),
+        ),
+        edges=(
+            ("open", "firebase", ""),
+            ("firebase", "restore", ""),
+            ("restore", "decision", ""),
+            ("decision", "destination", ""),
+        ),
+    ),
+    "first-run": DiagramSpec(
+        title="การเปิดใช้งานครั้งแรก",
+        nodes=(
+            ("language", "เลือกภาษา"),
+            ("profile", "กรอกข้อมูลเกษตรกร"),
+            ("bmi", "ตรวจ BMI preview"),
+            ("avatar", "เลือกหรือถ่ายรูป Avatar"),
+            ("complete", "บันทึก setupCompleted"),
+            ("home", "เข้าสู่ Home"),
+        ),
+        edges=(
+            ("language", "profile", ""),
+            ("profile", "bmi", ""),
+            ("bmi", "avatar", ""),
+            ("avatar", "complete", ""),
+            ("complete", "home", ""),
+        ),
+    ),
+    "returning-user": DiagramSpec(
+        title="การเปิดใช้งานครั้งต่อไป",
+        nodes=(
+            ("open", "เปิด Application"),
+            ("restore", "Restore ภาษา เกษตรกร ประวัติ และแบบร่าง"),
+            ("tabs", "Main Tabs"),
+            ("home", "Home"),
+            ("history", "History"),
+            ("profile", "Profile และ Settings"),
+            ("assessment", "เริ่มประเมิน"),
+        ),
+        edges=(
+            ("open", "restore", ""),
+            ("restore", "tabs", ""),
+            ("tabs", "home", ""),
+            ("tabs", "history", ""),
+            ("tabs", "profile", ""),
+            ("home", "assessment", ""),
+        ),
+    ),
+    "assessment-e2e": DiagramSpec(
+        title="Workflow การประเมินแบบ end-to-end",
+        nodes=(
+            ("farmer", "เลือกเกษตรกรปัจจุบัน"),
+            ("activity", "เลือกกิจกรรม"),
+            ("media", "เพิ่มภาพ 1–4 ภาพ หรือวิดีโอ"),
+            ("gate", "ตรวจคุณภาพ จำนวนบุคคล และ pose"),
+            ("calculate", "REBA และ ISO แบบประยุกต์"),
+            ("guardrail", "XGBoost/ONNX guardrail"),
+            ("before", "ผลความเสี่ยงก่อนปรับ"),
+            ("actions", "เลือกวิธีลดความเสี่ยง 4 หมวด"),
+            ("confirm", "ยืนยันข้อมูลก่อนบันทึก"),
+            ("after", "ผลหลังปรับและบันทึก History"),
+            ("followup", "แนวโน้มและ Export"),
+        ),
+        edges=(
+            ("farmer", "activity", ""),
+            ("activity", "media", ""),
+            ("media", "gate", ""),
+            ("gate", "calculate", "พร้อม"),
+            ("calculate", "guardrail", ""),
+            ("guardrail", "before", ""),
+            ("before", "actions", ""),
+            ("actions", "confirm", ""),
+            ("confirm", "after", ""),
+            ("after", "followup", ""),
+        ),
+    ),
+}
+
+TECHNICAL_DIAGRAMS = {
+    "system-context": DiagramSpec(
+        title="System context และ trust boundaries",
+        nodes=(
+            ("actor", "เกษตรกร เจ้าหน้าที่ และนักวิจัย"),
+            ("ui", "Flutter UI และ navigation"),
+            ("state", "Application state และ local persistence"),
+            ("services", "Assessment, recommendation และ export services"),
+            ("models", "TFLite, ONNX และ schema assets"),
+            ("platform", "iOS/Android camera, files และ video channel"),
+            ("firebase", "Firebase telemetry แบบ optional"),
+        ),
+        edges=(
+            ("actor", "ui", ""),
+            ("ui", "state", ""),
+            ("state", "services", ""),
+            ("services", "models", ""),
+            ("models", "platform", ""),
+            ("platform", "firebase", ""),
+        ),
+    ),
+    "module-dependency": DiagramSpec(
+        title="Flutter module dependency direction",
+        nodes=(
+            ("main", "main.dart bootstrap"),
+            ("app", "app composition และ state"),
+            ("screens", "onboarding และ main screens"),
+            ("widgets", "shared widgets และ theme"),
+            ("services", "core services"),
+            ("domain", "domain models และ serialization"),
+            ("assets", "model/schema assets"),
+            ("native", "iOS และ Android"),
+        ),
+        edges=(
+            ("main", "app", ""),
+            ("app", "screens", ""),
+            ("screens", "widgets", ""),
+            ("widgets", "services", ""),
+            ("services", "domain", ""),
+            ("domain", "assets", ""),
+            ("assets", "native", ""),
+        ),
+    ),
+    "route-state": DiagramSpec(
+        title="Route และ state transition หลัก",
+        nodes=(
+            ("splash", "Splash และ restore"),
+            ("onboarding", "Onboarding เมื่อจำเป็น"),
+            ("main", "Main Tabs"),
+            ("menu", "Evaluation Menu"),
+            ("form", "Evaluation Form"),
+            ("initial", "Initial Risk"),
+            ("final", "Final Result"),
+            ("history", "History และ Daily Trend"),
+        ),
+        edges=(
+            ("splash", "onboarding", ""),
+            ("onboarding", "main", ""),
+            ("main", "menu", ""),
+            ("menu", "form", ""),
+            ("form", "initial", ""),
+            ("initial", "final", ""),
+            ("final", "history", ""),
+        ),
+    ),
+    "restore-migration": DiagramSpec(
+        title="Restore, migration และ recovery",
+        nodes=(
+            ("prefs", "เปิด SharedPreferences"),
+            ("version", "ตรวจ schema version"),
+            ("backup", "Backup เมื่อเก่า หรือเตรียม reset เมื่อ error"),
+            ("profiles", "Restore profile, farmers และ active ID"),
+            ("records", "Restore history และ next ID"),
+            ("drafts", "Migrate legacy draft และ index drafts"),
+            ("ready", "ตั้ง hydrated และแจ้ง UI"),
+        ),
+        edges=(
+            ("prefs", "version", ""),
+            ("version", "backup", ""),
+            ("backup", "profiles", ""),
+            ("profiles", "records", ""),
+            ("records", "drafts", ""),
+            ("drafts", "ready", ""),
+        ),
+    ),
+    "assessment-sequence": DiagramSpec(
+        title="Production assessment sequence",
+        nodes=(
+            ("media", "Media 4 มุม หรือ video frames"),
+            ("person", "Single-person gate"),
+            ("pose", "MoveNet pose estimation"),
+            ("features", "Geometry และ 51 features"),
+            ("reba", "REBA lookup และ safety floors"),
+            ("iso", "ISO-style branch ตาม JobType"),
+            ("combine", "Maximum-risk combined result"),
+            ("xgb", "XGBoost upward-only guardrail"),
+            ("actions", "Recommendation 4 หมวด"),
+            ("persist", "Confirm, history และ export"),
+        ),
+        edges=(
+            ("media", "person", ""),
+            ("person", "pose", ""),
+            ("pose", "features", ""),
+            ("features", "reba", ""),
+            ("reba", "iso", ""),
+            ("iso", "combine", ""),
+            ("combine", "xgb", ""),
+            ("xgb", "actions", ""),
+            ("actions", "persist", ""),
+        ),
+    ),
+    "model-contracts": DiagramSpec(
+        title="Model asset และ fallback contracts",
+        nodes=(
+            ("image", "ภาพหรือ video frame"),
+            ("multipose", "MoveNet MultiPose gate"),
+            ("thunder", "MoveNet Thunder 17 keypoints"),
+            ("schema", "Schema 51 features"),
+            ("onnx", "XGBoost ONNX probability"),
+            ("guardrail", "ยกระดับได้อย่างเดียว"),
+            ("formula", "รวมกับ REBA/ISO baseline"),
+            ("daily", "7-record Logistic template"),
+        ),
+        edges=(
+            ("image", "multipose", ""),
+            ("multipose", "thunder", ""),
+            ("thunder", "schema", ""),
+            ("schema", "onnx", ""),
+            ("onnx", "guardrail", ""),
+            ("guardrail", "formula", ""),
+            ("formula", "daily", ""),
+        ),
+    ),
+}
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--font",
+        type=Path,
+        required=True,
+        help="Path to Sarabun-Regular.ttf for diagram rendering.",
+    )
+    parser.add_argument(
+        "--document",
+        choices=("balanced", "technical"),
+        default="balanced",
+    )
+    args = parser.parse_args()
+
+    if args.document == "balanced":
+        build_docx(
+            BALANCED_MARKDOWN,
+            BALANCED_DOCX,
+            BALANCED_PROFILE,
+            BALANCED_DIAGRAMS,
+            args.font,
+        )
+        print(BALANCED_DOCX)
+    elif args.document == "technical":
+        build_docx(
+            TECHNICAL_MARKDOWN,
+            TECHNICAL_DOCX,
+            TECHNICAL_PROFILE,
+            TECHNICAL_DIAGRAMS,
+            args.font,
+        )
+        print(TECHNICAL_DOCX)
+
+
+if __name__ == "__main__":
+    main()

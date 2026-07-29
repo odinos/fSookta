@@ -8,6 +8,16 @@ final DynamicLibrary _dylib = () {
   }
 
   if (Platform.isIOS) {
+    for (final libraryName in <String>[
+      'onnxruntime.framework/onnxruntime',
+      'onnxruntime',
+    ]) {
+      try {
+        return DynamicLibrary.open(libraryName);
+      } catch (_) {
+        // Try the next iOS framework lookup style before falling back.
+      }
+    }
     return DynamicLibrary.process();
   }
 

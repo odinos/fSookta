@@ -5,6 +5,7 @@ import 'package:image/image.dart' as img;
 import 'package:tflite_flutter/tflite_flutter.dart';
 
 import '../models/pose_models.dart';
+import 'pose_image_preprocessor.dart';
 
 class PoseEstimate {
   const PoseEstimate({
@@ -40,12 +41,7 @@ class PoseEstimationService {
     if (decoded == null) return null;
 
     final interpreter = await _ensureInterpreter();
-    final resized = img.copyResize(
-      decoded,
-      width: _inputSize,
-      height: _inputSize,
-      interpolation: img.Interpolation.linear,
-    );
+    final resized = letterboxPoseImage(decoded, size: _inputSize);
 
     final input = _buildInput(resized, interpreter.getInputTensor(0).type);
     final output = List.generate(

@@ -319,7 +319,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "set -e\n\nstrip_metadata() {\n  target=\"$1\"\n  [ -e \"$target\" ] || return 0\n  find \"$target\" \\( -name '.DS_Store' -o -name '._*' -o -name '__MACOSX' \\) -exec rm -rf {} + 2>/dev/null || true\n  find \"$target\" -exec xattr -d com.apple.FinderInfo {} \\; 2>/dev/null || true\n  find \"$target\" -exec xattr -d com.apple.ResourceFork {} \\; 2>/dev/null || true\n  find \"$target\" -exec xattr -d 'com.apple.fileprovider.fpfs#P' {} \\; 2>/dev/null || true\n  find \"$target\" -exec xattr -d com.apple.provenance {} \\; 2>/dev/null || true\n  find \"$target\" -exec xattr -d com.apple.quarantine {} \\; 2>/dev/null || true\n}\n\nstrip_metadata \"${TARGET_BUILD_DIR}/${WRAPPER_NAME}\"\nstrip_metadata \"${TARGET_BUILD_DIR}/App.framework\"\nstrip_metadata \"${CONFIGURATION_BUILD_DIR}/App.framework\"\nstrip_metadata \"${BUILT_PRODUCTS_DIR}/App.framework\"\nstrip_metadata \"${SRCROOT}/../build/native_assets/ios\"\n";
+			shellScript = "set -e\n\nstrip_metadata() {\n  target=\"$1\"\n  [ -e \"$target\" ] || return 0\n  case \"$target\" in\n    *.app|*.appex|*.framework|*.bundle|*.storyboardc)\n      tmp_root=\"/private/tmp/sookta-$(basename \"$target\").clean.$$\"\n      rm -rf \"$tmp_root\"\n      ditto --norsrc --noextattr \"$target\" \"$tmp_root\" 2>/dev/null || true\n      if [ -d \"$tmp_root\" ]; then\n        rm -rf \"$target\"\n        mv \"$tmp_root\" \"$target\"\n      fi\n      ;;\n  esac\n  find \"$target\" \\( -name '.DS_Store' -o -name '._*' -o -name '__MACOSX' \\) -exec rm -rf {} + 2>/dev/null || true\n  find \"$target\" -exec xattr -c {} \\; 2>/dev/null || true\n  find \"$target\" -exec xattr -d com.apple.FinderInfo {} \\; 2>/dev/null || true\n  find \"$target\" -exec xattr -d com.apple.ResourceFork {} \\; 2>/dev/null || true\n  find \"$target\" -exec xattr -d 'com.apple.fileprovider.fpfs#P' {} \\; 2>/dev/null || true\n  find \"$target\" -exec xattr -d com.apple.provenance {} \\; 2>/dev/null || true\n  find \"$target\" -exec xattr -d com.apple.quarantine {} \\; 2>/dev/null || true\n  xattr -c \"$target\" 2>/dev/null || true\n}\n\nstrip_metadata \"${TARGET_BUILD_DIR}/${WRAPPER_NAME}\"\nstrip_metadata \"${TARGET_BUILD_DIR}/App.framework\"\nstrip_metadata \"${TARGET_BUILD_DIR}/Flutter.framework\"\nstrip_metadata \"${CONFIGURATION_BUILD_DIR}/App.framework\"\nstrip_metadata \"${CONFIGURATION_BUILD_DIR}/Flutter.framework\"\nstrip_metadata \"${BUILT_PRODUCTS_DIR}/App.framework\"\nstrip_metadata \"${BUILT_PRODUCTS_DIR}/Flutter.framework\"\nstrip_metadata \"${SRCROOT}/../build/native_assets/ios\"\n";
 		};
 		3B06AD1E1E4923F5004D2608 /* Thin Binary */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -350,7 +350,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "export PATH=\"${SRCROOT}/scripts:${PATH}\"\n/bin/sh \"$FLUTTER_ROOT/packages/flutter_tools/bin/xcode_backend.sh\" build";
+			shellScript = "export PATH=\"${SRCROOT}/scripts:${PATH}\"\n\"${SRCROOT}/scripts/flutter_build_with_metadata_retry\"";
 		};
 		A8B4A00E0645C59DFB960EC4 /* [Sookta] Strip macOS metadata before Flutter */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -368,7 +368,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "set -e\n\nstrip_metadata() {\n  target=\"$1\"\n  [ -e \"$target\" ] || return 0\n  find \"$target\" \\( -name '.DS_Store' -o -name '._*' -o -name '__MACOSX' \\) -exec rm -rf {} + 2>/dev/null || true\n  find \"$target\" -exec xattr -d com.apple.FinderInfo {} \\; 2>/dev/null || true\n  find \"$target\" -exec xattr -d com.apple.ResourceFork {} \\; 2>/dev/null || true\n  find \"$target\" -exec xattr -d 'com.apple.fileprovider.fpfs#P' {} \\; 2>/dev/null || true\n  find \"$target\" -exec xattr -d com.apple.provenance {} \\; 2>/dev/null || true\n  find \"$target\" -exec xattr -d com.apple.quarantine {} \\; 2>/dev/null || true\n}\n\nstrip_metadata \"${TARGET_BUILD_DIR}/${WRAPPER_NAME}\"\nstrip_metadata \"${TARGET_BUILD_DIR}/App.framework\"\nstrip_metadata \"${CONFIGURATION_BUILD_DIR}/App.framework\"\nstrip_metadata \"${BUILT_PRODUCTS_DIR}/App.framework\"\nstrip_metadata \"${SRCROOT}/../build/native_assets/ios\"\n";
+			shellScript = "set -e\n\nstrip_metadata() {\n  target=\"$1\"\n  [ -e \"$target\" ] || return 0\n  case \"$target\" in\n    *.app|*.appex|*.framework|*.bundle|*.storyboardc)\n      tmp_root=\"/private/tmp/sookta-$(basename \"$target\").clean.$$\"\n      rm -rf \"$tmp_root\"\n      ditto --norsrc --noextattr \"$target\" \"$tmp_root\" 2>/dev/null || true\n      if [ -d \"$tmp_root\" ]; then\n        rm -rf \"$target\"\n        mv \"$tmp_root\" \"$target\"\n      fi\n      ;;\n  esac\n  find \"$target\" \\( -name '.DS_Store' -o -name '._*' -o -name '__MACOSX' \\) -exec rm -rf {} + 2>/dev/null || true\n  find \"$target\" -exec xattr -c {} \\; 2>/dev/null || true\n  find \"$target\" -exec xattr -d com.apple.FinderInfo {} \\; 2>/dev/null || true\n  find \"$target\" -exec xattr -d com.apple.ResourceFork {} \\; 2>/dev/null || true\n  find \"$target\" -exec xattr -d 'com.apple.fileprovider.fpfs#P' {} \\; 2>/dev/null || true\n  find \"$target\" -exec xattr -d com.apple.provenance {} \\; 2>/dev/null || true\n  find \"$target\" -exec xattr -d com.apple.quarantine {} \\; 2>/dev/null || true\n  xattr -c \"$target\" 2>/dev/null || true\n}\n\nstrip_metadata \"${TARGET_BUILD_DIR}/${WRAPPER_NAME}\"\nstrip_metadata \"${TARGET_BUILD_DIR}/App.framework\"\nstrip_metadata \"${TARGET_BUILD_DIR}/Flutter.framework\"\nstrip_metadata \"${CONFIGURATION_BUILD_DIR}/App.framework\"\nstrip_metadata \"${CONFIGURATION_BUILD_DIR}/Flutter.framework\"\nstrip_metadata \"${BUILT_PRODUCTS_DIR}/App.framework\"\nstrip_metadata \"${BUILT_PRODUCTS_DIR}/Flutter.framework\"\nstrip_metadata \"${SRCROOT}/../build/native_assets/ios\"\n";
 		};
 		D478298EAC878BB6786711C9 /* [firebase_crashlytics] Crashlytics Upload Symbols */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -391,7 +391,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "\"$PODS_ROOT/FirebaseCrashlytics/upload-symbols\" --flutter-project \"$PROJECT_DIR/firebase_app_id_file.json\" ";
+			shellScript = "set -e\n\nif [ \"${DEBUG_INFORMATION_FORMAT}\" != \"dwarf-with-dsym\" ]; then\n  echo \"Skipping Crashlytics upload-symbols because DEBUG_INFORMATION_FORMAT=${DEBUG_INFORMATION_FORMAT}\"\n  exit 0\nfi\n\nif [ ! -d \"${DWARF_DSYM_FOLDER_PATH}/${DWARF_DSYM_FILE_NAME}\" ]; then\n  echo \"Skipping Crashlytics upload-symbols because dSYM was not generated\"\n  exit 0\nfi\n\n\"$PODS_ROOT/FirebaseCrashlytics/upload-symbols\" --flutter-project \"$PROJECT_DIR/firebase_app_id_file.json\" ";
 		};
 		DACFCF9CC1C34EB0294232D9 /* [CP] Check Pods Manifest.lock */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -552,6 +552,7 @@
 				DEVELOPMENT_TEAM = RN66WU3W56;
 				"DEVELOPMENT_TEAM[sdk=iphoneos*]" = RN66WU3W56;
 				ENABLE_BITCODE = NO;
+				ENABLE_DEBUG_DYLIB = NO;
 				INFOPLIST_FILE = Runner/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -774,6 +775,7 @@
 				DEPLOYMENT_POSTPROCESSING = NO;
 				DEVELOPMENT_TEAM = RN66WU3W56;
 				ENABLE_BITCODE = NO;
+				ENABLE_DEBUG_DYLIB = NO;
 				INFOPLIST_FILE = Runner/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -832,6 +834,7 @@
 				DEVELOPMENT_TEAM = "";
 				"DEVELOPMENT_TEAM[sdk=iphoneos*]" = RN66WU3W56;
 				ENABLE_BITCODE = NO;
+				ENABLE_DEBUG_DYLIB = NO;
 				INFOPLIST_FILE = Runner/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",

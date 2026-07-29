@@ -16,6 +16,8 @@ class SplashScreen extends StatefulWidget {
 }
 
 class _SplashScreenState extends State<SplashScreen> {
+  static const _captureRoute = String.fromEnvironment('SOOKTA_CAPTURE_ROUTE');
+
   var started = false;
 
   @override
@@ -32,12 +34,18 @@ class _SplashScreenState extends State<SplashScreen> {
       state.restore(),
       Future<void>.delayed(const Duration(milliseconds: 900)),
     ]);
-    _goNext();
+    await _goNext();
   }
 
-  void _goNext() {
+  Future<void> _goNext() async {
     if (!mounted) return;
     final state = AppStateScope.of(context);
+    if (_captureRoute.isNotEmpty) {
+      await state.ensureResearchCaptureData();
+      if (!mounted) return;
+      Navigator.of(context).pushReplacementNamed(_captureRoute);
+      return;
+    }
     final route = state.setupCompleted
         ? MainTabsScreen.routeName
         : state.hasLanguage

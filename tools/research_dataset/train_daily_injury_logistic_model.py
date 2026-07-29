@@ -21,18 +21,32 @@ from typing import Iterable
 
 
 FEATURES = [
-    "avg_score_before_norm",
-    "max_score_before_norm",
-    "avg_score_after_norm",
+    "avg_reba_score_before_norm",
+    "max_reba_score_before_norm",
+    "avg_app_score_after_norm",
+    "avg_iso_score_before_norm",
+    "max_iso_score_before_norm",
     "high_or_above_days_norm",
     "very_high_days_norm",
     "no_improvement_days_norm",
     "trunk_high_days_norm",
-    "neck_or_upper_limb_high_days_norm",
+    "neck_high_days_norm",
+    "upper_limb_high_days_norm",
     "iso_days_norm",
+    "load_weight_norm",
+    "max_load_weight_norm",
+    "high_tool_load_days_norm",
+    "frequency_of_lifting_norm",
+    "carrying_exposure_norm",
+    "push_pull_exposure_norm",
     "avg_economic_loss_norm",
     "repeated_same_activity_norm",
-    "recent_score_slope_norm",
+    "recent_reba_score_slope_norm",
+    "recent_iso_score_slope_norm",
+    "avg_age_norm",
+    "male_ratio_norm",
+    "avg_bmi_norm",
+    "overweight_bmi_days_norm",
 ]
 
 RISK_ORDER = {
@@ -42,6 +56,14 @@ RISK_ORDER = {
     "veryHigh": 3,
     "very_high": 3,
     "very high": 3,
+    "ความเสี่ยงต่ำ": 0,
+    "ต่ำ": 0,
+    "ความเสี่ยงปานกลาง": 1,
+    "ปานกลาง": 1,
+    "ความเสี่ยงสูง": 2,
+    "สูง": 2,
+    "ความเสี่ยงสูงมาก": 3,
+    "สูงมาก": 3,
 }
 
 
@@ -79,8 +101,7 @@ def main() -> None:
     parser.add_argument("--l2", type=float, default=0.01)
     args = parser.parse_args()
 
-    transactions = read_transactions(Path(args.input))
-    windows = build_windows(transactions)
+    windows = read_training_windows(Path(args.input))
     if len(windows) < 4:
         raise SystemExit(
             "Need at least 4 labeled 7-transaction windows to train. "
@@ -137,34 +158,68 @@ def main() -> None:
     print(json.dumps(output["trainingStatus"], ensure_ascii=False, indent=2))
 
 
-def read_transactions(path: Path) -> list[Transaction]:
-    rows: list[Transaction] = []
+def read_training_windows(path: Path) -> list[tuple[dict[str, float], int]]:
+    """Read either the current app-exported feature-window CSV or old template.
+
+    New app exports contain one row per 7-transaction window and already include
+    the normalized feature columns consumed by the Flutter app. Older research
+    templates contain one row per transaction, so we still aggregate those into
+    rolling windows for backward compatibility.
+    """
     with path.open(newline="", encoding="utf-8-sig") as handle:
-        for row in csv.DictReader(handle):
-            farmer_id = row.get("farmer_id", "").strip()
-            if not farmer_id or farmer_id.upper().startswith("FSK-EXAMPLE"):
-                continue
+        reader = csv.DictReader(handle)
+        fieldnames = set(reader.fieldnames or [])
+        rows = list(reader)
+
+    if set(FEATURES).issubset(fieldnames):
+        windows: list[tuple[dict[str, float], int]] = []
+        for row in rows:
             label_raw = row.get("requires_medical_treatment_within_7_days", "").strip()
             if label_raw not in {"0", "1"}:
                 continue
-            rows.append(
-                Transaction(
-                    farmer_id=farmer_id,
-                    assessment_date=parse_date(row.get("assessment_date", "")),
-                    activity=row.get("activity", "").strip(),
-                    score_before=parse_int(row.get("score_before"), 0),
-                    score_after=parse_int(row.get("score_after"), 0),
-                    risk_before=row.get("risk_before", "low").strip(),
-                    trunk_risk=row.get("trunk_risk", "low").strip(),
-                    neck_risk=row.get("neck_risk", "low").strip(),
-                    arms_risk=row.get("arms_risk", "low").strip(),
-                    wrists_risk=row.get("wrists_risk", "low").strip(),
-                    iso11228_1_used=parse_bool(row.get("iso11228_1_used")),
-                    economic_loss_thb=parse_float(row.get("economic_loss_thb"), 0),
-                    label=int(label_raw),
+            windows.append(
+                (
+                    {name: bounded(parse_float(row.get(name), 0)) for name in FEATURES},
+                    int(label_raw),
                 )
             )
-    return rows
+        return windows
+
+    return build_windows(read_transactions_from_rows(rows))
+
+
+def read_transactions(path: Path) -> list[Transaction]:
+    with path.open(newline="", encoding="utf-8-sig") as handle:
+        return read_transactions_from_rows(list(csv.DictReader(handle)))
+
+
+def read_transactions_from_rows(raw_rows: list[dict[str, str]]) -> list[Transaction]:
+    transactions: list[Transaction] = []
+    for row in raw_rows:
+        farmer_id = row.get("farmer_id", "").strip()
+        if not farmer_id or farmer_id.upper().startswith("FSK-EXAMPLE"):
+            continue
+        label_raw = row.get("requires_medical_treatment_within_7_days", "").strip()
+        if label_raw not in {"0", "1"}:
+            continue
+        transactions.append(
+            Transaction(
+                farmer_id=farmer_id,
+                assessment_date=parse_date(row.get("assessment_date", "")),
+                activity=row.get("activity", "").strip(),
+                score_before=parse_int(row.get("score_before"), 0),
+                score_after=parse_int(row.get("score_after"), 0),
+                risk_before=row.get("risk_before", "low").strip(),
+                trunk_risk=row.get("trunk_risk", "low").strip(),
+                neck_risk=row.get("neck_risk", "low").strip(),
+                arms_risk=row.get("arms_risk", "low").strip(),
+                wrists_risk=row.get("wrists_risk", "low").strip(),
+                iso11228_1_used=parse_bool(row.get("iso11228_1_used")),
+                economic_loss_thb=parse_float(row.get("economic_loss_thb"), 0),
+                label=int(label_raw),
+            )
+        )
+    return transactions
 
 
 def build_windows(transactions: Iterable[Transaction]) -> list[tuple[dict[str, float], int]]:
@@ -197,21 +252,39 @@ def window_features(window: list[Transaction]) -> dict[str, float]:
         >= 2
     )
     activity_counts = Counter(row.activity for row in window)
+    avg_score_before = sum(before) / count
+    max_score_before = max(before)
+    avg_score_after = sum(after) / count
+    recent_slope = before[-1] - before[0]
     return {
-        "avg_score_before_norm": norm(sum(before) / count, 1, 9),
-        "max_score_before_norm": norm(max(before), 1, 9),
-        "avg_score_after_norm": norm(sum(after) / count, 1, 9),
+        "avg_reba_score_before_norm": norm(avg_score_before, 1, 9),
+        "max_reba_score_before_norm": norm(max_score_before, 1, 9),
+        "avg_app_score_after_norm": norm(avg_score_after, 1, 9),
+        "avg_iso_score_before_norm": 0,
+        "max_iso_score_before_norm": 0,
         "high_or_above_days_norm": high_days / count,
         "very_high_days_norm": very_high_days / count,
         "no_improvement_days_norm": no_improvement / count,
         "trunk_high_days_norm": trunk_high / count,
-        "neck_or_upper_limb_high_days_norm": neck_or_upper / count,
+        "neck_high_days_norm": sum(1 for row in window if risk_rank(row.neck_risk) >= 2) / count,
+        "upper_limb_high_days_norm": neck_or_upper / count,
         "iso_days_norm": sum(1 for row in window if row.iso11228_1_used) / count,
+        "load_weight_norm": 0,
+        "max_load_weight_norm": 0,
+        "high_tool_load_days_norm": 0,
+        "frequency_of_lifting_norm": 0,
+        "carrying_exposure_norm": 0,
+        "push_pull_exposure_norm": 0,
         "avg_economic_loss_norm": bounded(
             sum(row.economic_loss_thb for row in window) / count / 40000
         ),
         "repeated_same_activity_norm": max(activity_counts.values()) / count,
-        "recent_score_slope_norm": bounded(((before[-1] - before[0]) + 8) / 16),
+        "recent_reba_score_slope_norm": bounded((recent_slope + 8) / 16),
+        "recent_iso_score_slope_norm": 0,
+        "avg_age_norm": 0,
+        "male_ratio_norm": 0,
+        "avg_bmi_norm": 0,
+        "overweight_bmi_days_norm": 0,
     }
 
 

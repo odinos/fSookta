@@ -31,6 +31,13 @@ void main() {
     expect(csv, contains('requires_medical_treatment_within_7_days'));
     expect(csv, contains('avg_reba_score_before_norm'));
     expect(csv, contains('avg_iso_score_before_norm'));
+    expect(csv, contains('avg_reba_score_after_norm'));
+    expect(csv, contains('max_reba_score_after_norm'));
+    expect(csv, contains('avg_score_before_norm'));
+    expect(csv, contains('max_score_before_norm'));
+    expect(csv, contains('avg_score_after_norm'));
+    expect(csv, contains('recent_score_slope_norm'));
+    expect(csv, contains('neck_or_upper_limb_high_days_norm'));
     expect(csv, contains('avg_bmi_norm'));
     expect(csv, contains('load_weight_norm'));
     expect(csv, contains('frequency_of_lifting_norm'));
@@ -74,6 +81,21 @@ void main() {
     expect(csv, contains('upper_arm'));
     expect(csv, contains('video_camera'));
     expect(csv, contains('staticHighRiskHold'));
+    expect(csv, contains('farmer_age'));
+    expect(csv, contains('farmer_gender'));
+    expect(csv, contains('farmer_bmi'));
+    expect(csv, contains('manual_handling_weight_kg'));
+    expect(csv, contains('manual_handling_distance_m'));
+    expect(csv, contains('lift_frequency_per_minute'));
+    expect(csv, contains('duration_hours'));
+    expect(csv, contains('work_days_per_week'));
+    expect(csv, contains('initial_force_n'));
+    expect(csv, contains('sustain_force_n'));
+    expect(csv, contains('reba_score_before_app'));
+    expect(csv, contains('iso_score_before_app'));
+    expect(csv, contains('iso_risk_before_app'));
+    expect(csv, contains('7.5'));
+    expect(csv, contains('0.2'));
     expect(csv, contains('1200'));
   });
 }
@@ -94,7 +116,7 @@ EvaluationHistoryRecord _record({
     farmerBmi: 24.8,
     farmerBmiCategory: 'overweight',
     activity: SooktaActivity.transplanting,
-    activityName: 'Transplanting',
+    activityName: 'Planting',
     dateTime: dateTime,
     scoreBefore: 8,
     scoreAfter: 6,

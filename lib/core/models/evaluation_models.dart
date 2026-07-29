@@ -573,6 +573,11 @@ class AssessmentBreakdown {
     this.poseFrames = const [],
     this.worstPoseImageIndex,
     this.motionSummary,
+    this.xgboostInferenceState,
+    this.xgboostErrorCode,
+    this.xgboostModelVersion,
+    this.xgboostProbability,
+    this.deterministicScoreBeforeMl,
   });
 
   final AssessmentMethod primaryMethod;
@@ -584,6 +589,11 @@ class AssessmentBreakdown {
   final List<PoseRebaFrameAnalysis> poseFrames;
   final int? worstPoseImageIndex;
   final MotionAnalysisSummary? motionSummary;
+  final String? xgboostInferenceState;
+  final String? xgboostErrorCode;
+  final String? xgboostModelVersion;
+  final double? xgboostProbability;
+  final int? deterministicScoreBeforeMl;
 
   Map<String, Object?> toJson() {
     return {
@@ -596,6 +606,11 @@ class AssessmentBreakdown {
       'poseFrames': poseFrames.map((frame) => frame.toJson()).toList(),
       'worstPoseImageIndex': worstPoseImageIndex,
       'motionSummary': motionSummary?.toJson(),
+      'xgboostInferenceState': xgboostInferenceState,
+      'xgboostErrorCode': xgboostErrorCode,
+      'xgboostModelVersion': xgboostModelVersion,
+      'xgboostProbability': xgboostProbability,
+      'deterministicScoreBeforeMl': deterministicScoreBeforeMl,
     };
   }
 
@@ -630,6 +645,13 @@ class AssessmentBreakdown {
           ? MotionAnalysisSummary.fromJson(
               Map<String, Object?>.from(json['motionSummary'] as Map),
             )
+          : null,
+      xgboostInferenceState: json['xgboostInferenceState'] as String?,
+      xgboostErrorCode: json['xgboostErrorCode'] as String?,
+      xgboostModelVersion: json['xgboostModelVersion'] as String?,
+      xgboostProbability: _nullableDouble(json['xgboostProbability']),
+      deterministicScoreBeforeMl: json['deterministicScoreBeforeMl'] is num
+          ? (json['deterministicScoreBeforeMl'] as num).toInt()
           : null,
     );
   }

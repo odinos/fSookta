@@ -1,7 +1,11 @@
+import 'dart:async';
+import 'dart:io';
+
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
 class FirebaseTelemetryService {
@@ -11,6 +15,11 @@ class FirebaseTelemetryService {
   static FirebaseAnalyticsObserver? _observer;
   static var _enabled = false;
 
+  static const enabledByDefault = bool.fromEnvironment(
+    'SOOKTA_TELEMETRY_ENABLED',
+    defaultValue: false,
+  );
+
   static bool get isEnabled => _enabled;
 
   static List<NavigatorObserver> get navigatorObservers {
@@ -18,11 +27,17 @@ class FirebaseTelemetryService {
     return observer == null ? const [] : [observer];
   }
 
-  static Future<void> initialize() async {
+  static Future<void> initialize({
+    bool enabled = enabledByDefault,
+  }) async {
+    _enabled = false;
+    _observer = null;
     if (Firebase.apps.isEmpty) return;
 
-    await FirebaseCrashlytics.instance.setCrashlyticsCollectionEnabled(true);
-    await _analytics.setAnalyticsCollectionEnabled(true);
+    await FirebaseCrashlytics.instance.setCrashlyticsCollectionEnabled(enabled);
+    await _analytics.setAnalyticsCollectionEnabled(enabled);
+    if (!enabled) return;
+
     _observer = FirebaseAnalyticsObserver(
       analytics: _analytics,
       onError: (error) => debugPrint('Firebase Analytics screen error: $error'),
@@ -35,6 +50,21 @@ class FirebaseTelemetryService {
       'build_mode': kReleaseMode ? 'release' : 'debug',
     });
     await FirebaseCrashlytics.instance.log('Firebase telemetry initialized');
+  }
+
+  static String errorCode(Object error) {
+    if (error is FileSystemException) return 'file_system_error';
+    if (error is PlatformException) {
+      final code = error.code
+          .toLowerCase()
+          .replaceAll(RegExp('[^a-z0-9]+'), '_')
+          .replaceAll(RegExp('^_+|_+\$'), '');
+      final bounded = code.length <= 48 ? code : code.substring(0, 48);
+      return bounded.isEmpty ? 'platform_error' : 'platform_$bounded';
+    }
+    if (error is FormatException) return 'invalid_input_format';
+    if (error is TimeoutException) return 'timeout_error';
+    return 'unexpected_error';
   }
 
   static Future<void> logImageAdded({

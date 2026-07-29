@@ -18,7 +18,13 @@ class MainTabsScreen extends StatefulWidget {
 }
 
 class _MainTabsScreenState extends State<MainTabsScreen> {
-  int selectedIndex = 0;
+  static const _captureTab = String.fromEnvironment('SOOKTA_CAPTURE_TAB');
+
+  late int selectedIndex = switch (_captureTab) {
+    'history' => 1,
+    'profile' => 2,
+    _ => 0,
+  };
 
   @override
   Widget build(BuildContext context) {

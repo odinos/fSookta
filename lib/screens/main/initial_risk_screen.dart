@@ -16,7 +16,36 @@ import '../../widgets/economic_impact_comparison_card.dart';
 import '../../widgets/research_disclaimer_card.dart';
 import '../../widgets/responsive_content.dart';
 import '../../widgets/tts_button.dart';
+import 'evaluation_menu_screen.dart';
 import 'final_result_screen.dart';
+
+String _recommendationCategoryTitle(
+  FarmerRecommendationCategory category,
+  bool thai,
+) {
+  return switch (category) {
+    FarmerRecommendationCategory.posture =>
+      thai ? 'ท่าทางที่ควรปรับ' : 'Posture to adjust',
+    FarmerRecommendationCategory.riskReduction =>
+      thai ? 'วิธีลดความเสี่ยง' : 'Ways to reduce risk',
+    FarmerRecommendationCategory.restRotation =>
+      thai ? 'การพักหรือสลับงาน' : 'Rest or task rotation',
+    FarmerRecommendationCategory.workloadSupport =>
+      thai ? 'อุปกรณ์ช่วยลดภาระงาน' : 'Tools or workload support',
+  };
+}
+
+IconData _recommendationCategoryIcon(
+  FarmerRecommendationCategory category,
+) {
+  return switch (category) {
+    FarmerRecommendationCategory.posture => Icons.accessibility_new_outlined,
+    FarmerRecommendationCategory.riskReduction =>
+      Icons.health_and_safety_outlined,
+    FarmerRecommendationCategory.restRotation => Icons.timer_outlined,
+    FarmerRecommendationCategory.workloadSupport => Icons.construction_outlined,
+  };
+}
 
 class InitialRiskScreen extends StatefulWidget {
   const InitialRiskScreen({
@@ -34,6 +63,7 @@ class InitialRiskScreen extends StatefulWidget {
 
 class _InitialRiskScreenState extends State<InitialRiskScreen> {
   final selectedKeys = <String>{};
+  var preSaveConfirmed = false;
 
   @override
   Widget build(BuildContext context) {
@@ -41,13 +71,19 @@ class _InitialRiskScreenState extends State<InitialRiskScreen> {
     final thai = (state.language ?? AppLanguage.th) == AppLanguage.th;
     final strings = SooktaStrings(thai ? SooktaLocale.th : SooktaLocale.en);
     final before = widget.payload.before;
-    final suggestions = _suggestionsFor(before, widget.payload.activity);
+    final suggestions = RiskRecommendationService.farmerRecommendations(
+      activity: widget.payload.activity,
+      riskLevel: before.riskLevel,
+      bodyPartRisks: before.bodyPartRisks,
+      thai: thai,
+    );
     final impact = EconomicImpactService.estimate(
       overallRisk: before.riskLevel,
       dailyIncome: state.dailyIncome.toDouble(),
       bodyPartRisks: before.bodyPartRisks,
     );
     final after = _simulateAfter(before);
+    final afterBreakdown = _simulateAfterBreakdown(widget.payload.breakdown);
 
     return Scaffold(
       appBar: AppBar(
@@ -110,70 +146,98 @@ class _InitialRiskScreenState extends State<InitialRiskScreen> {
               thai: thai,
             ),
             const SizedBox(height: 16),
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Text(
-                      thai
-                          ? 'เลือกวิธีลดความเสี่ยง'
-                          : 'Choose risk-reduction actions',
-                      style: const TextStyle(
-                          fontSize: 16, fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      thai
-                          ? 'แตะเลือกเฉพาะข้อที่ทำได้จริง ระบบจะคำนวณคะแนนหลังปรับให้ทันที'
-                          : 'Tap only the actions you can really do. The app recalculates the after score immediately.',
-                      style: const TextStyle(color: Colors.black54),
-                    ),
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: SooktaTtsButton(
-                        thai: thai,
-                        text: thai
-                            ? 'เลือกวิธีลดความเสี่ยง แตะเลือกเฉพาะข้อที่ทำได้จริง ระบบจะคำนวณคะแนนหลังปรับให้ทันที'
-                            : 'Choose risk-reduction actions. Tap only the actions you can really do. The app recalculates the after score immediately.',
-                        size: 38,
+            Column(
+              key: const ValueKey('risk-action-groups'),
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  thai
+                      ? 'เลือกวิธีลดความเสี่ยง'
+                      : 'Choose risk-reduction actions',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  thai
+                      ? 'เลือกทีละข้อ เฉพาะวิธีที่ทำได้จริง'
+                      : 'Choose one action at a time, only when practical.',
+                  style: const TextStyle(color: Colors.black54),
+                ),
+                const SizedBox(height: 12),
+                for (final category in FarmerRecommendationCategory.values)
+                  Card(
+                    key: ValueKey('risk-action-group-${category.name}'),
+                    margin: const EdgeInsets.only(bottom: 12),
+                    color: const Color(0xFFFFFBF0),
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(
+                                _recommendationCategoryIcon(category),
+                                color: SooktaColors.darkGreen,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  _recommendationCategoryTitle(
+                                    category,
+                                    thai,
+                                  ),
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const Divider(height: 20),
+                          for (final item in suggestions.where(
+                            (item) => item.category == category,
+                          ))
+                            Builder(builder: (context) {
+                              final action = _actionFor(item.sourceKey);
+                              return CheckboxListTile(
+                                key: ValueKey(
+                                  'risk-action-${item.sourceKey}',
+                                ),
+                                value: selectedKeys.contains(item.sourceKey),
+                                onChanged: (value) {
+                                  setState(() {
+                                    if (value == true) {
+                                      selectedKeys.add(item.sourceKey);
+                                    } else {
+                                      selectedKeys.remove(item.sourceKey);
+                                    }
+                                  });
+                                },
+                                title: Text(item.text),
+                                subtitle: Text(
+                                  thai
+                                      ? 'ลดคะแนนได้ประมาณ ${action.scoreReduction} จุด'
+                                      : 'About ${action.scoreReduction} point reduction',
+                                ),
+                                secondary: SooktaTtsButton(
+                                  thai: thai,
+                                  text: item.text,
+                                  size: 34,
+                                ),
+                                controlAffinity:
+                                    ListTileControlAffinity.leading,
+                                contentPadding: EdgeInsets.zero,
+                              );
+                            }),
+                        ],
                       ),
                     ),
-                    const SizedBox(height: 8),
-                    ...suggestions.map((key) {
-                      final action = _actionFor(key);
-                      return CheckboxListTile(
-                        value: selectedKeys.contains(key),
-                        onChanged: (value) {
-                          setState(() {
-                            if (value == true) {
-                              selectedKeys.add(key);
-                            } else {
-                              selectedKeys.remove(key);
-                            }
-                          });
-                        },
-                        title: Text(strings.get(key)),
-                        subtitle: Text(
-                          thai
-                              ? 'คาดว่าลดคะแนน ${action.scoreReduction} จุด • ลดความเสี่ยง ${action.partLabels(thai: true)}'
-                              : 'Estimated score reduction ${action.scoreReduction} • Targets ${action.partLabels(thai: false)}',
-                        ),
-                        secondary: SooktaTtsButton(
-                          thai: thai,
-                          text: thai
-                              ? '${strings.get(key)} คาดว่าลดคะแนน ${action.scoreReduction} จุด ลดความเสี่ยง ${action.partLabels(thai: true)}'
-                              : '${strings.get(key)}. Estimated score reduction ${action.scoreReduction}. Targets ${action.partLabels(thai: false)}.',
-                          size: 34,
-                        ),
-                        controlAffinity: ListTileControlAffinity.leading,
-                        contentPadding: EdgeInsets.zero,
-                      );
-                    }),
-                  ],
-                ),
-              ),
+                  ),
+              ],
             ),
             const SizedBox(height: 16),
             _RiskSummaryCard(
@@ -206,21 +270,66 @@ class _InitialRiskScreenState extends State<InitialRiskScreen> {
               ),
             ],
             const SizedBox(height: 24),
-            FilledButton.icon(
-              onPressed: () {
-                Navigator.of(context).pushNamed(
-                  FinalResultScreen.routeName,
-                  arguments: AssessmentBundle(
-                    activity: widget.payload.activity,
-                    activityName: widget.payload.activityName,
-                    jobType: widget.payload.jobType,
-                    before: before,
-                    after: after,
-                    selectedSuggestionKeys: selectedKeys.toList(),
-                    breakdown: widget.payload.breakdown,
+            _PreSaveConfirmationCard(
+              activityName: widget.payload.activityName,
+              jobType: widget.payload.jobType,
+              confirmed: preSaveConfirmed,
+              thai: thai,
+              onConfirmedChanged: (value) {
+                setState(() => preSaveConfirmed = value);
+              },
+              onEditDetails: () => Navigator.of(context).pop(),
+              onChooseActivity: () async {
+                final continueChange = await showDialog<bool>(
+                  context: context,
+                  builder: (context) => AlertDialog(
+                    title: Text(
+                      thai ? 'เปลี่ยนกิจกรรม?' : 'Change activity?',
+                    ),
+                    content: Text(
+                      thai
+                          ? 'ข้อมูลที่กรอกไว้ถูกบันทึกเป็นแบบร่างแล้ว หากเลือกกิจกรรมใหม่ ให้กลับมาเปิดแบบร่างเดิมได้จากหน้าเลือกประเภทงาน'
+                          : 'Your current inputs are saved as a draft. If you choose another activity, you can resume this draft from the activity menu.',
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.of(context).pop(false),
+                        child: Text(thai ? 'ยกเลิก' : 'Cancel'),
+                      ),
+                      FilledButton(
+                        onPressed: () => Navigator.of(context).pop(true),
+                        child: Text(thai ? 'เลือกกิจกรรมใหม่' : 'Choose new'),
+                      ),
+                    ],
                   ),
                 );
+                if (continueChange != true || !context.mounted) return;
+                Navigator.of(context).popUntil(
+                  (route) =>
+                      route.settings.name == EvaluationMenuScreen.routeName ||
+                      route.isFirst,
+                );
               },
+            ),
+            const SizedBox(height: 12),
+            FilledButton.icon(
+              onPressed: preSaveConfirmed
+                  ? () {
+                      Navigator.of(context).pushNamed(
+                        FinalResultScreen.routeName,
+                        arguments: AssessmentBundle(
+                          activity: widget.payload.activity,
+                          activityName: widget.payload.activityName,
+                          jobType: widget.payload.jobType,
+                          before: before,
+                          after: after,
+                          selectedSuggestionKeys: selectedKeys.toList(),
+                          breakdown: widget.payload.breakdown,
+                          afterBreakdown: afterBreakdown,
+                        ),
+                      );
+                    }
+                  : null,
               icon: const Icon(Icons.summarize_outlined),
               label: Text(thai ? 'ดูผลหลังปรับปรุง' : 'View Improved Result'),
             ),
@@ -230,23 +339,6 @@ class _InitialRiskScreenState extends State<InitialRiskScreen> {
         ),
       ),
     );
-  }
-
-  List<String> _suggestionsFor(ErgoResult result, SooktaActivity activity) {
-    final keys = <String>{
-      ...RiskRecommendationService.activityKeys(
-        activity: activity,
-        riskLevel: result.riskLevel,
-      ),
-      ...RiskRecommendationService.bodyMapKeys(
-        bodyPartRisks: result.bodyPartRisks,
-        activity: activity,
-        overallRisk: result.riskLevel,
-      ),
-      ...result.suggestionKeys,
-    };
-    if (keys.isEmpty) keys.add('act_rest_stretch');
-    return keys.toList();
   }
 
   ErgoResult _simulateAfter(ErgoResult before) {
@@ -283,6 +375,22 @@ class _InitialRiskScreenState extends State<InitialRiskScreen> {
           affectedParts.contains(part) ? _lowerRisk(level) : level,
         ),
       ),
+    );
+  }
+
+  AssessmentBreakdown? _simulateAfterBreakdown(AssessmentBreakdown? before) {
+    if (before == null) return null;
+    return AssessmentBreakdown(
+      primaryMethod: before.primaryMethod,
+      rebaInput: before.rebaInput,
+      rebaResult: _simulateAfter(before.rebaResult),
+      ergoInput: before.ergoInput,
+      isoMethod: before.isoMethod,
+      isoResult:
+          before.isoResult == null ? null : _simulateAfter(before.isoResult!),
+      poseFrames: before.poseFrames,
+      worstPoseImageIndex: before.worstPoseImageIndex,
+      motionSummary: before.motionSummary,
     );
   }
 
@@ -563,6 +671,155 @@ class _InitialRiskScreenState extends State<InitialRiskScreen> {
   }
 }
 
+class _PreSaveConfirmationCard extends StatelessWidget {
+  const _PreSaveConfirmationCard({
+    required this.activityName,
+    required this.jobType,
+    required this.confirmed,
+    required this.thai,
+    required this.onConfirmedChanged,
+    required this.onEditDetails,
+    required this.onChooseActivity,
+  });
+
+  final String activityName;
+  final JobType jobType;
+  final bool confirmed;
+  final bool thai;
+  final ValueChanged<bool> onConfirmedChanged;
+  final VoidCallback onEditDetails;
+  final VoidCallback onChooseActivity;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(
+                  Icons.fact_check_outlined,
+                  color: SooktaColors.darkGreen,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    thai
+                        ? 'ตรวจสอบข้อมูลก่อนบันทึก'
+                        : 'Check details before saving',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              thai
+                  ? 'ถ้ากิจกรรมหรือท่าทางไม่ตรงกับงานจริง ให้กลับไปแก้ก่อน ระบบจะยังไม่บันทึกผลจนกว่าจะยืนยัน'
+                  : 'If the activity or posture does not match the real task, go back and correct it before saving.',
+              style: const TextStyle(color: Colors.black54, height: 1.35),
+            ),
+            const SizedBox(height: 12),
+            _ConfirmationRow(
+              label: thai ? 'กิจกรรม' : 'Activity',
+              value: activityName,
+            ),
+            _ConfirmationRow(
+              label: thai ? 'วิธีประเมิน/ท่าทาง' : 'Assessment method',
+              value: _jobTypeLabel(jobType, thai),
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                OutlinedButton.icon(
+                  onPressed: onEditDetails,
+                  icon: const Icon(Icons.tune_outlined),
+                  label: Text(
+                    thai
+                        ? 'แก้ท่าทาง/รายละเอียดประเมิน'
+                        : 'Edit posture/details',
+                  ),
+                ),
+                OutlinedButton.icon(
+                  onPressed: onChooseActivity,
+                  icon: const Icon(Icons.category_outlined),
+                  label: Text(
+                    thai ? 'เลือกกิจกรรมใหม่' : 'Choose another activity',
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            CheckboxListTile(
+              value: confirmed,
+              onChanged: (value) => onConfirmedChanged(value ?? false),
+              title: Text(
+                thai
+                    ? 'ยืนยันข้อมูลถูกต้องก่อนบันทึก'
+                    : 'Confirm details are correct before saving',
+              ),
+              controlAffinity: ListTileControlAffinity.leading,
+              contentPadding: EdgeInsets.zero,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _jobTypeLabel(JobType jobType, bool thai) {
+    return switch (jobType) {
+      JobType.reba => thai ? 'ท่าทาง' : 'Posture',
+      JobType.lifting => thai ? 'ยก/แบก' : 'Lifting/carrying',
+      JobType.pushPull => thai ? 'ดัน/ดึง' : 'Push/pull',
+    };
+  }
+}
+
+class _ConfirmationRow extends StatelessWidget {
+  const _ConfirmationRow({
+    required this.label,
+    required this.value,
+  });
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 136,
+            child: Text(
+              label,
+              style: const TextStyle(color: Colors.black54),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _FarmerGuideCard extends StatelessWidget {
   const _FarmerGuideCard({
     required this.before,
@@ -663,7 +920,6 @@ class _AiRiskAlertCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final percent = (alert.probability * 100).round();
     final color = _levelColor(alert.level);
     final title =
         thai ? 'สัญญาณช่วยเฝ้าระวังท่าทาง' : 'Posture Awareness Signal';
@@ -690,7 +946,7 @@ class _AiRiskAlertCard extends StatelessWidget {
                 Chip(
                   backgroundColor: color.withValues(alpha: 0.12),
                   label: Text(
-                    '$percent%',
+                    _chipLabel(alert.level, thai),
                     style: TextStyle(
                       color: color,
                       fontWeight: FontWeight.bold,
@@ -769,6 +1025,23 @@ class _AiRiskAlertCard extends StatelessWidget {
       AiAlertLevel.watch => 'Watch this posture',
       AiAlertLevel.high => 'High risk, improve posture',
       AiAlertLevel.critical => 'Very high risk, improve posture now',
+    };
+  }
+
+  String _chipLabel(AiAlertLevel level, bool thai) {
+    if (thai) {
+      return switch (level) {
+        AiAlertLevel.low => 'ต่ำ',
+        AiAlertLevel.watch => 'เฝ้าระวัง',
+        AiAlertLevel.high => 'สูง',
+        AiAlertLevel.critical => 'สูงมาก',
+      };
+    }
+    return switch (level) {
+      AiAlertLevel.low => 'Low',
+      AiAlertLevel.watch => 'Watch',
+      AiAlertLevel.high => 'High',
+      AiAlertLevel.critical => 'Very high',
     };
   }
 }

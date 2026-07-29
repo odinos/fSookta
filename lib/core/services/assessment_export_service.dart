@@ -3,7 +3,9 @@ import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 
 import '../../app/app_state.dart';
+import '../../app/build_info.dart';
 import '../models/assessment_session.dart';
+import '../models/assessment_reference_sources.dart';
 import '../models/economic_impact_models.dart';
 import '../models/evaluation_models.dart';
 import 'economic_impact_service.dart';
@@ -106,6 +108,10 @@ class AssessmentExportService {
         thai ? 'วันที่ประเมิน' : 'Assessment date',
         (record?.dateTime ?? DateTime.now()).toIso8601String(),
       ],
+      [
+        thai ? 'เวอร์ชันแอปที่ใช้ประเมิน' : 'Assessment app version',
+        record?.appVersion ?? SooktaBuildInfo.label,
+      ],
       [thai ? 'รหัสผู้เข้าร่วมวิจัย' : 'Farmer ID', profile.farmerId],
       [thai ? 'กิจกรรม' : 'Activity', bundle.activityName],
       [
@@ -115,7 +121,7 @@ class AssessmentExportService {
       [thai ? 'ประเภทงาน' : 'Job type', bundle.jobType.name],
       [thai ? 'ชื่อผู้ใช้' : 'Name', profile.name],
       [thai ? 'บทบาท/หน้าที่' : 'Role', profile.role],
-      [thai ? 'พื้นที่/สวน' : 'Location', profile.location],
+      [thai ? 'พื้นที่ทำงาน' : 'Work Space', profile.location],
       [thai ? 'อายุ' : 'Age', profile.age],
       [thai ? 'เพศ' : 'Gender', profile.gender],
       [thai ? 'น้ำหนัก' : 'Weight', profile.weight],
@@ -218,6 +224,7 @@ class AssessmentExportService {
             ? 'ไฟล์นี้เป็น CSV ที่เปิดด้วย Excel ได้ ใช้เพื่อการติดตามงานวิจัย ไม่ใช่ใบรับรองทางการแพทย์'
             : 'This CSV opens in Excel and is for research follow-up, not medical certification.',
       ],
+      ...AssessmentReferenceSources.csvRows(thai: thai),
     ];
     return '\uFEFF${rows.map(_csvRow).join('\n')}\n';
   }
@@ -249,6 +256,10 @@ class AssessmentExportService {
         thai ? 'วันที่ประเมิน' : 'Assessment date',
         record.dateTime.toIso8601String()
       ],
+      [
+        thai ? 'เวอร์ชันแอปที่ใช้ประเมิน' : 'Assessment app version',
+        record.appVersion ?? '-',
+      ],
       [thai ? 'รหัสผู้เข้าร่วมวิจัย' : 'Farmer ID', profile.farmerId],
       [thai ? 'กิจกรรม' : 'Activity', record.activityName],
       [
@@ -257,7 +268,7 @@ class AssessmentExportService {
       ],
       [thai ? 'ชื่อผู้ใช้' : 'Name', profile.name],
       [thai ? 'บทบาท/หน้าที่' : 'Role', profile.role],
-      [thai ? 'พื้นที่/สวน' : 'Location', profile.location],
+      [thai ? 'พื้นที่ทำงาน' : 'Work Space', profile.location],
       [thai ? 'อายุ' : 'Age', profile.age],
       [thai ? 'เพศ' : 'Gender', profile.gender],
       [thai ? 'น้ำหนัก' : 'Weight', profile.weight],
@@ -326,6 +337,7 @@ class AssessmentExportService {
             ? 'ไฟล์นี้ส่งออกจากหน้าประวัติ เป็น CSV ที่เปิดด้วย Excel ได้ ใช้เพื่อการติดตามงานวิจัย ไม่ใช่ใบรับรองทางการแพทย์'
             : 'This history export is a CSV that opens in Excel and is for research follow-up, not medical certification.',
       ],
+      ...AssessmentReferenceSources.csvRows(thai: thai),
     ];
     return '\uFEFF${rows.map(_csvRow).join('\n')}\n';
   }
@@ -339,11 +351,16 @@ class AssessmentExportService {
     final rows = <List<Object?>>[
       [
         'Export Generated At',
+        'export_schema_version',
+        'assessment_reference_sources',
+        'assessment_scope_note',
+        'calculation_standard_note',
         'Record ID',
+        'App Version',
         'Farmer ID',
         thai ? 'ชื่อผู้ใช้' : 'Name',
         thai ? 'บทบาท/หน้าที่' : 'Role',
-        thai ? 'พื้นที่/สวน' : 'Location',
+        thai ? 'พื้นที่ทำงาน' : 'Work Space',
         'Age',
         'Gender',
         'Weight (kg)',
@@ -378,6 +395,45 @@ class AssessmentExportService {
         'Estimated Saved (THB)',
         'Economic Impact Formula',
         'User Feedback Notes',
+        'transaction_id',
+        'user_id',
+        'assessment_date',
+        'assessment_time',
+        'task_type',
+        'REBA_before',
+        'REBA_risk_before',
+        'ISO_before',
+        'ISO_risk_before',
+        'load_before',
+        'frequency_before',
+        'duration_before',
+        'REBA_after',
+        'REBA_risk_after',
+        'ISO_after',
+        'ISO_risk_after',
+        'REBA_reduction',
+        'REBA_reduction_percent',
+        'trend_REBA_average',
+        'trend_REBA_maximum',
+        'trend_high_risk_count',
+        'trend_level',
+        'trend_direction',
+        'neck_risk',
+        'shoulder_risk',
+        'upper_limb_risk',
+        'wrist_risk',
+        'back_risk',
+        'knee_risk',
+        'photo_id',
+        'photo_timestamp',
+        'time_on_task_seconds',
+        'completion_status',
+        'assistance_required',
+        'error_count',
+        'expert_REBA',
+        'expert_risk_level',
+        'expert_assessment_date',
+        'expert_comments',
       ],
       for (final record in records)
         _worksheetFlatRow(
@@ -385,6 +441,8 @@ class AssessmentExportService {
           profile: profilesByRecordId[record.id] ?? const UserProfile(),
           thai: thai,
           generatedAt: generatedAt,
+          allRecords: records,
+          profilesByRecordId: profilesByRecordId,
         ),
     ];
     return '\uFEFF${rows.map(_csvRow).join('\n')}\n';
@@ -487,6 +545,8 @@ class AssessmentExportService {
     required UserProfile profile,
     required bool thai,
     required String generatedAt,
+    required List<EvaluationHistoryRecord> allRecords,
+    required Map<int, UserProfile> profilesByRecordId,
   }) {
     final impact = EconomicImpactService.estimate(
       overallRisk: record.riskBefore,
@@ -499,15 +559,43 @@ class AssessmentExportService {
       afterScore: record.scoreAfter,
     );
     final breakdown = record.assessmentBreakdown;
+    final afterBreakdown = record.afterAssessmentBreakdown;
     final ergoInput = breakdown?.ergoInput;
     final highestRisk = _highestRisk(record.bodyPartRisks);
     final medicalCost = impact.bodyTreatmentCost +
         impact.medicalVisitCost +
         impact.medicineAndSuppliesCost;
+    final trend = _trendFieldsForRecord(
+      record: record,
+      profile: profile,
+      allRecords: allRecords,
+      profilesByRecordId: profilesByRecordId,
+    );
+    final userId = _resolvedFarmerId(record, profile);
+    final isoScore = breakdown?.isoResult?.userScore;
+    final isoRisk = breakdown?.isoResult?.riskLevel;
+    final rebaBeforeScore = breakdown?.rebaResult.userScore;
+    final rebaBeforeRisk = breakdown?.rebaResult.riskLevel;
+    final rebaAfterScore = afterBreakdown?.rebaResult.userScore;
+    final rebaAfterRisk = afterBreakdown?.rebaResult.riskLevel;
+    final isoAfterScore = afterBreakdown?.isoResult?.userScore;
+    final isoAfterRisk = afterBreakdown?.isoResult?.riskLevel;
+    final rebaReduction = rebaBeforeScore == null || rebaAfterScore == null
+        ? null
+        : rebaBeforeScore - rebaAfterScore;
+    final rebaReductionPercent =
+        rebaBeforeScore == null || rebaBeforeScore <= 0 || rebaReduction == null
+            ? null
+            : rebaReduction / rebaBeforeScore;
     return [
       generatedAt,
+      AssessmentReferenceSources.exportSchemaVersion,
+      AssessmentReferenceSources.joinedReferences(),
+      AssessmentReferenceSources.scopeNoteEn,
+      AssessmentReferenceSources.calculationStandardNoteEn,
       record.id,
-      profile.farmerId.isEmpty ? (record.farmerId ?? '-') : profile.farmerId,
+      record.appVersion ?? '-',
+      userId,
       profile.name.isEmpty ? (record.farmerName ?? '-') : profile.name,
       profile.role.isEmpty ? (record.farmerRole ?? '-') : profile.role,
       profile.location.isEmpty
@@ -553,7 +641,146 @@ class AssessmentExportService {
       record.selectedSuggestions.isEmpty
           ? '-'
           : record.selectedSuggestions.join(' | '),
+      record.id,
+      userId,
+      _dateOnly(record.dateTime),
+      _timeOnly(record.dateTime),
+      record.activity?.name ?? record.activityName,
+      rebaBeforeScore ?? record.scoreBefore,
+      _risk(rebaBeforeRisk ?? record.riskBefore, thai),
+      isoScore ?? '-',
+      isoRisk == null ? '-' : _risk(isoRisk, thai),
+      ergoInput?.loadWeight ?? '-',
+      ergoInput == null ? '-' : _num(ergoInput.liftFrequency * 60),
+      ergoInput == null ? '-' : _num(ergoInput.durationHours * 60),
+      rebaAfterScore ?? '-',
+      rebaAfterRisk == null ? '-' : _risk(rebaAfterRisk, thai),
+      isoAfterScore ?? '-',
+      isoAfterRisk == null ? '-' : _risk(isoAfterRisk, thai),
+      rebaReduction ?? '-',
+      rebaReductionPercent == null ? '-' : _percent(rebaReductionPercent),
+      _num(trend.average),
+      trend.maximum,
+      trend.highRiskCount,
+      _trendLevel(trend.highRiskCount, thai),
+      trend.direction,
+      _risk(record.bodyPartRisks[BodyPart.neck] ?? RiskLevel.low, thai),
+      _risk(record.bodyPartRisks[BodyPart.arms] ?? RiskLevel.low, thai),
+      _risk(_upperLimbRisk(record.bodyPartRisks), thai),
+      _risk(record.bodyPartRisks[BodyPart.wrists] ?? RiskLevel.low, thai),
+      _risk(record.bodyPartRisks[BodyPart.trunk] ?? RiskLevel.low, thai),
+      _risk(record.bodyPartRisks[BodyPart.legs] ?? RiskLevel.low, thai),
+      _photoId(record, breakdown),
+      _photoTimestamp(record, breakdown),
+      record.timeOnTaskSeconds ?? '',
+      record.completionStatus ?? '',
+      record.assistanceRequired?.toString() ?? '',
+      record.errorCount ?? '',
+      record.expertReba == null ? '' : _num(record.expertReba!),
+      record.expertRiskLevel == null
+          ? ''
+          : _risk(record.expertRiskLevel!, thai),
+      record.expertAssessmentDate?.toIso8601String() ?? '',
+      record.expertComments ?? '',
     ];
+  }
+
+  static RiskLevel _upperLimbRisk(Map<BodyPart, RiskLevel> bodyPartRisks) {
+    final arms = bodyPartRisks[BodyPart.arms] ?? RiskLevel.low;
+    final wrists = bodyPartRisks[BodyPart.wrists] ?? RiskLevel.low;
+    return arms.index >= wrists.index ? arms : wrists;
+  }
+
+  static String _photoId(
+    EvaluationHistoryRecord record,
+    AssessmentBreakdown? breakdown,
+  ) {
+    final persistedId = record.photoId;
+    if (persistedId != null && persistedId.isNotEmpty) return persistedId;
+    if (breakdown == null || breakdown.poseFrames.isEmpty) return '-';
+    final imageIndex =
+        breakdown.worstPoseImageIndex ?? breakdown.poseFrames.first.imageIndex;
+    return 'transaction_${record.id}_photo_$imageIndex';
+  }
+
+  static String _photoTimestamp(
+    EvaluationHistoryRecord record,
+    AssessmentBreakdown? breakdown,
+  ) {
+    final persistedTimestamp = record.photoTimestamp;
+    if (persistedTimestamp != null) return persistedTimestamp.toIso8601String();
+    if (breakdown == null || breakdown.poseFrames.isEmpty) return '-';
+    return record.dateTime.toIso8601String();
+  }
+
+  static String _trendLevel(int highRiskCount, bool thai) {
+    final level = highRiskCount >= 6
+        ? RiskLevel.veryHigh
+        : highRiskCount >= 4
+            ? RiskLevel.high
+            : highRiskCount >= 2
+                ? RiskLevel.medium
+                : RiskLevel.low;
+    return _risk(level, thai);
+  }
+
+  static ({
+    double average,
+    int maximum,
+    int highRiskCount,
+    String direction,
+  }) _trendFieldsForRecord({
+    required EvaluationHistoryRecord record,
+    required UserProfile profile,
+    required List<EvaluationHistoryRecord> allRecords,
+    required Map<int, UserProfile> profilesByRecordId,
+  }) {
+    final userId = _resolvedFarmerId(record, profile);
+    final sameFarmer = allRecords.where((candidate) {
+      final candidateProfile =
+          profilesByRecordId[candidate.id] ?? const UserProfile();
+      return _resolvedFarmerId(candidate, candidateProfile) == userId &&
+          !candidate.dateTime.isAfter(record.dateTime);
+    }).toList()
+      ..sort((a, b) => a.dateTime.compareTo(b.dateTime));
+    final window = sameFarmer.length <= 7
+        ? sameFarmer
+        : sameFarmer.sublist(sameFarmer.length - 7);
+    final scores = window.map((item) => item.scoreBefore).toList();
+    if (scores.isEmpty) {
+      return (average: 0, maximum: 0, highRiskCount: 0, direction: 'stable');
+    }
+    final average =
+        scores.fold<double>(0, (sum, value) => sum + value) / scores.length;
+    final maximum = scores.reduce((a, b) => a > b ? a : b);
+    final highRiskCount = window
+        .where((item) => item.riskBefore.index >= RiskLevel.high.index)
+        .length;
+    final slope = scores.last - scores.first;
+    final direction = slope >= 1
+        ? 'increasing'
+        : slope <= -1
+            ? 'decreasing'
+            : 'stable';
+    return (
+      average: average,
+      maximum: maximum,
+      highRiskCount: highRiskCount,
+      direction: direction,
+    );
+  }
+
+  static String _resolvedFarmerId(
+    EvaluationHistoryRecord record,
+    UserProfile profile,
+  ) {
+    if (profile.farmerId.isNotEmpty) return profile.farmerId;
+    if ((record.farmerId ?? '').isNotEmpty) return record.farmerId!;
+    if ((record.farmerProfileId ?? '').isNotEmpty) {
+      return record.farmerProfileId!;
+    }
+    if (profile.profileId.isNotEmpty) return profile.profileId;
+    return 'record-${record.id}';
   }
 
   static List<List<Object?>> _assessmentBreakdownRows(
@@ -1039,6 +1266,12 @@ class AssessmentExportService {
     return '${dateTime.year.toString().padLeft(4, '0')}-'
         '${dateTime.month.toString().padLeft(2, '0')}-'
         '${dateTime.day.toString().padLeft(2, '0')}';
+  }
+
+  static String _timeOnly(DateTime dateTime) {
+    return '${dateTime.hour.toString().padLeft(2, '0')}:'
+        '${dateTime.minute.toString().padLeft(2, '0')}:'
+        '${dateTime.second.toString().padLeft(2, '0')}';
   }
 
   static String _postureDescription(AssessmentBreakdown? breakdown, bool thai) {

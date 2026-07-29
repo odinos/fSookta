@@ -168,6 +168,7 @@ Future<void> _captureScenario({
     ),
   );
   await tester.pump(const Duration(milliseconds: 600));
+  await tester.pumpAndSettle();
 
   expect(find.textContaining(activity.label(thai: language == AppLanguage.th)),
       findsWidgets);

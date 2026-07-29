@@ -15,8 +15,18 @@ class EvaluationMenuScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final language = AppStateScope.of(context).language ?? AppLanguage.th;
+    final state = AppStateScope.of(context);
+    final language = state.language ?? AppLanguage.th;
     final thai = language == AppLanguage.th;
+    final drafts = state.evaluationDrafts
+        .where((draft) => draft.farmerProfileId == state.profile.profileId)
+        .toList(growable: false);
+    final contentHeight = (MediaQuery.sizeOf(context).height -
+            MediaQuery.paddingOf(context).vertical -
+            kToolbarHeight -
+            32)
+        .clamp(0.0, double.infinity)
+        .toDouble();
 
     return Scaffold(
       appBar: AppBar(
@@ -27,10 +37,7 @@ class EvaluationMenuScreen extends StatelessWidget {
           maxWidth: 880,
           children: [
             SizedBox(
-              height: MediaQuery.sizeOf(context).height -
-                  MediaQuery.paddingOf(context).vertical -
-                  kToolbarHeight -
-                  32,
+              height: contentHeight,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -49,11 +56,23 @@ class EvaluationMenuScreen extends StatelessWidget {
                       thai: thai,
                       text: thai
                           ? 'เลือกกิจกรรมที่ต้องการประเมิน เช่น ปลูกกล้า ใส่ปุ๋ย ฉีดพ่น ตัดแต่งกิ่ง เก็บเกี่ยว หรือขนย้ายผลผลิต หลังเลือกแล้วให้ถ่ายรูปท่าทางทำงานให้เห็นคนชัดเจน'
-                          : 'Choose the activity to assess, such as transplanting, fertilizing, spraying, pruning, harvesting, or transport. After choosing, take a clear work-posture photo.',
+                          : 'Choose the activity to assess, such as planting, fertilizing, spraying, pruning, harvesting, or transport. After choosing, take a clear work-posture photo.',
                       size: 42,
                     ),
                   ),
                   const SizedBox(height: 16),
+                  if (drafts.isNotEmpty) ...[
+                    _DraftResumeList(
+                      drafts: drafts,
+                      thai: thai,
+                      onResume: (draft) => Navigator.of(context).pushNamed(
+                        EvaluationFormScreen.routeName,
+                        arguments: draft.activity,
+                      ),
+                      onClear: (draft) => state.clearEvaluationDraft(draft),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
                   Expanded(
                     child: LayoutBuilder(
                       builder: (context, constraints) {
@@ -93,6 +112,143 @@ class EvaluationMenuScreen extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _DraftResumeList extends StatelessWidget {
+  const _DraftResumeList({
+    required this.drafts,
+    required this.thai,
+    required this.onResume,
+    required this.onClear,
+  });
+
+  final List<EvaluationDraft> drafts;
+  final bool thai;
+  final ValueChanged<EvaluationDraft> onResume;
+  final ValueChanged<EvaluationDraft> onClear;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          thai ? 'แบบร่างล่าสุด' : 'Latest drafts',
+          style: const TextStyle(
+            color: SooktaColors.darkGreen,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        const SizedBox(height: 8),
+        for (final draft in drafts.take(3)) ...[
+          _DraftResumeCard(
+            draft: draft,
+            thai: thai,
+            onResume: () => onResume(draft),
+            onClear: () => onClear(draft),
+          ),
+          const SizedBox(height: 8),
+        ],
+      ],
+    );
+  }
+}
+
+class _DraftResumeCard extends StatelessWidget {
+  const _DraftResumeCard({
+    required this.draft,
+    required this.thai,
+    required this.onResume,
+    required this.onClear,
+  });
+
+  final EvaluationDraft draft;
+  final bool thai;
+  final VoidCallback onResume;
+  final VoidCallback onClear;
+
+  @override
+  Widget build(BuildContext context) {
+    final activityName = draft.activity.label(thai: thai);
+    final imageCount = draft.selectedImagePaths.length;
+    final date = draft.assessmentDateKey ?? '-';
+    final detail = thai
+        ? '$activityName • วันที่ $date • รูป $imageCount/4'
+        : '$activityName • $date • $imageCount/4 photos';
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF7FBF8),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFFD6E7DD)),
+      ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final compact = constraints.maxWidth < 460;
+          final text = Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  draft.farmerName?.isNotEmpty == true
+                      ? (thai
+                          ? 'แบบร่าง: ${draft.farmerName}'
+                          : 'Draft: ${draft.farmerName}')
+                      : (thai ? 'แบบร่าง' : 'Draft'),
+                  style: const TextStyle(
+                    color: SooktaColors.darkGreen,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(detail, style: const TextStyle(color: Colors.black54)),
+              ],
+            ),
+          );
+          final actions = Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            alignment: WrapAlignment.end,
+            children: [
+              TextButton.icon(
+                onPressed: onClear,
+                icon: const Icon(Icons.delete_outline),
+                label: Text(thai ? 'ล้างแบบร่าง' : 'Clear'),
+              ),
+              FilledButton.icon(
+                onPressed: onResume,
+                icon: const Icon(Icons.play_arrow),
+                label: Text(thai ? 'กลับไปทำแบบร่างต่อ' : 'Resume draft'),
+              ),
+            ],
+          );
+          if (compact) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(children: [
+                  const Icon(Icons.history, color: SooktaColors.darkGreen),
+                  const SizedBox(width: 10),
+                  text,
+                ]),
+                const SizedBox(height: 10),
+                Align(alignment: Alignment.centerRight, child: actions),
+              ],
+            );
+          }
+          return Row(
+            children: [
+              const Icon(Icons.history, color: SooktaColors.darkGreen),
+              const SizedBox(width: 10),
+              text,
+              actions,
+            ],
+          );
+        },
       ),
     );
   }

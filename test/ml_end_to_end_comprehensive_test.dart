@@ -217,29 +217,45 @@ void main() {
       }
     });
 
-    test('ML-011 controlled daily model covers low/watch/high/critical levels',
+    test(
+        'ML-011 controlled actual-risk trend covers low/watch/high/critical levels',
         () {
-      final records = [for (var day = 1; day <= 7; day++) _record(day)];
+      final service = _dailyServiceAtProbability(0.9);
+
+      List<app.EvaluationHistoryRecord> recordsWithHighBefore(int highCount) {
+        return [
+          for (var day = 1; day <= 7; day++)
+            _record(
+              day,
+              risk: day <= highCount
+                  ? eval.RiskLevel.high
+                  : eval.RiskLevel.medium,
+              riskAfter: eval.RiskLevel.low,
+            ),
+        ];
+      }
 
       expect(
-        _dailyServiceAtProbability(0.44).predictForRecords(records).level,
+        service.predictForRecords(recordsWithHighBefore(1)).level,
         DailyInjuryPredictionLevel.low,
       );
       expect(
-        _dailyServiceAtProbability(0.46).predictForRecords(records).level,
+        service.predictForRecords(recordsWithHighBefore(2)).level,
         DailyInjuryPredictionLevel.watch,
       );
       expect(
-        _dailyServiceAtProbability(0.66).predictForRecords(records).level,
+        service.predictForRecords(recordsWithHighBefore(4)).level,
         DailyInjuryPredictionLevel.high,
       );
       expect(
-        _dailyServiceAtProbability(0.83).predictForRecords(records).level,
+        service.predictForRecords(recordsWithHighBefore(6)).level,
         DailyInjuryPredictionLevel.critical,
       );
     });
 
-    test('ML-012 daily predictor sorts records and uses only latest seven', () {
+    test(
+        'ML-012 daily predictor sorts records and uses latest seven actual-risk scores',
+        () {
       final service = _dailyServiceAtProbability(0.5);
       final records = [
         _record(8, score: 8),
@@ -564,6 +580,7 @@ app.EvaluationHistoryRecord _record(
   int score = 5,
   int? afterScore,
   eval.RiskLevel risk = eval.RiskLevel.medium,
+  eval.RiskLevel? riskAfter,
   Map<eval.BodyPart, eval.RiskLevel> bodyPartRisks = const {},
   int economicLoss = 0,
 }) {
@@ -573,12 +590,12 @@ app.EvaluationHistoryRecord _record(
     farmerId: 'FSK-001',
     farmerName: 'Test Farmer',
     activity: SooktaActivity.transplanting,
-    activityName: 'Transplanting',
+    activityName: 'Planting',
     dateTime: DateTime(2026, 6, day),
     scoreBefore: score,
     scoreAfter: afterScore ?? (score - 1).clamp(1, 9).toInt(),
     riskBefore: risk,
-    riskAfter: risk,
+    riskAfter: riskAfter ?? risk,
     economicLoss: economicLoss,
     moneySaved: 0,
     selectedSuggestions: const [],

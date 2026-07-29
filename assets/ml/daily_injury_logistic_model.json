@@ -47,6 +47,7 @@
     }
   },
   "logisticRegression": {
+    "version": "daily-injury-logistic-template-2026-06-14-legacy-combined",
     "intercept": -2.6,
     "coefficients": {
       "avg_reba_score_before_norm": 1.05,
@@ -75,6 +76,54 @@
       "male_ratio_norm": 0.0,
       "avg_bmi_norm": 0.0,
       "overweight_bmi_days_norm": 0.0
+    }
+  },
+  "logisticRegressions": {
+    "reba": {
+      "version": "daily-injury-reba-logistic-template-2026-06-26",
+      "source": "template_reba_coefficients_pending_research_msd_symptom_labels",
+      "intercept": -2.1,
+      "coefficients": {
+        "avg_reba_score_before_norm": 1.25,
+        "max_reba_score_before_norm": 1.25,
+        "avg_app_score_after_norm": 0.25,
+        "high_or_above_days_norm": 1.0,
+        "very_high_days_norm": 1.35,
+        "no_improvement_days_norm": 0.55,
+        "trunk_high_days_norm": 1.1,
+        "neck_high_days_norm": 0.45,
+        "upper_limb_high_days_norm": 0.9,
+        "avg_economic_loss_norm": 0.7,
+        "repeated_same_activity_norm": 0.4,
+        "recent_reba_score_slope_norm": 0.5,
+        "avg_age_norm": 0.0,
+        "male_ratio_norm": 0.0,
+        "avg_bmi_norm": 0.0,
+        "overweight_bmi_days_norm": 0.0
+      }
+    },
+    "iso11228": {
+      "version": "daily-injury-iso11228-logistic-template-2026-06-26",
+      "source": "template_iso11228_coefficients_pending_research_msd_symptom_labels",
+      "intercept": -2.4,
+      "coefficients": {
+        "avg_iso_score_before_norm": 1.15,
+        "max_iso_score_before_norm": 1.2,
+        "iso_days_norm": 0.65,
+        "load_weight_norm": 0.65,
+        "max_load_weight_norm": 0.75,
+        "high_tool_load_days_norm": 0.45,
+        "frequency_of_lifting_norm": 0.55,
+        "carrying_exposure_norm": 0.7,
+        "push_pull_exposure_norm": 0.7,
+        "avg_economic_loss_norm": 0.45,
+        "repeated_same_activity_norm": 0.35,
+        "recent_iso_score_slope_norm": 0.45,
+        "avg_age_norm": 0.0,
+        "male_ratio_norm": 0.0,
+        "avg_bmi_norm": 0.0,
+        "overweight_bmi_days_norm": 0.0
+      }
     }
   },
   "trainingStatus": {

@@ -4,13 +4,14 @@ import 'package:share_plus/share_plus.dart';
 import '../../app/app_state.dart';
 import '../../app/app_text.dart';
 import '../../app/sookta_app.dart';
+import '../../core/models/evaluation_models.dart';
 import '../../core/services/assessment_export_service.dart';
 import '../../core/theme/sookta_theme.dart';
 import '../../widgets/responsive_content.dart';
 import 'daily_prediction_screen.dart';
 import 'history_detail_screen.dart';
 
-class HistoryTab extends StatelessWidget {
+class HistoryTab extends StatefulWidget {
   const HistoryTab({
     required this.text,
     super.key,
@@ -19,10 +20,19 @@ class HistoryTab extends StatelessWidget {
   final AppText text;
 
   @override
+  State<HistoryTab> createState() => _HistoryTabState();
+}
+
+class _HistoryTabState extends State<HistoryTab> {
+  _HistoryRiskFilter _riskFilter = _HistoryRiskFilter.all;
+  String? _activityFilter;
+
+  @override
   Widget build(BuildContext context) {
     final state = AppStateScope.of(context);
-    final thai = text.isThai;
+    final thai = widget.text.isThai;
     final history = state.history;
+    final filteredHistory = _filteredHistory(history);
 
     return Container(
       color: const Color(0xFFFDF8E1),
@@ -75,8 +85,9 @@ class HistoryTab extends StatelessWidget {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           IconButton.filled(
-                            tooltip:
-                                thai ? 'ทำนายจากประวัติ' : 'Daily prediction',
+                            tooltip: thai
+                                ? 'แนวโน้ม 7 ครั้งล่าสุด'
+                                : '7-record trend',
                             style: IconButton.styleFrom(
                               backgroundColor:
                                   Colors.white.withValues(alpha: 0.2),
@@ -93,16 +104,21 @@ class HistoryTab extends StatelessWidget {
                           ),
                           const SizedBox(width: 8),
                           IconButton.filled(
-                            tooltip: thai ? 'ส่งออกทั้งหมด' : 'Export all',
+                            tooltip: _exportTooltip(
+                              thai: thai,
+                              shown: filteredHistory.length,
+                              total: history.length,
+                            ),
                             style: IconButton.styleFrom(
                               backgroundColor:
                                   Colors.white.withValues(alpha: 0.2),
                             ),
-                            onPressed: history.isEmpty
+                            onPressed: filteredHistory.isEmpty
                                 ? null
                                 : () => _exportAll(
                                       context: context,
                                       state: state,
+                                      records: filteredHistory,
                                       thai: thai,
                                     ),
                             icon: const Icon(Icons.download_outlined,
@@ -124,7 +140,7 @@ class HistoryTab extends StatelessWidget {
                           const Icon(Icons.history,
                               size: 64, color: Colors.grey),
                           const SizedBox(height: 8),
-                          Text(text.noHistory,
+                          Text(widget.text.noHistory,
                               style: const TextStyle(color: Colors.grey)),
                         ],
                       ),
@@ -133,23 +149,45 @@ class HistoryTab extends StatelessWidget {
                       maxWidth: 620,
                       padding: const EdgeInsets.all(16),
                       children: [
-                        for (final item in history) ...[
-                          _HistoryCard(
-                            record: item,
-                            thai: thai,
-                            onTap: () => Navigator.of(context).pushNamed(
-                              HistoryDetailScreen.routeName,
-                              arguments: item.id,
-                            ),
-                            onExport: (buttonContext) => _exportRecord(
-                              context: buttonContext,
-                              state: state,
+                        _HistorySummaryAndFilters(
+                          history: history,
+                          filteredHistory: filteredHistory,
+                          riskFilter: _riskFilter,
+                          activityFilter: _activityFilter,
+                          thai: thai,
+                          onRiskFilterChanged: (filter) {
+                            setState(() => _riskFilter = filter);
+                          },
+                          onActivityFilterChanged: (activityName) {
+                            setState(() {
+                              _activityFilter = _activityFilter == activityName
+                                  ? null
+                                  : activityName;
+                            });
+                          },
+                        ),
+                        const SizedBox(height: 12),
+                        if (filteredHistory.isEmpty)
+                          _NoFilteredHistoryMessage(thai: thai)
+                        else
+                          for (final item in filteredHistory) ...[
+                            _HistoryCard(
                               record: item,
                               thai: thai,
+                              onTap: () => Navigator.of(context).pushNamed(
+                                HistoryDetailScreen.routeName,
+                                arguments: item.id,
+                              ),
+                              onExport: (buttonContext) => _exportRecord(
+                                context: buttonContext,
+                                state: state,
+                                record: item,
+                                thai: thai,
+                              ),
                             ),
-                          ),
-                          if (item != history.last) const SizedBox(height: 10),
-                        ],
+                            if (item != filteredHistory.last)
+                              const SizedBox(height: 10),
+                          ],
                       ],
                     ),
             ),
@@ -157,6 +195,20 @@ class HistoryTab extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  List<EvaluationHistoryRecord> _filteredHistory(
+    List<EvaluationHistoryRecord> history,
+  ) {
+    return history.where((record) {
+      final matchesRisk = switch (_riskFilter) {
+        _HistoryRiskFilter.all => true,
+        _HistoryRiskFilter.highRisk => record.riskBefore >= RiskLevel.high,
+      };
+      final matchesActivity =
+          _activityFilter == null || record.activityName == _activityFilter;
+      return matchesRisk && matchesActivity;
+    }).toList(growable: false);
   }
 
   Future<void> _exportRecord({
@@ -202,10 +254,10 @@ class HistoryTab extends StatelessWidget {
   Future<void> _exportAll({
     required BuildContext context,
     required SooktaAppState state,
+    required List<EvaluationHistoryRecord> records,
     required bool thai,
   }) async {
     try {
-      final records = state.history;
       final file = await AssessmentExportService.exportAllHistoryCsv(
         records: records,
         profilesByRecordId: {
@@ -217,15 +269,11 @@ class HistoryTab extends StatelessWidget {
       if (!context.mounted) return;
       await SharePlus.instance.share(
         ShareParams(
-          title: thai
-              ? 'ไฟล์ประวัติผลประเมินทุกคน'
-              : 'All farmer assessment export',
-          subject: thai
-              ? 'ไฟล์ประวัติผลประเมินทุกคน'
-              : 'All farmer assessment export',
+          title: thai ? 'ไฟล์ประวัติผลประเมิน' : 'Assessment history export',
+          subject: thai ? 'ไฟล์ประวัติผลประเมิน' : 'Assessment history export',
           text: thai
-              ? 'ไฟล์ CSV รวมผลประเมินหลายคน สำหรับเจ้าหน้าที่วิจัย'
-              : 'CSV with all farmer assessment records for research staff.',
+              ? 'ไฟล์ CSV รวมประวัติที่เลือกไว้ ${records.length} รายการ สำหรับเจ้าหน้าที่วิจัย'
+              : 'CSV with ${records.length} selected assessment history records for research staff.',
           files: [XFile(file.path, mimeType: 'text/csv')],
           fileNameOverrides: [file.uri.pathSegments.last],
           sharePositionOrigin: _shareOrigin(context),
@@ -245,10 +293,187 @@ class HistoryTab extends StatelessWidget {
     }
   }
 
+  String _exportTooltip({
+    required bool thai,
+    required int shown,
+    required int total,
+  }) {
+    if (shown == 0) {
+      return thai ? 'ไม่มีประวัติให้ส่งออก' : 'No history to export';
+    }
+    if (shown == total) {
+      return thai ? 'ส่งออกทั้งหมด' : 'Export all';
+    }
+    return thai
+        ? 'ส่งออกประวัติที่แสดงอยู่ $shown รายการ'
+        : 'Export $shown visible history records';
+  }
+
   Rect? _shareOrigin(BuildContext context) {
     final box = context.findRenderObject();
     if (box is! RenderBox) return null;
     return box.localToGlobal(Offset.zero) & box.size;
+  }
+}
+
+enum _HistoryRiskFilter {
+  all,
+  highRisk,
+}
+
+class _HistorySummaryAndFilters extends StatelessWidget {
+  const _HistorySummaryAndFilters({
+    required this.history,
+    required this.filteredHistory,
+    required this.riskFilter,
+    required this.activityFilter,
+    required this.thai,
+    required this.onRiskFilterChanged,
+    required this.onActivityFilterChanged,
+  });
+
+  final List<EvaluationHistoryRecord> history;
+  final List<EvaluationHistoryRecord> filteredHistory;
+  final _HistoryRiskFilter riskFilter;
+  final String? activityFilter;
+  final bool thai;
+  final ValueChanged<_HistoryRiskFilter> onRiskFilterChanged;
+  final ValueChanged<String> onActivityFilterChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final beforeAverage = _averageScore(
+      filteredHistory.map((record) => record.scoreBefore),
+    );
+    final afterAverage = _averageScore(
+      filteredHistory.map((record) => record.scoreAfter),
+    );
+    final highRiskCount = filteredHistory
+        .where((record) => record.riskBefore >= RiskLevel.high)
+        .length;
+    final activityNames = _activityNames(history);
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.trending_down, color: SooktaColors.darkGreen),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    thai
+                        ? 'สรุปประวัติและแนวโน้ม'
+                        : 'History and Trend Summary',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              _summaryLine(
+                thai: thai,
+                shown: filteredHistory.length,
+                total: history.length,
+                beforeAverage: beforeAverage,
+                afterAverage: afterAverage,
+                highRiskCount: highRiskCount,
+              ),
+              style: const TextStyle(color: Colors.black87, height: 1.35),
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                ChoiceChip(
+                  label: Text(thai ? 'ทั้งหมด' : 'All'),
+                  selected: riskFilter == _HistoryRiskFilter.all,
+                  onSelected: (_) =>
+                      onRiskFilterChanged(_HistoryRiskFilter.all),
+                ),
+                ChoiceChip(
+                  label: Text(thai ? 'เสี่ยงสูง' : 'High risk'),
+                  selected: riskFilter == _HistoryRiskFilter.highRisk,
+                  onSelected: (_) =>
+                      onRiskFilterChanged(_HistoryRiskFilter.highRisk),
+                ),
+                for (final name in activityNames)
+                  ChoiceChip(
+                    label: Text(name),
+                    selected: activityFilter == name,
+                    onSelected: (_) => onActivityFilterChanged(name),
+                  ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  static double _averageScore(Iterable<int> scores) {
+    if (scores.isEmpty) return 0;
+    final values = scores.toList(growable: false);
+    return values.reduce((sum, score) => sum + score) / values.length;
+  }
+
+  static List<String> _activityNames(List<EvaluationHistoryRecord> history) {
+    final names = <String>{};
+    for (final record in history) {
+      if (record.activityName.trim().isNotEmpty) {
+        names.add(record.activityName.trim());
+      }
+    }
+    return names.toList(growable: false)..sort();
+  }
+
+  static String _summaryLine({
+    required bool thai,
+    required int shown,
+    required int total,
+    required double beforeAverage,
+    required double afterAverage,
+    required int highRiskCount,
+  }) {
+    final countText = shown == total
+        ? (thai ? 'ทั้งหมด $total ครั้ง' : 'All $total records')
+        : (thai
+            ? 'แสดง $shown จาก $total ครั้ง'
+            : 'Showing $shown of $total records');
+    if (thai) {
+      return '$countText • คะแนนก่อนเฉลี่ย ${beforeAverage.toStringAsFixed(1)} • '
+          'คะแนนหลังเฉลี่ย ${afterAverage.toStringAsFixed(1)} • '
+          'ความเสี่ยงสูง $highRiskCount ครั้ง';
+    }
+    return '$countText • Avg before ${beforeAverage.toStringAsFixed(1)} • '
+        'Avg after ${afterAverage.toStringAsFixed(1)} • '
+        'High risk $highRiskCount records';
+  }
+}
+
+class _NoFilteredHistoryMessage extends StatelessWidget {
+  const _NoFilteredHistoryMessage({required this.thai});
+
+  final bool thai;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 32),
+      child: Center(
+        child: Text(
+          thai
+              ? 'ไม่พบประวัติตามตัวกรองนี้'
+              : 'No history matches this filter.',
+          style: const TextStyle(color: Colors.black54),
+        ),
+      ),
+    );
   }
 }
 

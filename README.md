@@ -7,10 +7,10 @@ Sookta เป็นแอป Flutter สำหรับงานวิจัย�
 ## สถานะปัจจุบัน
 
 - Flutter app สำหรับ iOS และ Android
-- Version ปัจจุบันใน `pubspec.yaml`: `1.1.0+8`
+- Version ปัจจุบันใน `pubspec.yaml`: `1.3.7+24`
 - Bundle/Application ID: `com.kdev.sookta`
 - รองรับภาษาไทยและอังกฤษ
-- มี Firebase Crashlytics สำหรับ crash reporting
+- รองรับ Firebase Analytics/Crashlytics แบบ opt-in; ค่าเริ่มต้นของ local และ production build ปิดการส่ง telemetry
 - ข้อมูลผู้เข้าร่วมวิจัย รูปที่ใช้ประเมิน ประวัติ และไฟล์ export เก็บในเครื่องผู้ใช้เป็นหลัก
 
 ## สำหรับผู้ใช้งาน
@@ -54,14 +54,15 @@ Sookta ไม่ใช่เครื่องมือวินิจฉัย�
 3. แปลงตำแหน่งข้อต่อเป็น feature vector ตาม schema `movenet-thunder-v1-17x3-normalized`
 4. คำนวณคะแนนเชิงสรีรศาสตร์จาก REBA สำหรับทุกงาน
 5. ถ้างานมีมิติที่เกี่ยวกับการยก ถือ ขนย้าย ดัน ลาก หรือการทำซ้ำ จะนำ ISO 11228 มาพิจารณาร่วมตามความเหมาะสม
-6. ใช้โมเดล ML แบบ offline เพื่อช่วยประเมินระดับความเสี่ยง
+6. ใช้โมเดล ML แบบ offline เป็นข้อมูลประกอบ โดยคะแนนหลักยังมาจาก REBA/ISO
 7. นำผลความเสี่ยงไปแสดงผลร่วมกับ body map, คำแนะนำ และ economic impact layer
 
-โมเดลที่อยู่ในแอป:
+สถานะโมเดลแบ่งเป็นสามส่วน:
 
-- Logistic Regression: `assets/models/logistic_weights.json`
-- XGBoost ONNX: `assets/models/xgboost_model.onnx`
-- MoveNet Thunder: `assets/ml/movenet_thunder.tflite`
+- MoveNet Thunder: `assets/ml/movenet_thunder.tflite` ใช้ประมาณตำแหน่งข้อต่อบนเครื่อง
+- XGBoost advisory-only: `assets/models/xgboost_model.onnx` ใช้แสดงสัญญาณประกอบบนเครื่อง แต่ไม่แก้คะแนนหรือระดับความเสี่ยง REBA/ISO
+- Daily Injury Logistic: `assets/ml/daily_injury_logistic_model.json` รวมอยู่ในแอป แต่ยังใช้ template coefficients และไม่แสดงค่า probability เป็นค่าที่ผ่านการฝึกวิจัย
+- Legacy posture Logistic: `assets/models/logistic_weights.json` เก็บเพื่อ traceability เท่านั้น ไม่ได้รวมในแอปและไม่ถูกเรียกใช้ตอน runtime
 
 รายละเอียด contract ของโมเดลอยู่ที่ [docs/model-artifact-contract.md](docs/model-artifact-contract.md)
 
@@ -83,7 +84,9 @@ Sookta ไม่ใช่เครื่องมือวินิจฉัย�
 - แอปไม่แสดงโฆษณา
 - รูปภาพและประวัติการประเมินเก็บในเครื่องเป็นหลัก
 - การ export/share เกิดขึ้นเมื่อผู้ใช้กด export เอง
-- Firebase Crashlytics ใช้สำหรับรายงาน crash และช่วยแก้ปัญหา runtime
+- การประเมินหลักทำงาน offline และไม่มีการ upload รูปหรือผลประเมินโดยอัตโนมัติ
+- Firebase Analytics/Crashlytics ปิดเป็นค่าเริ่มต้น การเปิดต้องเป็นการตัดสินใจใน local build ด้วย `--dart-define=SOOKTA_TELEMETRY_ENABLED=true`
+- เมื่อเปิด telemetry ระบบส่งเฉพาะ event/รหัสประเภทข้อผิดพลาดที่จำกัดไว้ ไม่ส่ง local file path จาก error
 - ข้อมูลในแอปไม่ควรถูกอธิบายว่าเป็นการวินิจฉัยทางการแพทย์
 
 ถ้ามีการเพิ่ม Analytics, cloud sync, remote database หรือการส่งข้อมูลวิจัยขึ้น server ในอนาคต ต้องอัปเดต Privacy Policy, App Store App Privacy และ Google Play Data Safety ให้ตรงกับพฤติกรรมจริงก่อนส่ง release
@@ -134,7 +137,7 @@ cd ..
 - `ios/firebase_app_id_file.json`
 - `lib/firebase_options.dart`
 
-ในโปรเจกต์นี้ Firebase ใช้สำหรับ Crashlytics เป็นหลัก ถ้าเปลี่ยน Firebase project หรือ bundle id/package name ต้องตรวจสอบให้ตรงกันทั้ง Android, iOS และ Firebase Console
+ในโปรเจกต์นี้ Firebase เป็นส่วนเสริมที่ปิดการเก็บข้อมูลเป็นค่าเริ่มต้น ถ้าต้องการทดสอบแบบ opt-in ในเครื่อง ให้เพิ่ม `--dart-define=SOOKTA_TELEMETRY_ENABLED=true` ในคำสั่ง run/build หากเปลี่ยน Firebase project หรือ bundle id/package name ต้องตรวจสอบให้ตรงกันทั้ง Android, iOS และ Firebase Console
 
 ### โครงสร้างโค้ดสำคัญ
 
@@ -166,11 +169,11 @@ flutter build ipa --release
 
 ### Store Build Artifacts
 
-ตัวอย่าง artifact ล่าสุดที่เตรียมไว้:
+รูปแบบ artifact ที่ควรได้หลัง build store release:
 
 ```text
-build/store/releases/1.1.0+8/Sookta-1.1.0+8.aab
-build/store/releases/1.1.0+8/Sookta-1.1.0+8.ipa
+outputs/store-builds/1.3.7+24/Sookta-1.3.7+24-android-release.aab
+outputs/store-builds/1.3.7+24/Sookta-1.3.7+24-ios-appstore.ipa
 ```
 
 ก่อนส่ง Store ทุกครั้งควรตรวจ:
@@ -198,7 +201,9 @@ build/store/releases/1.1.0+8/Sookta-1.1.0+8.ipa
 
 - REBA ใช้เป็นฐานสำหรับทุกงาน
 - ISO 11228 ใช้เพิ่มเติมเฉพาะงานที่มีมิติ lifting, carrying, pushing, pulling หรือ repetitive handling
-- Logistic Regression และ XGBoost ONNX เป็นโมเดล offline สำหรับ A/B testing และการพัฒนางานวิจัยต่อ
+- XGBoost ONNX เป็น advisory-only และไม่แก้ผล REBA/ISO
+- Daily Injury Logistic ยังเป็น template coefficients; ต้อง fit และ validate ด้วยข้อมูลวิจัยก่อนตีความ probability
+- Legacy posture Logistic ไม่ได้ package ในแอปและใช้เพื่อ traceability เท่านั้น
 - Economic impact เป็น post-assessment layer ไม่ใช่ training label ของโมเดล posture risk
 
 ## Store และ Release Docs

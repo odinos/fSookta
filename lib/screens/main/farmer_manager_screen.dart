@@ -1,7 +1,10 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 
 import '../../app/app_state.dart';
 import '../../app/app_text.dart';
+import '../../app/assets.dart';
 import '../../app/research_profile_defaults.dart';
 import '../../app/sookta_app.dart';
 import '../../core/theme/sookta_theme.dart';
@@ -11,6 +14,12 @@ class FarmerManagerScreen extends StatelessWidget {
   const FarmerManagerScreen({super.key});
 
   static const routeName = '/farmers';
+  static const _avatars = [
+    SooktaAssets.male01,
+    SooktaAssets.female01,
+    SooktaAssets.male02,
+    SooktaAssets.female02,
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -108,6 +117,7 @@ class FarmerManagerScreen extends StatelessWidget {
       farmer?.role ?? '',
       text.language,
     );
+    var selectedAvatar = farmer?.avatarAsset;
 
     final saved = await showDialog<bool>(
       context: context,
@@ -124,6 +134,56 @@ class FarmerManagerScreen extends StatelessWidget {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
+                    CircleAvatar(
+                      radius: 42,
+                      backgroundColor: Colors.grey.shade200,
+                      foregroundImage: _avatarProvider(selectedAvatar),
+                      child: selectedAvatar == null
+                          ? const Icon(Icons.person,
+                              size: 44, color: Colors.grey)
+                          : null,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      thai ? 'เลือกรูปประจำตัว' : 'Choose an avatar',
+                      style: const TextStyle(
+                        color: SooktaColors.darkGreen,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      alignment: WrapAlignment.center,
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        for (final avatar in _avatars)
+                          InkWell(
+                            key: ValueKey(avatar),
+                            borderRadius: BorderRadius.circular(30),
+                            onTap: () => setDialogState(
+                              () => selectedAvatar = avatar,
+                            ),
+                            child: Container(
+                              padding: const EdgeInsets.all(3),
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: selectedAvatar == avatar
+                                      ? SooktaColors.leafGreen
+                                      : Colors.transparent,
+                                  width: 3,
+                                ),
+                              ),
+                              child: CircleAvatar(
+                                radius: 25,
+                                backgroundImage: AssetImage(avatar),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
                     _Field(
                       controller: farmerId,
                       label: text.farmerId,
@@ -246,7 +306,7 @@ class FarmerManagerScreen extends StatelessWidget {
       weight: weight.text.trim(),
       height: height.text.trim(),
       incomePerYear: income.text.trim(),
-      avatarAsset: farmer?.avatarAsset,
+      avatarAsset: selectedAvatar,
     );
     if (farmer == null) {
       state.addFarmer(updated);
@@ -312,12 +372,18 @@ class _FarmerCard extends StatelessWidget {
       child: ListTile(
         onTap: onSelect,
         leading: CircleAvatar(
+          key: farmer.avatarAsset == null
+              ? null
+              : const ValueKey('farmer-avatar-image'),
           backgroundColor:
               selected ? SooktaColors.leafGreen : Colors.grey.shade300,
-          child: Icon(
-            selected ? Icons.check : Icons.person_outline,
-            color: selected ? Colors.white : Colors.black54,
-          ),
+          foregroundImage: _avatarProvider(farmer.avatarAsset),
+          child: farmer.avatarAsset == null
+              ? Icon(
+                  selected ? Icons.check : Icons.person_outline,
+                  color: selected ? Colors.white : Colors.black54,
+                )
+              : null,
         ),
         title: Text(
           farmer.name.isEmpty
@@ -358,6 +424,16 @@ class _FarmerCard extends StatelessWidget {
       ),
     );
   }
+}
+
+ImageProvider? _avatarProvider(String? path) {
+  if (path == null || path.isEmpty) return null;
+  if (path.startsWith('/')) {
+    final file = File(path);
+    if (!file.existsSync()) return null;
+    return FileImage(file);
+  }
+  return AssetImage(path);
 }
 
 class _Field extends StatelessWidget {

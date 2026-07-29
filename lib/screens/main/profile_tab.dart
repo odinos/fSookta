@@ -10,6 +10,7 @@ import '../onboarding/language_selection_screen.dart';
 import '../onboarding/setup_screen.dart';
 import 'contact_screen.dart';
 import 'help_screen.dart';
+import 'risk_reduction_potential_screen.dart';
 import 'training_data_export_screen.dart';
 
 class ProfileTab extends StatelessWidget {
@@ -77,6 +78,16 @@ class ProfileTab extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 16),
+            _ProfileMenuItem(
+              icon: Icons.trending_down_outlined,
+              text: text.isThai
+                  ? 'ศักยภาพการลดความเสี่ยง'
+                  : 'Risk Reduction Potential',
+              onTap: () => Navigator.of(context).pushNamed(
+                RiskReductionPotentialScreen.routeName,
+              ),
+            ),
+            const SizedBox(height: 4),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Row(
@@ -187,7 +198,7 @@ class ProfileTab extends StatelessWidget {
             ),
             _ProfileMenuItem(
               icon: Icons.help_outline,
-              text: text.isThai ? 'ความช่วยเหลือ' : 'Help',
+              text: text.isThai ? 'คู่มือการใช้งาน' : 'User Manual',
               onTap: () =>
                   Navigator.of(context).pushNamed(HelpScreen.routeName),
             ),

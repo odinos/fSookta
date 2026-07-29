@@ -32,7 +32,7 @@ Future<bool> _initializeCrashlytics() async {
       options: DefaultFirebaseOptions.currentPlatform,
     );
     await FirebaseTelemetryService.initialize();
-    return true;
+    return FirebaseTelemetryService.isEnabled;
   } catch (error, stack) {
     FlutterError.reportError(
       FlutterErrorDetails(
@@ -58,6 +58,6 @@ void _installCrashlyticsErrorHandlers() {
 }
 
 void _recordFatalError(Object error, StackTrace stack) {
-  if (Firebase.apps.isEmpty) return;
+  if (!FirebaseTelemetryService.isEnabled || Firebase.apps.isEmpty) return;
   FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
 }

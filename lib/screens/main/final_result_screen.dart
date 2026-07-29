@@ -12,6 +12,7 @@ import '../../core/services/assessment_export_service.dart';
 import '../../core/services/daily_injury_prediction_service.dart';
 import '../../core/services/economic_impact_service.dart';
 import '../../core/services/firebase_telemetry_service.dart';
+import '../../core/services/risk_recommendation_service.dart';
 import '../../core/theme/sookta_theme.dart';
 import '../../widgets/assessment_breakdown_card.dart';
 import '../../widgets/body_risk_map_card.dart';
@@ -38,38 +39,59 @@ class FinalResultScreen extends StatefulWidget {
 
 class _FinalResultScreenState extends State<FinalResultScreen> {
   EvaluationHistoryRecord? savedRecord;
+  bool savingRecord = false;
   bool exporting = false;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || savedRecord != null) return;
-      final strings = _strings(context);
-      setState(() {
-        savedRecord = AppStateScope.of(context).saveEvaluation(
-          activity: widget.bundle.activity,
-          activityName: widget.bundle.activityName,
-          before: widget.bundle.before,
-          after: widget.bundle.after,
-          selectedSuggestions:
-              widget.bundle.selectedSuggestionKeys.map(strings.get).toList(),
-          assessmentBreakdown: widget.bundle.breakdown,
-        );
-      });
-      final record = savedRecord;
-      if (record != null) {
-        unawaited(FirebaseTelemetryService.logAssessmentSaved(
-          activity: widget.bundle.activity.name,
-          beforeRisk: widget.bundle.before.riskLevel.name,
-          afterRisk: widget.bundle.after.riskLevel.name,
-          beforeScore: widget.bundle.before.userScore,
-          afterScore: widget.bundle.after.userScore,
-          suggestionCount: widget.bundle.selectedSuggestionKeys.length,
-        ));
-        unawaited(_showDailyPredictionAlertIfNeeded(record));
-      }
+      unawaited(_saveResultOnce());
     });
+  }
+
+  Future<void> _saveResultOnce() async {
+    if (!mounted || savedRecord != null || savingRecord) return;
+    savingRecord = true;
+    final strings = _strings(context);
+    late final EvaluationHistoryRecord record;
+    try {
+      record = await AppStateScope.of(context).saveEvaluation(
+        activity: widget.bundle.activity,
+        activityName: widget.bundle.activityName,
+        before: widget.bundle.before,
+        after: widget.bundle.after,
+        selectedSuggestions:
+            widget.bundle.selectedSuggestionKeys.map(strings.get).toList(),
+        assessmentBreakdown: widget.bundle.breakdown,
+        afterAssessmentBreakdown: widget.bundle.afterBreakdown,
+      );
+    } catch (error, stackTrace) {
+      FlutterError.reportError(FlutterErrorDetails(
+        exception: error,
+        stack: stackTrace,
+        library: 'sookta final result',
+        context: ErrorDescription('saving an evaluation history record'),
+      ));
+      if (mounted) {
+        setState(() => savingRecord = false);
+      }
+      return;
+    }
+    if (!mounted) return;
+    setState(() {
+      savedRecord = record;
+      savingRecord = false;
+    });
+    unawaited(FirebaseTelemetryService.logAssessmentSaved(
+      activity: widget.bundle.activity.name,
+      beforeRisk: widget.bundle.before.riskLevel.name,
+      afterRisk: widget.bundle.after.riskLevel.name,
+      beforeScore: widget.bundle.before.userScore,
+      afterScore: widget.bundle.after.userScore,
+      suggestionCount: widget.bundle.selectedSuggestionKeys.length,
+    ));
+    unawaited(_showDailyPredictionAlertIfNeeded(record));
   }
 
   Future<void> _showDailyPredictionAlertIfNeeded(
@@ -83,15 +105,14 @@ class _FinalResultScreenState extends State<FinalResultScreen> {
       if (records.length < 7 || records.length % 7 != 0) return;
       final service = await DailyInjuryPredictionService.load();
       final prediction = service.predictForRecords(records);
-      if (!mounted || !prediction.requiresCareAlert) return;
+      if (!mounted || !prediction.requiresTrendAttention) return;
       final thai = (state.language ?? AppLanguage.th) == AppLanguage.th;
-      final percent = (prediction.probability * 100).round();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
             thai
-                ? 'ครบ ${records.length} transaction แล้ว: ระบบพบแนวโน้มควรติดตามอาการ ($percent%)'
-                : '${records.length} transactions reached: follow-up trend detected ($percent%).',
+                ? 'ครบ ${records.length} ครั้งแล้ว: งานจริงก่อนปรับยังพบความเสี่ยงสูงหลายครั้ง ควรดูแนวโน้ม'
+                : '${records.length} records reached: high actual pre-improvement risk appears several times.',
           ),
           action: SnackBarAction(
             label: thai ? 'ดูผล' : 'View',
@@ -113,6 +134,7 @@ class _FinalResultScreenState extends State<FinalResultScreen> {
     final strings = _strings(context);
     final before = widget.bundle.before;
     final after = widget.bundle.after;
+    final recordReady = savedRecord != null;
     final impactComparison = EconomicImpactService.compareBeforeAfter(
       beforeImpact: before.economicLoss,
       beforeScore: before.userScore,
@@ -121,6 +143,18 @@ class _FinalResultScreenState extends State<FinalResultScreen> {
     final saved = impactComparison.savedAmount;
     final suggestions =
         widget.bundle.selectedSuggestionKeys.map(strings.get).toList();
+    final activityRiskRecommendations = _activityRiskRecommendationTexts(
+      activity: widget.bundle.activity,
+      before: before,
+      strings: strings,
+    );
+    final farmerRecommendations =
+        RiskRecommendationService.farmerRecommendations(
+      activity: widget.bundle.activity,
+      riskLevel: before.riskLevel,
+      bodyPartRisks: before.bodyPartRisks,
+      thai: thai,
+    );
 
     return Scaffold(
       appBar: AppBar(
@@ -154,7 +188,7 @@ class _FinalResultScreenState extends State<FinalResultScreen> {
                     const SizedBox(height: 16),
                     LayoutBuilder(
                       builder: (context, constraints) {
-                        final compact = constraints.maxWidth < 330;
+                        final compact = constraints.maxWidth < 480;
                         final beforeBlock = _ScoreBlock(
                           label: thai ? 'ก่อนปรับ' : 'Before',
                           score: before.userScore,
@@ -167,9 +201,12 @@ class _FinalResultScreenState extends State<FinalResultScreen> {
                         );
                         final tts = SooktaTtsButton(
                           thai: thai,
-                          text: thai
-                              ? 'ผลลัพธ์โดยประมาณหลังเลือกแนวทางปรับปรุง ก่อนปรับ ${before.userScore} หลังปรับ ${after.userScore} ผลกระทบก่อนปรับ ${impactComparison.beforeImpact} บาทต่อปี หลังปรับประมาณ ${impactComparison.afterImpact} บาทต่อปี อาจประหยัดได้ ${impactComparison.savedAmount} บาทต่อปี'
-                              : 'Estimated result after selected improvements. Before score ${before.userScore}. After score ${after.userScore}. Before impact ${impactComparison.beforeImpact} baht per year. After impact about ${impactComparison.afterImpact} baht per year. Potential saving ${impactComparison.savedAmount} baht per year.',
+                          text: _farmerResultSpeechText(
+                            before: before,
+                            after: after,
+                            suggestions: suggestions,
+                            thai: thai,
+                          ),
                         );
                         if (compact) {
                           return Column(
@@ -201,57 +238,25 @@ class _FinalResultScreenState extends State<FinalResultScreen> {
               ),
             ),
             const SizedBox(height: 16),
-            EconomicImpactComparisonCard(
-              comparison: impactComparison,
-              thai: thai,
-            ),
-            const SizedBox(height: 16),
             _FarmerFinalSummaryCard(
               before: before,
               after: after,
               saved: saved,
+              suggestions: suggestions,
               thai: thai,
-            ),
-            const SizedBox(height: 12),
-            ResearchDisclaimerCard(thai: thai),
-            const SizedBox(height: 12),
-            OutlinedButton.icon(
-              onPressed: exporting
-                  ? null
-                  : () => _exportForStaff(
-                        context: context,
-                        state: state,
-                        suggestions: suggestions,
-                        thai: thai,
-                      ),
-              icon: exporting
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.download_outlined),
-              label: Text(
-                thai
-                    ? 'ส่งออกไฟล์ Excel สำหรับเจ้าหน้าที่'
-                    : 'Export Excel file for staff',
-              ),
             ),
             const SizedBox(height: 16),
-            BodyRiskMapCard(
-              bodyRisks: before.bodyPartRisks,
+            EconomicImpactComparisonCard(
+              comparison: impactComparison,
               thai: thai,
-              title: thai ? 'จุดเสี่ยงที่พบ' : 'Risky Points',
-              bodyRiskReasons: assessmentBodyRiskReasons(
-                widget.bundle.breakdown,
-                thai,
+            ),
+            if (activityRiskRecommendations.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              _ActivityRiskRecommendationCard(
+                recommendations: farmerRecommendations,
+                thai: thai,
               ),
-            ),
-            const SizedBox(height: 16),
-            AssessmentMethodSummaryCard(
-              breakdown: widget.bundle.breakdown,
-              thai: thai,
-            ),
+            ],
             const SizedBox(height: 16),
             Card(
               child: Padding(
@@ -294,6 +299,21 @@ class _FinalResultScreenState extends State<FinalResultScreen> {
                 ),
               ),
             ),
+            const SizedBox(height: 16),
+            _TechnicalDetailsSection(
+              before: before,
+              breakdown: widget.bundle.breakdown,
+              detailedRecommendations: activityRiskRecommendations,
+              thai: thai,
+              exporting: exporting,
+              recordReady: recordReady,
+              onExport: () => _exportForStaff(
+                context: context,
+                state: state,
+                suggestions: suggestions,
+                thai: thai,
+              ),
+            ),
             const SizedBox(height: 24),
             FilledButton.icon(
               onPressed: () {
@@ -305,8 +325,6 @@ class _FinalResultScreenState extends State<FinalResultScreen> {
               icon: const Icon(Icons.home),
               label: Text(thai ? 'กลับสู่หน้าหลัก' : 'Back to Home'),
             ),
-            const SizedBox(height: 12),
-            RiskReferenceFootnote(thai: thai),
           ],
         ),
       ),
@@ -399,22 +417,342 @@ class _FinalResultScreenState extends State<FinalResultScreen> {
   }
 }
 
+List<String> _activityRiskRecommendationTexts({
+  required SooktaActivity activity,
+  required ErgoResult before,
+  required SooktaStrings strings,
+}) {
+  final keys = [
+    ...RiskRecommendationService.activityKeys(
+      activity: activity,
+      riskLevel: before.riskLevel,
+    ),
+    ...RiskRecommendationService.bodyMapKeys(
+      bodyPartRisks: before.bodyPartRisks,
+      activity: activity,
+      overallRisk: before.riskLevel,
+    ),
+  ];
+  final seen = <String>{};
+  final texts = <String>[];
+  for (final key in keys) {
+    if (!seen.add(key)) continue;
+    final text = strings.get(key).trim();
+    if (text.isEmpty || text == key) continue;
+    texts.add(text);
+  }
+  return texts;
+}
+
+class _ActivityRiskRecommendationCard extends StatelessWidget {
+  const _ActivityRiskRecommendationCard({
+    required this.recommendations,
+    required this.thai,
+  });
+
+  final List<FarmerRecommendation> recommendations;
+  final bool thai;
+
+  @override
+  Widget build(BuildContext context) {
+    final groups = FarmerRecommendationCategory.values.map((category) {
+      return _RecommendationGroup(
+        category: category,
+        title: _categoryTitle(category, thai),
+        icon: _categoryIcon(category),
+        items: recommendations
+            .where((item) => item.category == category)
+            .take(2)
+            .map((item) => item.text)
+            .toList(growable: false),
+      );
+    });
+    return Card(
+      key: const ValueKey('farmer-guidance-card'),
+      color: const Color(0xFFFFFBF0),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.health_and_safety_outlined,
+                    color: SooktaColors.darkGreen),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    thai
+                        ? 'คำแนะนำตามกิจกรรมและความเสี่ยง'
+                        : 'Recommendations by activity and risk',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(
+              thai
+                  ? 'เริ่มจากข้อที่ทำได้จริงในงานนี้ แล้วติดตามคะแนนครั้งถัดไป'
+                  : 'Start with actions that fit this task, then compare the next result.',
+              style: const TextStyle(color: Colors.black54, fontSize: 12.5),
+            ),
+            const SizedBox(height: 12),
+            for (final group in groups) ...[
+              _RecommendationGroupView(group: group, thai: thai),
+              const SizedBox(height: 10),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+String _categoryTitle(FarmerRecommendationCategory category, bool thai) {
+  return switch (category) {
+    FarmerRecommendationCategory.posture =>
+      thai ? 'ท่าทางที่ควรปรับ' : 'Posture to adjust',
+    FarmerRecommendationCategory.riskReduction =>
+      thai ? 'วิธีลดความเสี่ยง' : 'Ways to reduce risk',
+    FarmerRecommendationCategory.restRotation =>
+      thai ? 'การพักหรือสลับงาน' : 'Rest or task rotation',
+    FarmerRecommendationCategory.workloadSupport =>
+      thai ? 'อุปกรณ์ช่วยลดภาระงาน' : 'Tools or workload support',
+  };
+}
+
+IconData _categoryIcon(FarmerRecommendationCategory category) {
+  return switch (category) {
+    FarmerRecommendationCategory.posture => Icons.accessibility_new_outlined,
+    FarmerRecommendationCategory.riskReduction =>
+      Icons.health_and_safety_outlined,
+    FarmerRecommendationCategory.restRotation => Icons.timer_outlined,
+    FarmerRecommendationCategory.workloadSupport => Icons.construction_outlined,
+  };
+}
+
+class _RecommendationGroup {
+  const _RecommendationGroup({
+    required this.category,
+    required this.title,
+    required this.icon,
+    required this.items,
+  });
+
+  final FarmerRecommendationCategory category;
+  final String title;
+  final IconData icon;
+  final List<String> items;
+}
+
+class _RecommendationGroupView extends StatelessWidget {
+  const _RecommendationGroupView({
+    required this.group,
+    required this.thai,
+  });
+
+  final _RecommendationGroup group;
+  final bool thai;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      key: ValueKey('recommendation-group-${group.category.name}'),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.72),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFFEDE3B8)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(group.icon, size: 18, color: SooktaColors.darkGreen),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    group.title,
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            for (final (index, item) in group.items.indexed)
+              Padding(
+                key: ValueKey(
+                  'recommendation-action-${group.category.name}-$index',
+                ),
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(
+                      Icons.arrow_circle_right_outlined,
+                      size: 18,
+                      color: SooktaColors.leafGreen,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(child: Text(item)),
+                    SooktaTtsButton(
+                      text: item,
+                      thai: thai,
+                      size: 32,
+                    ),
+                  ],
+                ),
+              ),
+            if (group.items.isEmpty)
+              Text(
+                thai ? 'ไม่มีคำแนะนำเพิ่มเติม' : 'No additional action',
+                style: const TextStyle(color: Colors.black54),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _TechnicalDetailsSection extends StatelessWidget {
+  const _TechnicalDetailsSection({
+    required this.before,
+    required this.breakdown,
+    required this.detailedRecommendations,
+    required this.thai,
+    required this.exporting,
+    required this.recordReady,
+    required this.onExport,
+  });
+
+  final ErgoResult before;
+  final AssessmentBreakdown? breakdown;
+  final List<String> detailedRecommendations;
+  final bool thai;
+  final bool exporting;
+  final bool recordReady;
+  final VoidCallback onExport;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFFE0E8E0)),
+      ),
+      child: ExpansionTile(
+        tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        childrenPadding: const EdgeInsets.fromLTRB(0, 0, 0, 12),
+        leading: const Icon(
+          Icons.assignment_outlined,
+          color: SooktaColors.darkGreen,
+        ),
+        title: Text(
+          thai
+              ? 'รายละเอียดสำหรับเจ้าหน้าที่และวิชาการ'
+              : 'Staff and technical details',
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
+        subtitle: Text(
+          thai
+              ? 'เปิดดูวิธีประเมิน จุดเสี่ยง และไฟล์ส่งออกเมื่อจำเป็น'
+              : 'Open for methods, risk points, and staff export when needed.',
+        ),
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (detailedRecommendations.isNotEmpty) ...[
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      thai ? 'คำแนะนำฉบับเต็ม' : 'Full recommendations',
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  for (final item in detailedRecommendations)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Text('• $item'),
+                    ),
+                  const SizedBox(height: 4),
+                ],
+                ResearchDisclaimerCard(thai: thai),
+                const SizedBox(height: 12),
+                OutlinedButton.icon(
+                  onPressed: exporting || !recordReady ? null : onExport,
+                  icon: exporting || !recordReady
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.download_outlined),
+                  label: Text(
+                    !recordReady
+                        ? (thai ? 'กำลังบันทึกข้อมูล...' : 'Saving result...')
+                        : (thai
+                            ? 'ส่งออกไฟล์ Excel สำหรับเจ้าหน้าที่'
+                            : 'Export Excel file for staff'),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                BodyRiskMapCard(
+                  bodyRisks: before.bodyPartRisks,
+                  thai: thai,
+                  title: thai ? 'จุดเสี่ยงที่พบ' : 'Risky Points',
+                  bodyRiskReasons: assessmentBodyRiskReasons(
+                    breakdown,
+                    thai,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                AssessmentMethodSummaryCard(
+                  breakdown: breakdown,
+                  thai: thai,
+                ),
+                const SizedBox(height: 12),
+                RiskReferenceFootnote(thai: thai),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _FarmerFinalSummaryCard extends StatelessWidget {
   const _FarmerFinalSummaryCard({
     required this.before,
     required this.after,
     required this.saved,
+    required this.suggestions,
     required this.thai,
   });
 
   final ErgoResult before;
   final ErgoResult after;
   final int saved;
+  final List<String> suggestions;
   final bool thai;
 
   @override
   Widget build(BuildContext context) {
     final isBetter = after.userScore < before.userScore;
+    final nextAction = suggestions.isNotEmpty
+        ? suggestions.first
+        : (thai
+            ? 'บันทึกงานจริงต่อเนื่อง และปรึกษาเจ้าหน้าที่หากคะแนนยังสูง'
+            : 'Keep recording real work and consult staff if the score stays high.');
     return Card(
       color: const Color(0xFFF4FBF5),
       child: Padding(
@@ -431,7 +769,7 @@ class _FarmerFinalSummaryCard extends StatelessWidget {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    thai ? 'สรุปแบบเข้าใจง่าย' : 'Simple summary',
+                    thai ? 'สรุปสำหรับเกษตรกร' : 'Farmer summary',
                     style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
@@ -451,6 +789,30 @@ class _FarmerFinalSummaryCard extends StatelessWidget {
                       : 'The score has not dropped yet. Try more posture actions next time.'),
               style: const TextStyle(fontWeight: FontWeight.bold),
             ),
+            const SizedBox(height: 10),
+            _FarmerSummaryLine(
+              icon: Icons.warning_amber_outlined,
+              text: thai
+                  ? 'ก่อนปรับ: ${_riskLabel(before.riskLevel, thai)} (คะแนน ${before.userScore})'
+                  : 'Before: ${_riskLabel(before.riskLevel, thai)} (score ${before.userScore})',
+            ),
+            const SizedBox(height: 6),
+            _FarmerSummaryLine(
+              icon: Icons.check_circle_outline,
+              text: thai
+                  ? 'หลังปรับ: ${_riskLabel(after.riskLevel, thai)} (คะแนน ${after.userScore})'
+                  : 'After: ${_riskLabel(after.riskLevel, thai)} (score ${after.userScore})',
+            ),
+            const SizedBox(height: 6),
+            _FarmerSummaryLine(
+              icon: Icons.accessibility_new_outlined,
+              text: _mainBodyRiskText(before.bodyPartRisks, thai),
+            ),
+            const SizedBox(height: 6),
+            _FarmerSummaryLine(
+              icon: Icons.task_alt,
+              text: thai ? 'ควรทำต่อ: $nextAction' : 'Next action: $nextAction',
+            ),
             const SizedBox(height: 6),
             Text(
               saved > 0
@@ -461,11 +823,93 @@ class _FarmerFinalSummaryCard extends StatelessWidget {
                       ? 'ข้อมูลนี้ถูกบันทึกแล้ว เจ้าหน้าที่สามารถดูรายละเอียดจากไฟล์ส่งออก'
                       : 'This result is saved. Staff can review details from the export.'),
             ),
+            const SizedBox(height: 8),
+            Text(
+              thai
+                  ? 'รายละเอียดสำหรับเจ้าหน้าที่อยู่ด้านล่าง'
+                  : 'Staff details are below.',
+              style: const TextStyle(
+                color: Colors.black54,
+                fontSize: 13,
+              ),
+            ),
           ],
         ),
       ),
     );
   }
+}
+
+class _FarmerSummaryLine extends StatelessWidget {
+  const _FarmerSummaryLine({
+    required this.icon,
+    required this.text,
+  });
+
+  final IconData icon;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 18, color: SooktaColors.darkGreen),
+        const SizedBox(width: 8),
+        Expanded(child: Text(text)),
+      ],
+    );
+  }
+}
+
+String _riskLabel(RiskLevel risk, bool thai) {
+  if (thai) return risk.label;
+  return switch (risk) {
+    RiskLevel.low => 'Low risk',
+    RiskLevel.medium => 'Medium risk',
+    RiskLevel.high => 'High risk',
+    RiskLevel.veryHigh => 'Very high risk',
+  };
+}
+
+String _mainBodyRiskText(Map<BodyPart, RiskLevel> bodyPartRisks, bool thai) {
+  final risky = bodyPartRisks.entries
+      .where((entry) => entry.value != RiskLevel.low)
+      .toList(growable: false);
+  if (risky.isEmpty) {
+    return thai
+        ? 'ยังไม่พบส่วนร่างกายที่เสี่ยงเด่น'
+        : 'No dominant risky body part was found.';
+  }
+  final sorted = risky.toList()
+    ..sort((a, b) => b.value.index.compareTo(a.value.index));
+  final labels = sorted
+      .take(3)
+      .map((entry) =>
+          '${bodyPartLabel(entry.key, thai)} ${riskLevelText(entry.value, thai)}')
+      .join(', ');
+  return thai ? 'จุดที่ควรระวัง: $labels' : 'Body areas to watch: $labels';
+}
+
+String _farmerResultSpeechText({
+  required ErgoResult before,
+  required ErgoResult after,
+  required List<String> suggestions,
+  required bool thai,
+}) {
+  final nextAction = suggestions.isNotEmpty
+      ? suggestions.first
+      : (thai
+          ? 'ทำตามคำแนะนำที่เลือกไว้ และบันทึกผลครั้งถัดไป'
+          : 'Follow the selected advice and record the next result.');
+  if (thai) {
+    return 'สรุปผลประเมิน ก่อนปรับ คะแนน ${before.userScore} ${_riskLabel(before.riskLevel, thai)} '
+        'หลังปรับ คะแนน ${after.userScore} ${_riskLabel(after.riskLevel, thai)} '
+        'ควรทำต่อ $nextAction';
+  }
+  return 'Assessment summary. Before score ${before.userScore}, ${_riskLabel(before.riskLevel, thai)}. '
+      'After score ${after.userScore}, ${_riskLabel(after.riskLevel, thai)}. '
+      'Next action: $nextAction';
 }
 
 class _ScoreBlock extends StatelessWidget {

@@ -21,10 +21,38 @@ class DailyInjuryPrediction {
     required this.usedTransactions,
     required this.probability,
     required this.level,
+    required this.latestScore,
+    required this.averageScore,
+    required this.maximumScore,
+    required this.highRiskCount,
+    required this.trendDirection,
+    required this.latestIsoRiskLevel,
+    required this.latestIsoScore,
+    required this.averageLoadKg,
+    required this.averageLiftFrequencyPerHour,
+    required this.averageBeforeScore,
+    required this.averageAfterScore,
+    required this.averageScoreReduction,
+    required this.averageRebaBeforeScore,
+    required this.averageRebaAfterScore,
+    required this.averageIsoBeforeScore,
+    required this.averageIsoAfterScore,
+    required this.improvedRecordCount,
+    required this.afterHighRiskCount,
+    required this.rebaLogisticProbability,
+    required this.iso11228LogisticProbability,
+    required this.rebaLogisticModelVersion,
+    required this.iso11228LogisticModelVersion,
     required this.modelVersion,
     required this.modelSource,
+    required this.isResearchTrained,
     required this.featureValues,
     required this.chartScores,
+    required this.chartAfterScores,
+    required this.chartRebaBeforeScores,
+    required this.chartRebaAfterScores,
+    required this.chartIsoBeforeScores,
+    required this.chartIsoAfterScores,
     this.windowStart,
     this.windowEnd,
   });
@@ -34,16 +62,55 @@ class DailyInjuryPrediction {
   final int usedTransactions;
   final double probability;
   final DailyInjuryPredictionLevel level;
+  final int latestScore;
+  final double averageScore;
+  final int maximumScore;
+  final int highRiskCount;
+  final TrendDirection trendDirection;
+  final RiskLevel? latestIsoRiskLevel;
+  final int? latestIsoScore;
+  final double averageLoadKg;
+  final double averageLiftFrequencyPerHour;
+  final double averageBeforeScore;
+  final double averageAfterScore;
+  final double averageScoreReduction;
+  final double averageRebaBeforeScore;
+  final double averageRebaAfterScore;
+  final double averageIsoBeforeScore;
+  final double averageIsoAfterScore;
+  final int improvedRecordCount;
+  final int afterHighRiskCount;
+  final double rebaLogisticProbability;
+  final double iso11228LogisticProbability;
+  final String rebaLogisticModelVersion;
+  final String iso11228LogisticModelVersion;
   final String modelVersion;
   final String modelSource;
+  final bool isResearchTrained;
   final Map<String, double> featureValues;
   final List<int> chartScores;
+  final List<int> chartAfterScores;
+  final List<int> chartRebaBeforeScores;
+  final List<int> chartRebaAfterScores;
+  final List<int?> chartIsoBeforeScores;
+  final List<int?> chartIsoAfterScores;
   final DateTime? windowStart;
   final DateTime? windowEnd;
 
-  bool get requiresCareAlert =>
+  double? get validatedProbability =>
+      isResearchTrained ? probability : null;
+
+  bool get requiresTrendAttention =>
       level == DailyInjuryPredictionLevel.high ||
       level == DailyInjuryPredictionLevel.critical;
+
+  bool get requiresCareAlert => requiresTrendAttention;
+}
+
+enum TrendDirection {
+  decreasing,
+  stable,
+  increasing,
 }
 
 class DailyInjuryPredictionService {
@@ -79,38 +146,155 @@ class DailyInjuryPredictionService {
       ..sort((a, b) => a.dateTime.compareTo(b.dateTime));
     final requiredTransactions = _model.minTransactions;
     if (sorted.length < requiredTransactions) {
+      final rebaBeforeScores =
+          sorted.map((record) => _rebaScoreBefore(record).toDouble()).toList();
+      final rebaAfterScores =
+          sorted.map((record) => _rebaScoreAfter(record).toDouble()).toList();
+      final isoBeforeScores = sorted.map(_isoScoreBefore).toList();
+      final isoAfterScores = sorted.map(_isoScoreAfter).toList();
       return DailyInjuryPrediction(
         hasEnoughData: false,
         requiredTransactions: requiredTransactions,
         usedTransactions: sorted.length,
         probability: 0,
         level: DailyInjuryPredictionLevel.insufficient,
+        latestScore: sorted.isEmpty ? 0 : _rebaScoreBefore(sorted.last),
+        averageScore: rebaBeforeScores.isEmpty ? 0 : _avg(rebaBeforeScores),
+        maximumScore:
+            sorted.isEmpty ? 0 : sorted.map(_rebaScoreBefore).reduce(math.max),
+        highRiskCount: sorted
+            .where((record) =>
+                _rebaRiskBefore(record).index >= RiskLevel.high.index)
+            .length,
+        trendDirection: _trendDirection(
+          rebaBeforeScores,
+        ),
+        latestIsoRiskLevel: sorted.isEmpty ? null : _isoRiskBefore(sorted.last),
+        latestIsoScore:
+            sorted.isEmpty ? null : _isoScoreBefore(sorted.last)?.round(),
+        averageLoadKg: _averageToolLoadKg(sorted),
+        averageLiftFrequencyPerHour: _averageLiftFrequencyPerHour(sorted),
+        averageBeforeScore:
+            rebaBeforeScores.isEmpty ? 0 : _avg(rebaBeforeScores),
+        averageAfterScore: rebaAfterScores.isEmpty ? 0 : _avg(rebaAfterScores),
+        averageScoreReduction:
+            _averageScoreReduction(rebaBeforeScores, rebaAfterScores),
+        averageRebaBeforeScore:
+            rebaBeforeScores.isEmpty ? 0 : _avg(rebaBeforeScores),
+        averageRebaAfterScore:
+            rebaAfterScores.isEmpty ? 0 : _avg(rebaAfterScores),
+        averageIsoBeforeScore: _avgNullable(isoBeforeScores),
+        averageIsoAfterScore: _avgNullable(isoAfterScores),
+        improvedRecordCount: _improvedRecordCount(sorted),
+        afterHighRiskCount: sorted
+            .where((record) =>
+                _rebaRiskAfter(record).index >= RiskLevel.high.index)
+            .length,
+        rebaLogisticProbability: 0,
+        iso11228LogisticProbability: 0,
+        rebaLogisticModelVersion: _model.rebaLogistic.version,
+        iso11228LogisticModelVersion: _model.iso11228Logistic.version,
         modelVersion: _model.version,
         modelSource: _model.source,
+        isResearchTrained: _model.researchTrained,
         featureValues: const {},
-        chartScores: sorted.map((record) => record.scoreBefore).toList(),
+        chartScores: sorted.map(_rebaScoreBefore).toList(),
+        chartAfterScores: sorted.map(_rebaScoreAfter).toList(),
+        chartRebaBeforeScores: sorted.map(_rebaScoreBefore).toList(),
+        chartRebaAfterScores: sorted.map(_rebaScoreAfter).toList(),
+        chartIsoBeforeScores:
+            sorted.map((record) => _isoScoreBefore(record)?.round()).toList(),
+        chartIsoAfterScores:
+            sorted.map((record) => _isoScoreAfter(record)?.round()).toList(),
       );
     }
 
     final window = sorted.sublist(sorted.length - requiredTransactions);
     final features = featureValuesForWindow(window);
-    final probability = _predictProbability(features);
+    final rebaProbability =
+        _predictLogisticProbability(_model.rebaLogistic, features);
+    final iso11228Probability =
+        _predictLogisticProbability(_model.iso11228Logistic, features);
+    final probability = _model.usesSeparateLogisticRegressions
+        ? math.max(rebaProbability, iso11228Probability)
+        : rebaProbability;
+    final actualScores = window.map(_rebaScoreBefore).toList();
+    final afterScores = window.map(_rebaScoreAfter).toList();
+    final isoBeforeScores = window.map(_isoScoreBefore).toList();
+    final isoAfterScores = window.map(_isoScoreAfter).toList();
+    final highRiskCount = window
+        .where(
+            (record) => _rebaRiskBefore(record).index >= RiskLevel.high.index)
+        .length;
     return DailyInjuryPrediction(
       hasEnoughData: true,
       requiredTransactions: requiredTransactions,
       usedTransactions: window.length,
       probability: probability.clamp(0.0, 1.0).toDouble(),
-      level: _model.thresholds.levelFor(probability),
+      level: _levelForHighRiskCount(highRiskCount),
+      latestScore: actualScores.last,
+      averageScore:
+          _avg(actualScores.map((score) => score.toDouble()).toList()),
+      maximumScore: actualScores.reduce(math.max),
+      highRiskCount: highRiskCount,
+      trendDirection: _trendDirection(
+        actualScores.map((score) => score.toDouble()).toList(),
+      ),
+      latestIsoRiskLevel: _isoRiskBefore(window.last),
+      latestIsoScore: _isoScoreBefore(window.last)?.round(),
+      averageLoadKg: _averageToolLoadKg(window),
+      averageLiftFrequencyPerHour: _averageLiftFrequencyPerHour(window),
+      averageBeforeScore:
+          _avg(actualScores.map((score) => score.toDouble()).toList()),
+      averageAfterScore:
+          _avg(afterScores.map((score) => score.toDouble()).toList()),
+      averageScoreReduction: _averageScoreReduction(
+        actualScores.map((score) => score.toDouble()).toList(),
+        afterScores.map((score) => score.toDouble()).toList(),
+      ),
+      averageRebaBeforeScore:
+          _avg(actualScores.map((score) => score.toDouble()).toList()),
+      averageRebaAfterScore:
+          _avg(afterScores.map((score) => score.toDouble()).toList()),
+      averageIsoBeforeScore: _avgNullable(isoBeforeScores),
+      averageIsoAfterScore: _avgNullable(isoAfterScores),
+      improvedRecordCount: _improvedRecordCount(window),
+      afterHighRiskCount: window
+          .where(
+              (record) => _rebaRiskAfter(record).index >= RiskLevel.high.index)
+          .length,
+      rebaLogisticProbability: rebaProbability,
+      iso11228LogisticProbability: iso11228Probability,
+      rebaLogisticModelVersion: _model.rebaLogistic.version,
+      iso11228LogisticModelVersion: _model.iso11228Logistic.version,
       modelVersion: _model.version,
       modelSource: _model.source,
+      isResearchTrained: _model.researchTrained,
       featureValues: features,
-      chartScores: window.map((record) => record.scoreBefore).toList(),
+      chartScores: actualScores,
+      chartAfterScores: afterScores,
+      chartRebaBeforeScores: actualScores,
+      chartRebaAfterScores: afterScores,
+      chartIsoBeforeScores:
+          window.map((record) => _isoScoreBefore(record)?.round()).toList(),
+      chartIsoAfterScores:
+          window.map((record) => _isoScoreAfter(record)?.round()).toList(),
       windowStart: window.first.dateTime,
       windowEnd: window.last.dateTime,
     );
   }
 
-  double _predictProbability(Map<String, double> features) {
+  static DailyInjuryPredictionLevel _levelForHighRiskCount(int count) {
+    if (count >= 6) return DailyInjuryPredictionLevel.critical;
+    if (count >= 4) return DailyInjuryPredictionLevel.high;
+    if (count >= 2) return DailyInjuryPredictionLevel.watch;
+    return DailyInjuryPredictionLevel.low;
+  }
+
+  double _predictLogisticProbability(
+    _DailyLogisticRegression logistic,
+    Map<String, double> features,
+  ) {
     // Binary Logistic Regression:
     // logit = beta0 + beta1*x1 + ... + betak*xk
     // P(y = 1 | x) = 1 / (1 + exp(-logit)).
@@ -119,8 +303,8 @@ class DailyInjuryPredictionService {
     // before entering this function. Coefficients must come from a binary
     // Logistic Regression fit using maximum likelihood / negative
     // log-likelihood on research outcome labels.
-    final logit = _model.intercept +
-        _model.coefficients.entries.fold<double>(
+    final logit = logistic.intercept +
+        logistic.coefficients.entries.fold<double>(
           0,
           (sum, entry) => sum + entry.value * (features[entry.key] ?? 0),
         );
@@ -132,19 +316,22 @@ class DailyInjuryPredictionService {
   ) {
     final count = window.length;
     final beforeScores =
-        window.map((record) => record.scoreBefore.toDouble()).toList();
-    final rebaScores = window.map(_rebaScoreBefore).toList();
-    final isoScores = window.map(_isoScoreBefore).whereType<double>().toList();
+        window.map((record) => _rebaScoreBefore(record).toDouble()).toList();
     final afterScores =
-        window.map((record) => record.scoreAfter.toDouble()).toList();
+        window.map((record) => _rebaScoreAfter(record).toDouble()).toList();
+    final rebaScores = beforeScores;
+    final isoScores = window.map(_isoScoreBefore).whereType<double>().toList();
+    final isoAfterScores =
+        window.map(_isoScoreAfter).whereType<double>().toList();
     final highOrAboveDays = window
-        .where((record) => record.riskBefore.index >= RiskLevel.high.index)
+        .where(
+            (record) => _rebaRiskBefore(record).index >= RiskLevel.high.index)
         .length;
     final veryHighDays = window
-        .where((record) => record.riskBefore == RiskLevel.veryHigh)
+        .where((record) => _rebaRiskBefore(record) == RiskLevel.veryHigh)
         .length;
     final noImprovementDays = window
-        .where((record) => record.scoreAfter >= record.scoreBefore)
+        .where((record) => _rebaScoreAfter(record) >= _rebaScoreBefore(record))
         .length;
     final trunkHighDays = window
         .where((record) =>
@@ -215,6 +402,8 @@ class DailyInjuryPredictionService {
     final avgIsoScore = isoScores.isEmpty ? 0.0 : _norm(_avg(isoScores), 1, 9);
     final maxIsoScore =
         isoScores.isEmpty ? 0.0 : _norm(isoScores.reduce(math.max), 1, 9);
+    final avgIsoAfterScore =
+        isoAfterScores.isEmpty ? 0.0 : _norm(_avg(isoAfterScores), 1, 9);
     final avgToolLoad =
         toolWeightList.isEmpty ? 0.0 : _bounded(_avg(toolWeightList) / 50);
     final maxToolLoad = toolWeightList.isEmpty
@@ -225,9 +414,12 @@ class DailyInjuryPredictionService {
     return {
       'avg_reba_score_before_norm': avgRebaScore,
       'max_reba_score_before_norm': maxRebaScore,
+      'avg_reba_score_after_norm': avgScoreAfter,
+      'max_reba_score_after_norm': _norm(afterScores.reduce(math.max), 1, 9),
       'avg_app_score_after_norm': avgScoreAfter,
       'avg_iso_score_before_norm': avgIsoScore,
       'max_iso_score_before_norm': maxIsoScore,
+      'avg_iso_score_after_norm': avgIsoAfterScore,
       'high_or_above_days_norm': highOrAboveDays / count,
       'very_high_days_norm': veryHighDays / count,
       'no_improvement_days_norm': noImprovementDays / count,
@@ -266,14 +458,36 @@ class DailyInjuryPredictionService {
     };
   }
 
-  static double _rebaScoreBefore(EvaluationHistoryRecord record) {
-    return (record.assessmentBreakdown?.rebaResult.userScore ??
-            record.scoreBefore)
-        .toDouble();
-  }
-
   static double? _isoScoreBefore(EvaluationHistoryRecord record) {
     return record.assessmentBreakdown?.isoResult?.userScore.toDouble();
+  }
+
+  static double? _isoScoreAfter(EvaluationHistoryRecord record) {
+    return record.afterAssessmentBreakdown?.isoResult?.userScore.toDouble();
+  }
+
+  static RiskLevel? _isoRiskBefore(EvaluationHistoryRecord record) {
+    return record.assessmentBreakdown?.isoResult?.riskLevel;
+  }
+
+  static int _rebaScoreBefore(EvaluationHistoryRecord record) {
+    return record.assessmentBreakdown?.rebaResult.userScore ??
+        record.scoreBefore;
+  }
+
+  static RiskLevel _rebaRiskBefore(EvaluationHistoryRecord record) {
+    return record.assessmentBreakdown?.rebaResult.riskLevel ??
+        record.riskBefore;
+  }
+
+  static int _rebaScoreAfter(EvaluationHistoryRecord record) {
+    return record.afterAssessmentBreakdown?.rebaResult.userScore ??
+        record.scoreAfter;
+  }
+
+  static RiskLevel _rebaRiskAfter(EvaluationHistoryRecord record) {
+    return record.afterAssessmentBreakdown?.rebaResult.riskLevel ??
+        record.riskAfter;
   }
 
   static int _bodyRiskIndex(
@@ -289,6 +503,49 @@ class DailyInjuryPredictionService {
   static double _recentSlope(List<double> scores) {
     if (scores.length < 2) return 0;
     return scores.last - scores.first;
+  }
+
+  static TrendDirection _trendDirection(List<double> scores) {
+    final slope = _recentSlope(scores);
+    if (slope >= 1) return TrendDirection.increasing;
+    if (slope <= -1) return TrendDirection.decreasing;
+    return TrendDirection.stable;
+  }
+
+  static double _averageScoreReduction(
+    List<double> beforeScores,
+    List<double> afterScores,
+  ) {
+    if (beforeScores.isEmpty || afterScores.isEmpty) return 0;
+    final pairCount = math.min(beforeScores.length, afterScores.length);
+    final reductions = <double>[];
+    for (var i = 0; i < pairCount; i++) {
+      reductions.add(beforeScores[i] - afterScores[i]);
+    }
+    return _avg(reductions);
+  }
+
+  static int _improvedRecordCount(List<EvaluationHistoryRecord> records) {
+    return records
+        .where((record) => _rebaScoreAfter(record) < _rebaScoreBefore(record))
+        .length;
+  }
+
+  static double _averageToolLoadKg(List<EvaluationHistoryRecord> records) {
+    final values =
+        records.map(_toolLoadKg).where((value) => value > 0).toList();
+    return values.isEmpty ? 0 : _avg(values);
+  }
+
+  static double _averageLiftFrequencyPerHour(
+    List<EvaluationHistoryRecord> records,
+  ) {
+    final values = records
+        .map((record) =>
+            (record.assessmentBreakdown?.ergoInput.liftFrequency ?? 0) * 60)
+        .where((value) => value > 0)
+        .toList();
+    return values.isEmpty ? 0 : _avg(values);
   }
 
   static double _carryingExposureNorm(EvaluationHistoryRecord record) {
@@ -348,6 +605,11 @@ class DailyInjuryPredictionService {
   static double _avg(List<double> values) =>
       values.fold<double>(0, (sum, value) => sum + value) / values.length;
 
+  static double _avgNullable(List<double?> values) {
+    final present = values.whereType<double>().toList();
+    return present.isEmpty ? 0 : _avg(present);
+  }
+
   static double _norm(double value, double min, double max) {
     if (max <= min) return 0;
     return _bounded((value - min) / (max - min));
@@ -371,30 +633,105 @@ class _DailyInjuryLogisticModel {
     required this.source,
     required this.minTransactions,
     required this.thresholds,
-    required this.intercept,
-    required this.coefficients,
+    required this.rebaLogistic,
+    required this.iso11228Logistic,
+    required this.usesSeparateLogisticRegressions,
+    required this.researchTrained,
   });
 
   final String version;
   final String source;
   final int minTransactions;
   final _DailyPredictionThresholds thresholds;
-  final double intercept;
-  final Map<String, double> coefficients;
+  final _DailyLogisticRegression rebaLogistic;
+  final _DailyLogisticRegression iso11228Logistic;
+  final bool usesSeparateLogisticRegressions;
+  final bool researchTrained;
 
   factory _DailyInjuryLogisticModel.fromJson(Map<String, Object?> json) {
+    final version = json['version'] as String? ?? 'unknown';
+    final source = json['source'] as String? ?? 'unknown';
     final logistic = Map<String, Object?>.from(
       json['logisticRegression'] as Map? ?? {},
     );
+    final fallbackLogistic = _DailyLogisticRegression.fromJson(
+      logistic,
+      fallbackVersion: '$version-combined',
+      fallbackSource: source,
+    );
+    final logisticRegressions = Map<String, Object?>.from(
+      json['logisticRegressions'] as Map? ?? {},
+    );
+    final trainingStatus = Map<String, Object?>.from(
+      json['trainingStatus'] as Map? ?? {},
+    );
+    final rebaJson = Map<String, Object?>.from(
+      logisticRegressions['reba'] as Map? ?? {},
+    );
+    final iso11228Json = Map<String, Object?>.from(
+      logisticRegressions['iso11228'] as Map? ?? {},
+    );
     return _DailyInjuryLogisticModel(
-      version: json['version'] as String? ?? 'unknown',
-      source: json['source'] as String? ?? 'unknown',
+      version: version,
+      source: source,
       minTransactions: (json['minTransactions'] as num?)?.toInt() ?? 7,
       thresholds: _DailyPredictionThresholds.fromJson(
         Map<String, Object?>.from(json['thresholds'] as Map? ?? {}),
       ),
-      intercept: (logistic['intercept'] as num?)?.toDouble() ?? 0,
-      coefficients: (logistic['coefficients'] as Map? ?? {}).map(
+      rebaLogistic: rebaJson.isEmpty
+          ? fallbackLogistic.copyWith(version: '$version-reba')
+          : _DailyLogisticRegression.fromJson(
+              rebaJson,
+              fallbackVersion: '$version-reba',
+              fallbackSource: source,
+            ),
+      iso11228Logistic: iso11228Json.isEmpty
+          ? fallbackLogistic.copyWith(version: '$version-iso11228')
+          : _DailyLogisticRegression.fromJson(
+              iso11228Json,
+              fallbackVersion: '$version-iso11228',
+              fallbackSource: source,
+            ),
+      usesSeparateLogisticRegressions:
+          rebaJson.isNotEmpty || iso11228Json.isNotEmpty,
+      researchTrained:
+          trainingStatus['researchTrained'] as bool? ?? false,
+    );
+  }
+}
+
+class _DailyLogisticRegression {
+  const _DailyLogisticRegression({
+    required this.version,
+    required this.source,
+    required this.intercept,
+    required this.coefficients,
+  });
+
+  final String version;
+  final String source;
+  final double intercept;
+  final Map<String, double> coefficients;
+
+  _DailyLogisticRegression copyWith({String? version, String? source}) {
+    return _DailyLogisticRegression(
+      version: version ?? this.version,
+      source: source ?? this.source,
+      intercept: intercept,
+      coefficients: coefficients,
+    );
+  }
+
+  factory _DailyLogisticRegression.fromJson(
+    Map<String, Object?> json, {
+    required String fallbackVersion,
+    required String fallbackSource,
+  }) {
+    return _DailyLogisticRegression(
+      version: json['version'] as String? ?? fallbackVersion,
+      source: json['source'] as String? ?? fallbackSource,
+      intercept: (json['intercept'] as num?)?.toDouble() ?? 0,
+      coefficients: (json['coefficients'] as Map? ?? {}).map(
         (key, value) => MapEntry(key.toString(), (value as num).toDouble()),
       ),
     );

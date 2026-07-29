@@ -1,0 +1,57 @@
+Sookta last-phase UAT evidence summary
+Date: 2026-07-12 to 2026-07-13 overnight verification
+App version: 1.3.6+21
+Git revision at overnight verification: 0f2705f
+
+AUTOMATED VERIFICATION
+- flutter test --no-pub --concurrency=2: PASS, 107 tests, zero failures
+- Focused persistence/export/migration/filter/portrait/recommendation/UAT-gate suite: PASS, 26 tests
+- Focused analyzer for all changed recommendation/result files: PASS, No issues found
+- Full flutter analyze attempt: TOOLING BLOCKED; analysis server became idle without returning a result and was stopped
+- Randomized-order full-suite attempt: TOOLING BLOCKED at compilation before any test; the normal-order full suite had already passed 107 tests
+- A stale build/test_cache caused an earlier compiler stall. The cache was moved intact to /private/tmp/fSookta-test-cache-stalled-20260712-2329; a fresh cache then passed the full suite.
+
+IOS CLEAN BUILD
+- Historical command: xcodebuild Profile, generic iOS destination, fresh derived-data path, and automatic signing. This test build was superseded by the production-only gate on 2026-07-19.
+- Derived data: /private/tmp/fSookta-ios-overnight-20260712
+- Result: PASS (exit 0)
+- Fresh App.framework timestamp: 2026-07-12 23:39:16 +07
+- App.framework size: 11,758,720 bytes
+- App.framework SHA-1: 47b2869bbc971af25082d47ecaac87a814834957
+- Runner executable size: 30,682,400 bytes
+- Runner.app total size: 107 MB
+- codesign --verify --deep --strict: PASS
+- Provisioning profile UUID: b7b88c0b-a742-4e9e-b73f-df2ddea37b7d
+- Provisioned iPhone UDID: 00008030-0008788421F3802E
+- Provisioning expiration: 2027-05-16
+- iPhone orientations: UIInterfaceOrientationPortrait only
+- iPad orientations: UIInterfaceOrientationPortrait only
+- Bundle includes MoveNet MultiPose Lightning: 9,585,276 bytes
+- Bundle includes MoveNet Thunder: 25,025,596 bytes
+
+IPHONE DEVICE AUTOMATION
+- CoreDevice ID: ABD658CA-9FDE-5F6E-8228-CFE6D830F4AE
+- iOS version: 26.5
+- Clean Runner.app installation: PASS
+- Automated launch after clean installation: BLOCKED by iOS provisioning trust/security while the device was unattended/offline
+- Local signature, entitlements, provisioning UUID, team ID, bundle ID, expiry, and device inclusion all match the earlier build that launched successfully.
+- No manual trust/network action was requested during unattended verification.
+
+USER-OBSERVED IPHONE UAT
+- Install and launch: PASS
+- Portrait lock: PASS
+- Two-farmer avatar isolation: PASS
+- Draft terminate/relaunch/resume: PASS
+- Change activity and draft behavior: PASS
+- Four-photo selection/replace/remove: PASS
+- Multi-person rejection: PASS
+- Uploaded-video temporary-path check: HISTORICAL PASS; not accepted as production evidence after 2026-07-19
+- Four explicit short recommendation groups on selection and final screens: PASS
+- Thai TTS: PASS, user reports pronunciation much improved and acceptable
+- Month/activity filtering and export flow: PASS
+- Offline relaunch/persisted data: PENDING-MANUAL; automated persistence-equivalent tests passed
+
+OTHER PLATFORMS
+- Android physical UAT: not started, per user instruction to finish iPhone first
+- Physical tablet: not available
+- iPad simulator integration runner: TOOLING BLOCKED before tests began despite the simulator being booted and explicitly selected

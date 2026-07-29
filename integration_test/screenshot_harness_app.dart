@@ -62,7 +62,7 @@ class _ScreenshotHarnessAppState extends State<ScreenshotHarnessApp> {
   final appState = SooktaAppState();
   late final ErgoResult before;
   late final ErgoResult after;
-  late final EvaluationHistoryRecord record;
+  EvaluationHistoryRecord? record;
   var index = _initialScreenIndex;
   Timer? timer;
 
@@ -99,7 +99,18 @@ class _ScreenshotHarnessAppState extends State<ScreenshotHarnessApp> {
         ),
       )
       ..saveAvatarAndFinish(SooktaAssets.female01);
-    record = appState.saveEvaluation(
+    unawaited(_seedHistoryRecord());
+    if (_autoAdvance) {
+      timer = Timer.periodic(const Duration(seconds: 4), (_) {
+        _disableDebugPaint();
+        if (!mounted) return;
+        setState(() => index = (index + 1) % _screens.length);
+      });
+    }
+  }
+
+  Future<void> _seedHistoryRecord() async {
+    final seededRecord = await appState.saveEvaluation(
       activityName: SooktaActivity.harvesting.label(thai: true),
       before: before,
       after: after,
@@ -114,13 +125,8 @@ class _ScreenshotHarnessAppState extends State<ScreenshotHarnessApp> {
           'ลดการยกแขนเหนือไหล่',
       ],
     );
-    if (_autoAdvance) {
-      timer = Timer.periodic(const Duration(seconds: 4), (_) {
-        _disableDebugPaint();
-        if (!mounted) return;
-        setState(() => index = (index + 1) % _screens.length);
-      });
-    }
+    if (!mounted) return;
+    setState(() => record = seededRecord);
   }
 
   @override
@@ -132,6 +138,7 @@ class _ScreenshotHarnessAppState extends State<ScreenshotHarnessApp> {
 
   List<_HarnessScreen> get _screens {
     final text = const AppText(AppLanguage.th);
+    final historyRecord = record;
     return [
       const _HarnessScreen(
         '02_language_first_run',
@@ -163,48 +170,66 @@ class _ScreenshotHarnessAppState extends State<ScreenshotHarnessApp> {
       ),
       const _HarnessScreen(
         '09_evaluation_menu',
-        EvaluationMenuScreen(),
+        KeyedSubtree(
+          key: ValueKey<String>('qa-evaluation-menu'),
+          child: EvaluationMenuScreen(),
+        ),
       ),
       const _HarnessScreen(
         '10_evaluation_form_top',
-        EvaluationFormScreen(activity: SooktaActivity.fertilizing),
+        KeyedSubtree(
+          key: ValueKey<String>('qa-evaluation-form'),
+          child: EvaluationFormScreen(
+            activity: SooktaActivity.fertilizing,
+          ),
+        ),
       ),
       _HarnessScreen(
         '11_initial_risk_top',
-        InitialRiskScreen(
-          payload: InitialRiskPayload(
-            activity: SooktaActivity.harvesting,
-            activityName: SooktaActivity.harvesting.label(thai: true),
-            jobType: JobType.reba,
-            before: before,
-            ergoInput: const ErgoInputData(jobType: JobType.reba),
-            rebaInput: _rebaInput(),
+        KeyedSubtree(
+          key: const ValueKey<String>('qa-initial-risk'),
+          child: InitialRiskScreen(
+            payload: InitialRiskPayload(
+              activity: SooktaActivity.harvesting,
+              activityName: SooktaActivity.harvesting.label(thai: true),
+              jobType: JobType.reba,
+              before: before,
+              ergoInput: const ErgoInputData(jobType: JobType.reba),
+              rebaInput: _rebaInput(),
+            ),
           ),
         ),
       ),
       _HarnessScreen(
         '12_final_result_top',
-        FinalResultScreen(
-          bundle: AssessmentBundle(
-            activity: SooktaActivity.harvesting,
-            activityName: SooktaActivity.harvesting.label(thai: true),
-            jobType: JobType.reba,
-            before: before,
-            after: after,
-            selectedSuggestionKeys: const [
-              'act_avoid_bend',
-              'act_reduce_arm_raise',
-            ],
+        KeyedSubtree(
+          key: const ValueKey<String>('qa-final-result'),
+          child: FinalResultScreen(
+            bundle: AssessmentBundle(
+              activity: SooktaActivity.harvesting,
+              activityName: SooktaActivity.harvesting.label(thai: true),
+              jobType: JobType.reba,
+              before: before,
+              after: after,
+              selectedSuggestionKeys: const [
+                'act_avoid_bend',
+                'act_reduce_arm_raise',
+              ],
+            ),
           ),
         ),
       ),
       _HarnessScreen(
         '13_history_list',
-        HistoryTab(text: text, key: ValueKey(record.id)),
+        historyRecord == null
+            ? const SizedBox.shrink()
+            : HistoryTab(text: text, key: ValueKey(historyRecord.id)),
       ),
       _HarnessScreen(
         '14_history_detail_top',
-        HistoryDetailScreen(historyId: record.id),
+        historyRecord == null
+            ? const SizedBox.shrink()
+            : HistoryDetailScreen(historyId: historyRecord.id),
       ),
     ];
   }
