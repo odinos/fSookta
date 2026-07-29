@@ -1,0 +1,25 @@
+{
+  "baselineVersion": "2026-07-29.1",
+  "artifacts": [
+    {
+      "path": "assets/models/xgboost_model.onnx",
+      "sha256": "dbedb2ab5ce57f3af0cd620e956f30ef34a64beaea493385afd3d27994002efc"
+    },
+    {
+      "path": "assets/models/xgboost_model_metadata.json",
+      "sha256": "89db0df19fc6a4041a62fcd01e1155a288a19f243ed6908df5fdb03d9cbcb922"
+    },
+    {
+      "path": "assets/ml/daily_injury_logistic_model.json",
+      "sha256": "c444a8e68ae59fc6e7c34315aa8f725b9d9c50112b01483852a5d3b3ef268a75"
+    },
+    {
+      "path": "assets/ml/movenet_thunder.tflite",
+      "sha256": "8014d8fe22285265f52aa1cea84056b7704f75adf12341a7712d4cb28bd1d9b6"
+    },
+    {
+      "path": "assets/ml/movenet_multipose_lightning.tflite",
+      "sha256": "d4489f89e6bd6777a8b9a1a16189832131f84ff90d82fae729e670b84d7948dd"
+    }
+  ]
+}
