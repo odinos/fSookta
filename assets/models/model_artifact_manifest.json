@@ -6,6 +6,7 @@
       "path": "assets/models/xgboost_model.onnx",
       "format": "onnx",
       "status": "research_team_reba2_iso11228_calibration_document_guided_trained",
+      "runtimePolicy": "advisory_only_does_not_modify_reba_or_iso_score",
       "inputFeatureCount": 51,
       "featureCount": 51,
       "featureEngineering": "raw_movenet_51",

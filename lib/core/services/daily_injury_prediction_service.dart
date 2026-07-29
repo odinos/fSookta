@@ -45,6 +45,7 @@ class DailyInjuryPrediction {
     required this.iso11228LogisticModelVersion,
     required this.modelVersion,
     required this.modelSource,
+    required this.isResearchTrained,
     required this.featureValues,
     required this.chartScores,
     required this.chartAfterScores,
@@ -85,6 +86,7 @@ class DailyInjuryPrediction {
   final String iso11228LogisticModelVersion;
   final String modelVersion;
   final String modelSource;
+  final bool isResearchTrained;
   final Map<String, double> featureValues;
   final List<int> chartScores;
   final List<int> chartAfterScores;
@@ -95,9 +97,14 @@ class DailyInjuryPrediction {
   final DateTime? windowStart;
   final DateTime? windowEnd;
 
-  bool get requiresCareAlert =>
+  double? get validatedProbability =>
+      isResearchTrained ? probability : null;
+
+  bool get requiresTrendAttention =>
       level == DailyInjuryPredictionLevel.high ||
       level == DailyInjuryPredictionLevel.critical;
+
+  bool get requiresCareAlert => requiresTrendAttention;
 }
 
 enum TrendDirection {
@@ -189,6 +196,7 @@ class DailyInjuryPredictionService {
         iso11228LogisticModelVersion: _model.iso11228Logistic.version,
         modelVersion: _model.version,
         modelSource: _model.source,
+        isResearchTrained: _model.researchTrained,
         featureValues: const {},
         chartScores: sorted.map(_rebaScoreBefore).toList(),
         chartAfterScores: sorted.map(_rebaScoreAfter).toList(),
@@ -261,6 +269,7 @@ class DailyInjuryPredictionService {
       iso11228LogisticModelVersion: _model.iso11228Logistic.version,
       modelVersion: _model.version,
       modelSource: _model.source,
+      isResearchTrained: _model.researchTrained,
       featureValues: features,
       chartScores: actualScores,
       chartAfterScores: afterScores,
@@ -627,6 +636,7 @@ class _DailyInjuryLogisticModel {
     required this.rebaLogistic,
     required this.iso11228Logistic,
     required this.usesSeparateLogisticRegressions,
+    required this.researchTrained,
   });
 
   final String version;
@@ -636,6 +646,7 @@ class _DailyInjuryLogisticModel {
   final _DailyLogisticRegression rebaLogistic;
   final _DailyLogisticRegression iso11228Logistic;
   final bool usesSeparateLogisticRegressions;
+  final bool researchTrained;
 
   factory _DailyInjuryLogisticModel.fromJson(Map<String, Object?> json) {
     final version = json['version'] as String? ?? 'unknown';
@@ -650,6 +661,9 @@ class _DailyInjuryLogisticModel {
     );
     final logisticRegressions = Map<String, Object?>.from(
       json['logisticRegressions'] as Map? ?? {},
+    );
+    final trainingStatus = Map<String, Object?>.from(
+      json['trainingStatus'] as Map? ?? {},
     );
     final rebaJson = Map<String, Object?>.from(
       logisticRegressions['reba'] as Map? ?? {},
@@ -680,6 +694,8 @@ class _DailyInjuryLogisticModel {
             ),
       usesSeparateLogisticRegressions:
           rebaJson.isNotEmpty || iso11228Json.isNotEmpty,
+      researchTrained:
+          trainingStatus['researchTrained'] as bool? ?? false,
     );
   }
 }

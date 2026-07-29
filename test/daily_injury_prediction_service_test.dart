@@ -38,6 +38,9 @@ void main() {
     expect(prediction.hasEnoughData, isTrue);
     expect(prediction.usedTransactions, 7);
     expect(prediction.probability, greaterThan(0.65));
+    expect(prediction.isResearchTrained, isFalse);
+    expect(prediction.validatedProbability, isNull);
+    expect(prediction.requiresTrendAttention, isTrue);
     expect(prediction.requiresCareAlert, isTrue);
     expect(prediction.chartScores, List<int>.filled(7, 9));
   });

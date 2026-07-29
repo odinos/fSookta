@@ -194,6 +194,8 @@ class SooktaAppState extends ChangeNotifier {
   Future<void> _restore() async {
     try {
       final preferences = await SharedPreferences.getInstance();
+      String? adoptedLegacyProfileId;
+      var adoptedLegacyDraft = false;
       await _backupBeforeSchemaMigration(preferences);
       final languageName = preferences.getString(_languageKey);
       if (languageName != null) {
@@ -232,7 +234,11 @@ class SooktaAppState extends ChangeNotifier {
         }
       }
       if (_farmers.isEmpty && legacyProfile != null) {
-        _farmers.add(_ensureProfileId(legacyProfile));
+        final normalized = _ensureProfileId(legacyProfile);
+        _farmers.add(normalized);
+        if (legacyProfile.profileId.isEmpty) {
+          adoptedLegacyProfileId = normalized.profileId;
+        }
       }
       _activeProfileId = preferences.getString(_activeProfileIdKey);
       if (_farmers.isNotEmpty) {
@@ -288,22 +294,38 @@ class SooktaAppState extends ChangeNotifier {
                 ? decoded.values
                 : const Iterable<Object?>.empty();
         for (final item in draftMaps.whereType<Map>()) {
-          final draft = EvaluationDraft.fromJson(
+          var draft = EvaluationDraft.fromJson(
             Map<String, Object?>.from(item),
           );
+          final profileId = adoptedLegacyProfileId;
+          if (profileId != null &&
+              (draft.farmerProfileId ?? '').trim().isEmpty) {
+            draft = draft.copyWith(farmerProfileId: profileId);
+            adoptedLegacyDraft = true;
+          }
           _evaluationDrafts[_draftKey(draft)] = draft;
         }
       }
       if (legacyDraft != null) {
+        final profileId = adoptedLegacyProfileId;
+        if (profileId != null &&
+            (legacyDraft.farmerProfileId ?? '').trim().isEmpty) {
+          legacyDraft = legacyDraft.copyWith(farmerProfileId: profileId);
+          adoptedLegacyDraft = true;
+        }
         final enriched = _withActiveDraftMetadata(legacyDraft);
         _evaluationDrafts.putIfAbsent(_draftKey(enriched), () => enriched);
       }
       _evaluationDraft =
           evaluationDraftForProfile(_profile.profileId) ?? _latestDraftOrNull();
-      await preferences.setInt(
-        _dataSchemaVersionKey,
-        _currentDataSchemaVersion,
-      );
+      if (adoptedLegacyDraft) {
+        await _persist();
+      } else {
+        await preferences.setInt(
+          _dataSchemaVersionKey,
+          _currentDataSchemaVersion,
+        );
+      }
     } catch (_) {
       _language = null;
       _profile = const UserProfile();

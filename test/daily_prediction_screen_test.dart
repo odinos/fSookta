@@ -70,6 +70,14 @@ void main() {
       find.textContaining('ยังไม่ใช่ผลทำนายจากข้อมูลอาการหรือการรักษาจริง'),
       findsWidgets,
     );
+    await tester.scrollUntilVisible(
+      find.textContaining('หมายเหตุ: หน้านี้ใช้เพื่อดูแนวโน้ม'),
+      240,
+    );
+    expect(
+      find.textContaining('โมเดล Logistic ปัจจุบันยังเป็นต้นแบบ'),
+      findsOneWidget,
+    );
 
     final improvementButton =
         find.widgetWithText(OutlinedButton, 'ดูศักยภาพการลดความเสี่ยง');

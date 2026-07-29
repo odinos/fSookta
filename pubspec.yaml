@@ -51,3 +51,4 @@ flutter:
     - assets/models/model_artifact_manifest.json
     - assets/models/xgboost_model.onnx
     - assets/models/xgboost_model_metadata.json
+    - assets/test_fixtures/video/portrait_h264_4s.mp4

@@ -56,6 +56,14 @@ void main() {
 
     final draft = restored.evaluationDraft;
     expect(draft, isNotNull);
+    expect(restored.profile.profileId, isNotEmpty);
+    expect(
+      restored.evaluationDraftForProfile(
+        restored.profile.profileId,
+        activity: SooktaActivity.fertilizing,
+      ),
+      isNotNull,
+    );
     expect(draft!.activity, SooktaActivity.fertilizing);
     expect(draft.jobType, JobType.lifting);
     expect(draft.selectedImagePaths, ['photo-a.jpg', 'photo-b.jpg']);

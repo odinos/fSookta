@@ -12,12 +12,14 @@ import '../../core/ergonomics_risk_prediction/ergonomics_risk_prediction.dart'
     as risk_ml;
 import '../../core/models/assessment_session.dart';
 import '../../core/models/evaluation_models.dart';
+import '../../core/models/ml_inference_status.dart';
 import '../../core/services/assessment_readiness.dart';
 import '../../core/services/ergo_calculator.dart';
 import '../../core/services/firebase_telemetry_service.dart';
 import '../../core/services/multi_person_pose_detector.dart';
 import '../../core/services/pose_estimation_service.dart';
 import '../../core/services/video_frame_extraction_service.dart';
+import '../../core/services/xgboost_advisory_service.dart';
 import '../../core/theme/sookta_theme.dart';
 import '../../widgets/responsive_content.dart';
 import '../../widgets/tts_button.dart';
@@ -73,6 +75,8 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
   String? poseStatus;
   late String selectedToolId;
   AiRiskAlert? latestXGBoostAlert;
+  XGBoostInferenceOutcome latestXGBoostOutcome =
+      const XGBoostInferenceOutcome.unavailable();
   MotionAnalysisSummary? latestMotionSummary;
   var latestCaptureSourceKind = 'photo_set';
   int? latestVideoDurationMs;
@@ -221,6 +225,7 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
     poseStatus = null;
     poseAssessmentReady = false;
     latestXGBoostAlert = null;
+    latestXGBoostOutcome = const XGBoostInferenceOutcome.unavailable();
     latestMotionSummary = null;
     latestPoseEstimates.clear();
     latestFrameAnalyses.clear();
@@ -669,6 +674,7 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
           ? 'กำลังวิเคราะห์วิดีโอแบบหลายเฟรม ไม่เกิน 20 วินาที...'
           : 'Analyzing a multi-frame video up to 20 seconds...';
       latestXGBoostAlert = null;
+      latestXGBoostOutcome = const XGBoostInferenceOutcome.unavailable();
       latestMotionSummary = null;
       latestPoseEstimates.clear();
       latestFrameAnalyses.clear();
@@ -755,6 +761,7 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
       poseStatus = null;
       poseAssessmentReady = false;
       latestXGBoostAlert = null;
+      latestXGBoostOutcome = const XGBoostInferenceOutcome.unavailable();
       latestMotionSummary = null;
       latestCaptureSourceKind = 'photo_set';
       latestVideoDurationMs = null;
@@ -774,6 +781,7 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
       poseStatus = null;
       poseAssessmentReady = false;
       latestXGBoostAlert = null;
+      latestXGBoostOutcome = const XGBoostInferenceOutcome.unavailable();
       latestMotionSummary = null;
       latestCaptureSourceKind = 'photo_set';
       latestVideoDurationMs = null;
@@ -839,6 +847,9 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
             ..clear()
             ..addAll(multiPersonIndexes);
           latestXGBoostAlert = null;
+          latestXGBoostOutcome = const XGBoostInferenceOutcome.invalidInput(
+            'no_readable_pose',
+          );
           latestMotionSummary = null;
           poseStatus = thai
               ? 'ยังประเมินไม่ได้: ไม่พบคนหรืออ่านท่าทางไม่ได้ กรุณาใช้รูปที่เห็นบุคคลและท่าทางชัดเจน'
@@ -849,7 +860,8 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
 
       final frameAnalyses = await _analyzePoseFrames(estimates);
       final inferred = _inferWorstRebaInput(frameAnalyses);
-      final xgbAlert = await _predictXGBoostAlert(frameAnalyses);
+      final xgbOutcome = await _predictXGBoostAlert(frameAnalyses);
+      final xgbAlert = xgbOutcome.alert;
       final motionSummary = _buildMotionSummary(frameAnalyses);
 
       if (selectedJobType == JobType.reba) {
@@ -867,16 +879,16 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
             ..clear()
             ..addAll(multiPersonIndexes);
           latestXGBoostAlert = xgbAlert;
+          latestXGBoostOutcome = xgbOutcome;
           latestMotionSummary = motionSummary;
           rebaInput = inferred;
           poseAssessmentReady = true;
           poseStatus = _poseReadyStatus(
             thai: thai,
             motionSummary: motionSummary,
-            fallbackThai:
-                'ระบบประเมินคะแนน REBA จากภาพและตรวจเทียบด้วย XGBoost แล้ว',
+            fallbackThai: xgboostPhotoStatus(outcome: xgbOutcome, thai: true),
             fallbackEnglish:
-                'REBA scores updated from photos and checked with XGBoost.',
+                xgboostPhotoStatus(outcome: xgbOutcome, thai: false),
           );
         });
       } else if (selectedJobType == JobType.lifting) {
@@ -896,6 +908,7 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
             ..clear()
             ..addAll(multiPersonIndexes);
           latestXGBoostAlert = xgbAlert;
+          latestXGBoostOutcome = xgbOutcome;
           latestMotionSummary = motionSummary;
           rebaInput = inferred;
           if (dimensions == null) {
@@ -932,6 +945,7 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
             ..clear()
             ..addAll(multiPersonIndexes);
           latestXGBoostAlert = xgbAlert;
+          latestXGBoostOutcome = xgbOutcome;
           latestMotionSummary = motionSummary;
           rebaInput = inferred;
           poseAssessmentReady = true;
@@ -951,12 +965,14 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
         'pose_analysis_failed',
         {
           'platform': Platform.operatingSystem,
-          'message': e.toString(),
+          'error_code': FirebaseTelemetryService.errorCode(e),
         },
       ));
       setState(() {
         poseAssessmentReady = false;
         latestXGBoostAlert = null;
+        latestXGBoostOutcome =
+            const XGBoostInferenceOutcome.runtimeError('pose_analysis_error');
         latestMotionSummary = null;
         latestPoseEstimates.clear();
         latestFrameAnalyses.clear();
@@ -1078,7 +1094,7 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
 
     final xgbAlert = latestXGBoostAlert;
     if (xgbAlert != null) {
-      result = _applyXGBoostGuardrail(result, xgbAlert);
+      result = attachAdvisoryXGBoostAlert(result, xgbAlert);
     }
     final breakdown = AssessmentBreakdown(
       primaryMethod: primaryMethod,
@@ -1090,6 +1106,11 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
       poseFrames: latestFrameAnalyses.toList(growable: false),
       worstPoseImageIndex: _worstFrame(latestFrameAnalyses)?.imageIndex,
       motionSummary: latestMotionSummary,
+      xgboostInferenceState: latestXGBoostOutcome.state.name,
+      xgboostErrorCode: latestXGBoostOutcome.errorCode,
+      xgboostModelVersion: latestXGBoostOutcome.alert?.modelVersion,
+      xgboostProbability: latestXGBoostOutcome.alert?.xgBoostProbability,
+      deterministicScoreBeforeMl: result.userScore,
     );
 
     if (!mounted) return;
@@ -1652,10 +1673,14 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
     );
   }
 
-  Future<AiRiskAlert?> _predictXGBoostAlert(
+  Future<XGBoostInferenceOutcome> _predictXGBoostAlert(
     List<PoseRebaFrameAnalysis> frameAnalyses,
   ) async {
-    if (frameAnalyses.isEmpty) return null;
+    if (frameAnalyses.isEmpty) {
+      return const XGBoostInferenceOutcome.invalidInput(
+        'empty_frame_analysis',
+      );
+    }
     try {
       final schema = jointFeatureSchema ??
           await const risk_ml.JointFeatureSchemaLoader().load();
@@ -1676,40 +1701,28 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
           strongest = result;
         }
       }
-      if (strongest == null) return null;
+      if (strongest == null) {
+        return const XGBoostInferenceOutcome.invalidInput(
+          'missing_joint_features',
+        );
+      }
       final probability = strongest.confidenceScore.clamp(0.0, 1.0).toDouble();
-      return AiRiskAlert(
-        probability: probability,
-        logisticProbability: 0,
-        xgBoostProbability: probability,
-        level: _alertLevelFromRisk(strongest.level),
-        modelVersion: 'reba-iso-xgboost-onnx-2026-06-07',
-        modelSource: 'research_team_reba2_iso11228_calibrated_xgboost',
-        featureImportance: const [],
+      return XGBoostInferenceOutcome.success(
+        AiRiskAlert(
+          probability: probability,
+          logisticProbability: 0,
+          xgBoostProbability: probability,
+          level: _alertLevelFromRisk(strongest.level),
+          modelVersion: 'reba-iso-xgboost-onnx-2026-06-07',
+          modelSource: 'research_team_reba2_iso11228_calibrated_xgboost',
+          featureImportance: const [],
+        ),
       );
     } catch (_) {
-      return null;
+      return const XGBoostInferenceOutcome.runtimeError(
+        'xgboost_runtime_error',
+      );
     }
-  }
-
-  ErgoResult _applyXGBoostGuardrail(ErgoResult result, AiRiskAlert alert) {
-    final xgbRisk = _riskLevelFromAlert(alert.level);
-    if (xgbRisk.index <= result.riskLevel.index) {
-      return result.copyWith(aiRiskAlert: alert);
-    }
-    final calibratedScore = switch (xgbRisk) {
-      RiskLevel.low => result.userScore,
-      RiskLevel.medium => math.max(result.userScore, 4),
-      RiskLevel.high => math.max(result.userScore, 7),
-      RiskLevel.veryHigh => math.max(result.userScore, 9),
-    };
-    return result.copyWith(
-      riskLevel: xgbRisk,
-      userScore: calibratedScore,
-      userScoreColor: xgbRisk.colorHex,
-      suggestionKey: xgbRisk == RiskLevel.low ? 'sugg_safe' : 'sugg_improve',
-      aiRiskAlert: alert,
-    );
   }
 
   AiAlertLevel _alertLevelFromRisk(risk_ml.RiskLevel risk) {
@@ -1718,15 +1731,6 @@ class _EvaluationFormScreenState extends State<EvaluationFormScreen> {
       'high' => AiAlertLevel.high,
       'medium' => AiAlertLevel.watch,
       _ => AiAlertLevel.low,
-    };
-  }
-
-  RiskLevel _riskLevelFromAlert(AiAlertLevel level) {
-    return switch (level) {
-      AiAlertLevel.critical => RiskLevel.veryHigh,
-      AiAlertLevel.high => RiskLevel.high,
-      AiAlertLevel.watch => RiskLevel.medium,
-      AiAlertLevel.low => RiskLevel.low,
     };
   }
 }

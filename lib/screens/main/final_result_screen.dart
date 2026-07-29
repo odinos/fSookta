@@ -105,7 +105,7 @@ class _FinalResultScreenState extends State<FinalResultScreen> {
       if (records.length < 7 || records.length % 7 != 0) return;
       final service = await DailyInjuryPredictionService.load();
       final prediction = service.predictForRecords(records);
-      if (!mounted || !prediction.requiresCareAlert) return;
+      if (!mounted || !prediction.requiresTrendAttention) return;
       final thai = (state.language ?? AppLanguage.th) == AppLanguage.th;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(

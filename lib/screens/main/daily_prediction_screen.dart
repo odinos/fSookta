@@ -966,8 +966,8 @@ class _ModelNote extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         child: Text(
           thai
-              ? 'หมายเหตุ: หน้านี้ใช้เพื่อดูแนวโน้มความเสี่ยงจากผลประเมินที่บันทึกในแอปเท่านั้น ไม่ใช่การวินิจฉัยโรค และไม่สามารถยืนยันว่าบาดเจ็บหรือต้องรักษาได้ หากมีอาการผิดปกติควรปรึกษาเจ้าหน้าที่สาธารณสุขหรือบุคลากรทางการแพทย์'
-              : 'Note: This screen communicates risk trends from app records only. It is not a medical diagnosis and does not confirm injury or treatment need. Seek medical or occupational-health advice for unusual symptoms.',
+              ? '${prediction.isResearchTrained ? '' : 'โมเดล Logistic ปัจจุบันยังเป็นต้นแบบและไม่ได้ใช้เป็นค่าความน่าจะเป็นที่ผ่านการฝึกวิจัย\n\n'}หมายเหตุ: หน้านี้ใช้เพื่อดูแนวโน้มความเสี่ยงจากผลประเมินที่บันทึกในแอปเท่านั้น ไม่ใช่การวินิจฉัยโรค และไม่สามารถยืนยันว่าบาดเจ็บหรือต้องรักษาได้ หากมีอาการผิดปกติควรปรึกษาเจ้าหน้าที่สาธารณสุขหรือบุคลากรทางการแพทย์'
+              : '${prediction.isResearchTrained ? '' : 'The current Logistic model is a template and is not presented as a research-trained probability.\n\n'}Note: This screen communicates risk trends from app records only. It is not a medical diagnosis and does not confirm injury or treatment need. Seek medical or occupational-health advice for unusual symptoms.',
           style: const TextStyle(fontSize: 13, height: 1.35),
         ),
       ),
