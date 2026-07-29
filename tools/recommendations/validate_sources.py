@@ -20,6 +20,9 @@ REQUIRED_SOURCE_FIELDS = {
     "documentRole",
     "copyrightOrDistributionNote",
 }
+LEGACY_BASELINE_POLICY = "legacy_baseline_snapshot"
+LEGACY_BASELINE_SOURCE_ID = "current_app_recommendation_copy"
+LEGACY_BASELINE_DOCUMENT_ROLE = "legacy_copy_and_ui_migration_audit"
 
 
 def _load_json(path: Path) -> dict[str, Any]:
@@ -32,6 +35,14 @@ def _sha256(path: Path) -> str:
         for chunk in iter(lambda: stream.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def _allows_legacy_baseline_drift(source: dict[str, Any]) -> bool:
+    return (
+        source.get("hashPolicy") == LEGACY_BASELINE_POLICY
+        and source.get("id") == LEGACY_BASELINE_SOURCE_ID
+        and source.get("documentRole") == LEGACY_BASELINE_DOCUMENT_ROLE
+    )
 
 
 def validate_registry(registry_path: Path) -> list[str]:
@@ -55,14 +66,52 @@ def validate_registry(registry_path: Path) -> list[str]:
         if source_id in seen_ids:
             errors.append(f"duplicate_source_id:{source_id}")
         seen_ids.add(source_id)
+        hash_policy = source.get("hashPolicy", "strict")
+        if hash_policy not in {"strict", LEGACY_BASELINE_POLICY}:
+            errors.append(f"unknown_hash_policy:{source_id}:{hash_policy}")
+            continue
+        if (
+            hash_policy == LEGACY_BASELINE_POLICY
+            and not _allows_legacy_baseline_drift(source)
+        ):
+            errors.append(f"hash_policy_not_allowed:{source_id}")
+            continue
         path = Path(str(source["localPath"]))
         if not path.is_file():
             errors.append(f"missing:{source_id}")
             continue
         digest = _sha256(path)
-        if digest != source["sha256"]:
+        if digest != source["sha256"] and not _allows_legacy_baseline_drift(
+            source
+        ):
             errors.append(f"sha256:{source_id}:{digest}")
     return errors
+
+
+def legacy_baseline_drift_notices(registry_path: Path) -> list[str]:
+    if not registry_path.is_file():
+        return []
+    payload = _load_json(registry_path)
+    sources = payload.get("sources")
+    if not isinstance(sources, list):
+        return []
+    notices: list[str] = []
+    for source in sources:
+        if not isinstance(source, dict) or not _allows_legacy_baseline_drift(
+            source
+        ):
+            continue
+        path = Path(str(source.get("localPath", "")))
+        if not path.is_file():
+            continue
+        current_hash = _sha256(path)
+        baseline_hash = str(source.get("sha256", ""))
+        if current_hash != baseline_hash:
+            notices.append(
+                "legacy_baseline_drift:"
+                f"{source['id']}:{baseline_hash}:{current_hash}"
+            )
+    return notices
 
 
 def validate_model_baseline(baseline_path: Path) -> list[str]:
@@ -109,10 +158,13 @@ def main() -> int:
         default=Path("data/recommendations/baseline_model_hashes.json"),
     )
     args = parser.parse_args()
+    notices = legacy_baseline_drift_notices(args.registry)
     errors = [
         *validate_registry(args.registry),
         *validate_model_baseline(args.model_baseline),
     ]
+    for notice in notices:
+        print(notice)
     if errors:
         for error in errors:
             print(error)
