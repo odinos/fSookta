@@ -10,9 +10,17 @@ import json
 from pathlib import Path
 from typing import Iterable, Mapping, Optional, Sequence
 
+try:
+    from tools.recommendations.validate_recommendations import (
+        validate_approved_catalog_rows,
+    )
+except ModuleNotFoundError:
+    from validate_recommendations import validate_approved_catalog_rows
+
 
 MasterRow = Mapping[str, str]
 TranslationRow = Mapping[str, str]
+ConflictRow = Mapping[str, str]
 
 
 def _specificity(row: MasterRow) -> int:
@@ -46,45 +54,6 @@ def _dart_string(value: str) -> str:
         .replace("\n", "\\n")
     )
     return f"'{escaped}'"
-
-
-def _approved_translations(
-    master_rows: Sequence[MasterRow],
-    translation_rows: Sequence[TranslationRow],
-) -> dict[str, TranslationRow]:
-    translations: dict[str, TranslationRow] = {}
-    for row in translation_rows:
-        item_id = row.get("recommendation_id", "")
-        if not item_id or item_id in translations:
-            raise ValueError("approval coverage must be 100%")
-        translations[item_id] = row
-
-    master_ids = [row.get("recommendation_id", "") for row in master_rows]
-    if (
-        not master_ids
-        or any(not item_id for item_id in master_ids)
-        or len(set(master_ids)) != len(master_ids)
-        or set(master_ids) != set(translations)
-        or any(row.get("approval_status") != "approved" for row in translation_rows)
-    ):
-        raise ValueError("approval coverage must be 100%")
-
-    for master in master_rows:
-        translation = translations[master["recommendation_id"]]
-        master_thai = master.get("thai_source_text", "")
-        translation_thai = translation.get("thai_source_text", "")
-        if not master_thai.strip() or not translation_thai.strip():
-            raise ValueError(
-                "Thai text must be non-empty: "
-                f"{master['recommendation_id']}"
-            )
-        if (
-            translation.get("selection_key") != master.get("selection_key")
-            or translation_thai != master_thai
-            or not translation.get("english_draft", "").strip()
-        ):
-            raise ValueError("approved translation does not match master")
-    return translations
 
 
 def _catalog_payload(
@@ -123,15 +92,79 @@ def _legacy_aliases(rows: Iterable[MasterRow]) -> dict[str, str]:
     return aliases
 
 
+def _append_const(lines: list[str], name: str, value: str) -> None:
+    encoded = _dart_string(value)
+    line = f"const {name} = {encoded};"
+    if len(line) <= 80:
+        lines.append(line)
+        return
+    lines.extend(
+        [
+            f"const {name} =",
+            f"    {encoded};",
+        ]
+    )
+
+
+def _append_named_string(
+    lines: list[str],
+    name: str,
+    value: str,
+) -> None:
+    encoded = _dart_string(value)
+    line = f"    {name}: {encoded},"
+    if len(line) <= 80:
+        lines.append(line)
+        return
+    lines.extend(
+        [
+            f"    {name}:",
+            f"        {encoded},",
+        ]
+    )
+
+
+def _append_map_entry(
+    lines: list[str],
+    key: str,
+    value: str,
+) -> None:
+    encoded_key = _dart_string(key)
+    encoded_value = _dart_string(value)
+    line = f"  {encoded_key}: {encoded_value},"
+    if len(line) <= 80:
+        lines.append(line)
+        return
+    lines.extend(
+        [
+            f"  {encoded_key}:",
+            f"      {encoded_value},",
+        ]
+    )
+
+
 def build_catalog(
     master_rows: Sequence[MasterRow],
     translation_rows: Sequence[TranslationRow],
     *,
+    conflict_rows: Sequence[ConflictRow] | None = None,
     source_registry_version: Optional[str] = None,
 ) -> str:
     """Return deterministic Dart source for a fully approved catalog."""
 
-    translations = _approved_translations(master_rows, translation_rows)
+    validation_errors = validate_approved_catalog_rows(
+        master_rows,
+        translation_rows,
+        conflict_rows,
+    )
+    if validation_errors:
+        raise ValueError(
+            "approved catalog validation failed: "
+            + "; ".join(validation_errors)
+        )
+    translations = {
+        row["recommendation_id"]: row for row in translation_rows
+    }
     versions = {row.get("catalog_version", "") for row in master_rows}
     if len(versions) != 1 or not next(iter(versions)):
         raise ValueError("catalog version must be present and consistent")
@@ -148,14 +181,19 @@ def build_catalog(
         ),
     )
     payload = _catalog_payload(sorted_rows, translations)
+    aliases = _legacy_aliases(sorted_rows)
     canonical = json.dumps(
-        payload,
+        {
+            "catalogVersion": catalog_version,
+            "sourceRegistryVersion": registry_version,
+            "catalog": payload,
+            "legacyAliases": aliases,
+        },
         ensure_ascii=False,
         separators=(",", ":"),
         sort_keys=True,
     ).encode("utf-8")
     checksum = hashlib.sha256(canonical).hexdigest()
-    aliases = _legacy_aliases(sorted_rows)
 
     lines = [
         "// GENERATED CODE - DO NOT MODIFY BY HAND.",
@@ -163,33 +201,43 @@ def build_catalog(
         "",
         "import 'recommendation_catalog_models.dart';",
         "",
-        f"const recommendationCatalogVersion = {_dart_string(catalog_version)};",
-        (
-            "const recommendationSourceRegistryVersion = "
-            f"{_dart_string(registry_version)};"
-        ),
-        f"const recommendationCatalogChecksum = {_dart_string(checksum)};",
-        "",
-        "const generatedRecommendationCatalog = <RecommendationCatalogItem>[",
     ]
+    _append_const(lines, "recommendationCatalogVersion", catalog_version)
+    _append_const(
+        lines,
+        "recommendationSourceRegistryVersion",
+        registry_version,
+    )
+    _append_const(lines, "recommendationCatalogChecksum", checksum)
+    lines.extend(
+        [
+            "",
+            "const generatedRecommendationCatalog = "
+            "<RecommendationCatalogItem>[",
+        ]
+    )
     for item in payload:
-        lines.extend(
-            [
-                "  RecommendationCatalogItem(",
-                f"    id: {_dart_string(str(item['id']))},",
-                f"    selectionKey: {_dart_string(str(item['selectionKey']))},",
-                f"    displayOrder: {item['displayOrder']},",
-                f"    category: {_dart_string(str(item['category']))},",
-                f"    activity: {_dart_string(str(item['activity']))},",
-                f"    bodyPart: {_dart_string(str(item['bodyPart']))},",
-                f"    riskLevel: {_dart_string(str(item['riskLevel']))},",
-                f"    thaiText: {_dart_string(str(item['thaiText']))},",
-                f"    englishText: {_dart_string(str(item['englishText']))},",
-                f"    sourceId: {_dart_string(str(item['sourceId']))},",
-                f"    sourcePage: {_dart_string(str(item['sourcePage']))},",
-                "  ),",
-            ]
+        lines.append("  RecommendationCatalogItem(")
+        _append_named_string(lines, "id", str(item["id"]))
+        _append_named_string(
+            lines,
+            "selectionKey",
+            str(item["selectionKey"]),
         )
+        lines.append(f"    displayOrder: {item['displayOrder']},")
+        _append_named_string(lines, "category", str(item["category"]))
+        _append_named_string(lines, "activity", str(item["activity"]))
+        _append_named_string(lines, "bodyPart", str(item["bodyPart"]))
+        _append_named_string(lines, "riskLevel", str(item["riskLevel"]))
+        _append_named_string(lines, "thaiText", str(item["thaiText"]))
+        _append_named_string(
+            lines,
+            "englishText",
+            str(item["englishText"]),
+        )
+        _append_named_string(lines, "sourceId", str(item["sourceId"]))
+        _append_named_string(lines, "sourcePage", str(item["sourcePage"]))
+        lines.append("  ),")
     lines.extend(
         [
             "];",
@@ -198,9 +246,7 @@ def build_catalog(
         ]
     )
     for alias, selection_key in sorted(aliases.items()):
-        lines.append(
-            f"  {_dart_string(alias)}: {_dart_string(selection_key)},"
-        )
+        _append_map_entry(lines, alias, selection_key)
     lines.extend(["};", ""])
     return "\n".join(lines)
 
@@ -214,14 +260,21 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--master", type=Path, required=True)
     parser.add_argument("--translations", type=Path, required=True)
+    parser.add_argument("--conflicts", type=Path)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
 
     registry_path = args.master.parent / "source_registry.json"
+    conflict_path = args.conflicts or (
+        args.master.parent / "reports" / "conflicts_missing_sources.csv"
+    )
     registry = json.loads(registry_path.read_text(encoding="utf-8"))
     dart = build_catalog(
         _read_csv(args.master),
         _read_csv(args.translations),
+        conflict_rows=(
+            _read_csv(conflict_path) if conflict_path.is_file() else None
+        ),
         source_registry_version=registry["registryVersion"],
     )
     args.output.parent.mkdir(parents=True, exist_ok=True)

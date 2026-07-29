@@ -24,6 +24,25 @@ LEGACY_BASELINE_POLICY = "legacy_baseline_snapshot"
 LEGACY_BASELINE_SOURCE_ID = "current_app_recommendation_copy"
 LEGACY_BASELINE_DOCUMENT_ROLE = "legacy_copy_and_ui_migration_audit"
 LEGACY_BASELINE_LOCAL_PATH = "lib/core/localization/sookta_strings.dart"
+REQUIRED_SOURCE_IDS = frozenset(
+    {
+        "body_map_recommendations",
+        "app_recommendations_v3",
+        "ilo_ergonomic_checkpoints_agriculture",
+        "reba_employee_assessment_worksheet",
+        "iso11228_pirawan_project_workbook",
+        "current_app_recommendation_copy",
+    }
+)
+REQUIRED_MODEL_PATHS = frozenset(
+    {
+        "assets/models/xgboost_model.onnx",
+        "assets/models/xgboost_model_metadata.json",
+        "assets/ml/daily_injury_logistic_model.json",
+        "assets/ml/movenet_thunder.tflite",
+        "assets/ml/movenet_multipose_lightning.tflite",
+    }
+)
 
 
 def _load_json(path: Path) -> dict[str, Any]:
@@ -89,6 +108,10 @@ def validate_registry(registry_path: Path) -> list[str]:
             source
         ):
             errors.append(f"sha256:{source_id}:{digest}")
+    for source_id in sorted(REQUIRED_SOURCE_IDS - seen_ids):
+        errors.append(f"required_source_missing:{source_id}")
+    for source_id in sorted(seen_ids - REQUIRED_SOURCE_IDS):
+        errors.append(f"unexpected_source_id:{source_id}")
     return errors
 
 
@@ -146,6 +169,10 @@ def validate_model_baseline(baseline_path: Path) -> list[str]:
         digest = _sha256(path)
         if digest != expected_hash:
             errors.append(f"model_sha256:{artifact_path}:{digest}")
+    for artifact_path in sorted(REQUIRED_MODEL_PATHS - seen_paths):
+        errors.append(f"required_model_missing:{artifact_path}")
+    for artifact_path in sorted(seen_paths - REQUIRED_MODEL_PATHS):
+        errors.append(f"unexpected_model_path:{artifact_path}")
     return errors
 
 

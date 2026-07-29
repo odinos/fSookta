@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:fsookta/app/app_state.dart';
 import 'package:fsookta/app/sookta_app.dart';
+import 'package:fsookta/core/models/assessment_session.dart';
 import 'package:fsookta/core/models/evaluation_models.dart';
 import 'package:fsookta/screens/main/history_detail_screen.dart';
 import 'package:fsookta/widgets/tts_button.dart';
@@ -103,7 +104,8 @@ REBA / ISO11228 ลดลง 50% ใช้น้ำหนัก 10 kg''',
         'Split fertilizer into smaller loads per round.';
     final record = EvaluationHistoryRecord(
       id: 1,
-      activityName: 'Fertilizing',
+      activity: SooktaActivity.fertilizing,
+      activityName: 'การใส่ปุ๋ย',
       dateTime: DateTime(2026, 7, 29, 10),
       scoreBefore: 8,
       scoreAfter: 6,
@@ -136,6 +138,16 @@ REBA / ISO11228 ลดลง 50% ใช้น้ำหนัก 10 kg''',
       ),
     );
     await tester.pump();
+    expect(find.text('Fertilizing'), findsOneWidget);
+    expect(find.textContaining('การใส่ปุ๋ย'), findsNothing);
+
+    await tester.tap(find.byIcon(Icons.volume_up).first);
+    await tester.pump();
+    expect(spokenTexts, hasLength(1));
+    expect(spokenTexts.single, contains('Fertilizing'));
+    expect(RegExp(r'[ก-๙]').hasMatch(spokenTexts.single), isFalse);
+    spokenTexts.clear();
+
     await tester.scrollUntilVisible(
       find.text('Selected Improvements'),
       400,

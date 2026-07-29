@@ -1,4 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:fsookta/core/localization/sookta_strings.dart';
+import 'package:fsookta/core/recommendations/generated_recommendation_catalog.dart';
 import 'package:fsookta/core/recommendations/recommendation_catalog_models.dart';
 import 'package:fsookta/core/services/recommendation_catalog_service.dart';
 
@@ -261,5 +263,76 @@ void main() {
       ),
       isNull,
     );
+  });
+
+  test('canonicalizes camel-case runtime risk context for very-high rows', () {
+    final items = RecommendationCatalogService.resolve(
+      selectionKey: 'act_body_neck_very_high',
+      language: RecommendationLanguage.en,
+      bodyPart: 'neck',
+      riskLevel: 'veryHigh',
+    );
+
+    expect(items, isNotEmpty);
+    expect(items.every((item) => item.bodyPart == 'neck'), isTrue);
+    expect(items.every((item) => item.riskLevel == 'very_high'), isTrue);
+    expect(items.first.id, 'act_body_neck_very_high.01');
+  });
+
+  test('unknown recommendation keys use exact approved fallback copy', () {
+    const thai = SooktaStrings(SooktaLocale.th);
+    const english = SooktaStrings(SooktaLocale.en);
+
+    expect(
+      thai.get('act_unknown_internal_identifier'),
+      'ไม่สามารถจับคู่คำแนะนำเดิมกับรายการปัจจุบันได้',
+    );
+    expect(
+      english.get('act_unknown_internal_identifier'),
+      'A saved recommendation could not be matched to the current approved catalog.',
+    );
+  });
+
+  test('every packaged UI system and report key resolves from the Catalog', () {
+    const expectedKeys = <String>{
+      'report.selected_recommendations',
+      'system.unmapped_saved_recommendation',
+      'ui.category.posture',
+      'ui.category.rest_rotation',
+      'ui.category.risk_reduction',
+      'ui.category.workload_support',
+      'ui.recommendations.empty',
+      'ui.recommendations.full',
+      'ui.recommendations.heading',
+      'ui.recommendations.instruction',
+    };
+    final packagedKeys = generatedRecommendationCatalog
+        .map((item) => item.selectionKey)
+        .where(
+          (key) =>
+              key.startsWith('ui.') ||
+              key.startsWith('system.') ||
+              key.startsWith('report.'),
+        )
+        .toSet();
+
+    expect(packagedKeys, expectedKeys);
+    for (final key in expectedKeys) {
+      expect(
+        const SooktaStrings(SooktaLocale.th).get(key),
+        isNotEmpty,
+        reason: 'Thai Catalog copy missing for $key',
+      );
+      expect(
+        const SooktaStrings(SooktaLocale.en).get(key),
+        isNotEmpty,
+        reason: 'English Catalog copy missing for $key',
+      );
+      expect(
+        const SooktaStrings(SooktaLocale.en).get(key),
+        isNot(key),
+        reason: 'Catalog key leaked for $key',
+      );
+    }
   });
 }

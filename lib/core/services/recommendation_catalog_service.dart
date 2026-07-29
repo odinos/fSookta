@@ -32,13 +32,20 @@ class RecommendationCatalogService {
     String? bodyPart,
     String? riskLevel,
   }) {
+    final canonicalActivity = _canonicalContext(activity);
+    final canonicalBodyPart = _canonicalContext(bodyPart);
+    final canonicalRiskLevel = _canonicalContext(riskLevel);
     final contexts = <(String, String, String)>[
-      if (activity != null && bodyPart != null && riskLevel != null)
-        (activity, bodyPart, riskLevel),
-      if (activity != null && riskLevel != null) (activity, 'any', riskLevel),
-      if (bodyPart != null && riskLevel != null) ('any', bodyPart, riskLevel),
-      if (activity != null) (activity, 'any', 'any'),
-      if (bodyPart != null) ('any', bodyPart, 'any'),
+      if (canonicalActivity != null &&
+          canonicalBodyPart != null &&
+          canonicalRiskLevel != null)
+        (canonicalActivity, canonicalBodyPart, canonicalRiskLevel),
+      if (canonicalActivity != null && canonicalRiskLevel != null)
+        (canonicalActivity, 'any', canonicalRiskLevel),
+      if (canonicalBodyPart != null && canonicalRiskLevel != null)
+        ('any', canonicalBodyPart, canonicalRiskLevel),
+      if (canonicalActivity != null) (canonicalActivity, 'any', 'any'),
+      if (canonicalBodyPart != null) ('any', canonicalBodyPart, 'any'),
       ('any', 'any', 'any'),
     ];
 
@@ -142,5 +149,20 @@ class RecommendationCatalogService {
 
   static String? selectionKeyForLegacyText(String text) {
     return generatedRecommendationLegacyAliases[text];
+  }
+
+  static String? _canonicalContext(String? value) {
+    if (value == null) return null;
+    final trimmed = value.trim();
+    if (trimmed.isEmpty) return null;
+    return trimmed
+        .replaceAllMapped(
+          RegExp(r'([a-z0-9])([A-Z])'),
+          (match) => '${match.group(1)}_${match.group(2)}',
+        )
+        .replaceAll(RegExp(r'[^A-Za-z0-9]+'), '_')
+        .replaceAll(RegExp('_+'), '_')
+        .replaceAll(RegExp(r'^_|_$'), '')
+        .toLowerCase();
   }
 }

@@ -258,15 +258,22 @@ class SooktaAppState extends ChangeNotifier {
       if (historyJson != null) {
         final decoded = jsonDecode(historyJson);
         if (decoded is List) {
+          final restoredHistory = <EvaluationHistoryRecord>[];
+          for (final item in decoded.whereType<Map>()) {
+            try {
+              restoredHistory.add(
+                EvaluationHistoryRecord.fromJson(
+                  Map<String, Object?>.from(item),
+                ),
+              );
+            } on Object {
+              // A single damaged saved record must not discard valid profiles,
+              // drafts, or other history records.
+            }
+          }
           _history
             ..clear()
-            ..addAll(
-              decoded
-                  .whereType<Map>()
-                  .map((item) => EvaluationHistoryRecord.fromJson(
-                        Map<String, Object?>.from(item),
-                      )),
-            );
+            ..addAll(restoredHistory);
         }
       }
 
@@ -1035,15 +1042,9 @@ class EvaluationHistoryRecord {
       riskAfter: _riskFromName(json['riskAfter'] as String?),
       economicLoss: json['economicLoss'] as int? ?? 0,
       moneySaved: json['moneySaved'] as int? ?? 0,
-      selectedSuggestionKeys: json['selectedSuggestionKeys'] is List
-          ? (json['selectedSuggestionKeys'] as List)
-              .whereType<String>()
-              .toList()
-          : const [],
-      selectedSuggestions: (json['selectedSuggestions'] as List?)
-              ?.whereType<String>()
-              .toList() ??
-          const [],
+      selectedSuggestionKeys:
+          _optionalStringList(json['selectedSuggestionKeys']),
+      selectedSuggestions: _optionalStringList(json['selectedSuggestions']),
       bodyPartRisks: _bodyRisksFromJson(json['bodyPartRisks']),
       aiRiskPercent: json['aiRiskPercent'] as int?,
       aiAlertLevel: _aiAlertFromName(json['aiAlertLevel'] as String?),
@@ -1076,6 +1077,13 @@ class EvaluationHistoryRecord {
     if (value is int) return value;
     if (value is num) return value.toInt();
     return int.tryParse(value?.toString() ?? '');
+  }
+
+  static List<String> _optionalStringList(Object? value) {
+    if (value is! List || value.any((item) => item is! String)) {
+      return const [];
+    }
+    return List<String>.unmodifiable(value.cast<String>());
   }
 
   static double? _optionalDouble(Object? value) {
@@ -1149,6 +1157,11 @@ class EvaluationHistoryRecord {
 
 extension EvaluationHistoryRecommendationLocalization
     on EvaluationHistoryRecord {
+  String localizedActivityName({required bool thai}) {
+    final typedActivity = activity ?? _legacyActivityFromLabel(activityName);
+    return typedActivity?.label(thai: thai) ?? (thai ? 'กิจกรรม' : 'Activity');
+  }
+
   List<String> localizedSelectedSuggestions(
     RecommendationLanguage language,
   ) {
@@ -1167,11 +1180,18 @@ extension EvaluationHistoryRecommendationLocalization
     return List.unmodifiable(
       List.generate(positionCount, (index) {
         if (index < selectedSuggestionKeys.length) {
-          final resolvedKeyText =
+          final selectionKey = selectedSuggestionKeys[index];
+          final resolvedKeyText = RecommendationCatalogService.tryJoinedText(
+                selectionKey: selectionKey,
+                language: language,
+                activity: activity?.name,
+                bodyPart: _bodyPartContextForSelectionKey(selectionKey),
+                riskLevel: riskBefore.name,
+              ) ??
               RecommendationCatalogService.tryJoinedTextForSelectionKey(
-            selectionKey: selectedSuggestionKeys[index],
-            language: language,
-          );
+                selectionKey: selectedSuggestionKeys[index],
+                language: language,
+              );
           if (resolvedKeyText != null) return resolvedKeyText;
         }
         if (index < selectedSuggestions.length) {
@@ -1181,15 +1201,47 @@ extension EvaluationHistoryRecommendationLocalization
           );
           if (legacyKey != null) {
             final resolvedLegacyText =
-                RecommendationCatalogService.tryJoinedTextForSelectionKey(
-              selectionKey: legacyKey,
-              language: language,
-            );
+                RecommendationCatalogService.tryJoinedText(
+                      selectionKey: legacyKey,
+                      language: language,
+                      activity: activity?.name,
+                      bodyPart: _bodyPartContextForSelectionKey(legacyKey),
+                      riskLevel: riskBefore.name,
+                    ) ??
+                    RecommendationCatalogService.tryJoinedTextForSelectionKey(
+                      selectionKey: legacyKey,
+                      language: language,
+                    );
             if (resolvedLegacyText != null) return resolvedLegacyText;
           }
         }
         return fallback;
       }),
     );
+  }
+
+  static SooktaActivity? _legacyActivityFromLabel(String label) {
+    for (final activity in SooktaActivity.values) {
+      if (label == activity.label(thai: true) ||
+          label == activity.label(thai: false)) {
+        return activity;
+      }
+    }
+    return null;
+  }
+
+  static String? _bodyPartContextForSelectionKey(String selectionKey) {
+    const prefixes = <String, String>{
+      'act_body_neck_': 'neck',
+      'act_body_trunk_': 'trunk',
+      'act_body_arms_': 'arms',
+      'act_body_wrists_': 'wrists',
+      'act_body_legs_': 'legs',
+      'act_body_manual_': 'manual',
+    };
+    for (final entry in prefixes.entries) {
+      if (selectionKey.startsWith(entry.key)) return entry.value;
+    }
+    return null;
   }
 }

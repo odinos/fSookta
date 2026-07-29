@@ -48,6 +48,11 @@ void main() {
     );
     await tester.pump();
 
+    expect(find.text('คำแนะนำตามกิจกรรมและความเสี่ยง'), findsOneWidget);
+    expect(
+      find.text('เริ่มจากข้อที่ทำได้จริงในงานนี้ แล้วติดตามคะแนนครั้งถัดไป'),
+      findsOneWidget,
+    );
     for (final category in const [
       'posture',
       'riskReduction',

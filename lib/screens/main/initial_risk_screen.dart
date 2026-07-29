@@ -21,17 +21,18 @@ import 'final_result_screen.dart';
 
 String _recommendationCategoryTitle(
   FarmerRecommendationCategory category,
-  bool thai,
+  SooktaStrings strings,
 ) {
+  return strings.get(_recommendationCategoryKey(category));
+}
+
+String _recommendationCategoryKey(FarmerRecommendationCategory category) {
   return switch (category) {
-    FarmerRecommendationCategory.posture =>
-      thai ? 'ท่าทางที่ควรปรับ' : 'Posture to adjust',
-    FarmerRecommendationCategory.riskReduction =>
-      thai ? 'วิธีลดความเสี่ยง' : 'Ways to reduce risk',
-    FarmerRecommendationCategory.restRotation =>
-      thai ? 'การพักหรือสลับงาน' : 'Rest or task rotation',
+    FarmerRecommendationCategory.posture => 'ui.category.posture',
+    FarmerRecommendationCategory.riskReduction => 'ui.category.risk_reduction',
+    FarmerRecommendationCategory.restRotation => 'ui.category.rest_rotation',
     FarmerRecommendationCategory.workloadSupport =>
-      thai ? 'อุปกรณ์ช่วยลดภาระงาน' : 'Tools or workload support',
+      'ui.category.workload_support',
   };
 }
 
@@ -151,9 +152,7 @@ class _InitialRiskScreenState extends State<InitialRiskScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Text(
-                  thai
-                      ? 'เลือกวิธีลดความเสี่ยง'
-                      : 'Choose risk-reduction actions',
+                  strings.get('ui.recommendations.heading'),
                   style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
@@ -161,9 +160,7 @@ class _InitialRiskScreenState extends State<InitialRiskScreen> {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  thai
-                      ? 'เลือกทีละข้อ เฉพาะวิธีที่ทำได้จริง'
-                      : 'Choose one action at a time, only when practical.',
+                  strings.get('ui.recommendations.instruction'),
                   style: const TextStyle(color: Colors.black54),
                 ),
                 const SizedBox(height: 12),
@@ -188,7 +185,7 @@ class _InitialRiskScreenState extends State<InitialRiskScreen> {
                                 child: Text(
                                   _recommendationCategoryTitle(
                                     category,
-                                    thai,
+                                    strings,
                                   ),
                                   style: const TextStyle(
                                     fontWeight: FontWeight.bold,

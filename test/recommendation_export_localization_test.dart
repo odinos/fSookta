@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:fsookta/app/app_state.dart';
+import 'package:fsookta/core/models/assessment_session.dart';
 import 'package:fsookta/core/models/evaluation_models.dart';
 import 'package:fsookta/core/services/assessment_export_service.dart';
 
@@ -9,7 +10,8 @@ void main() {
       () {
     final recordWithSelectionKeys = EvaluationHistoryRecord(
       id: 1,
-      activityName: 'Fertilizing',
+      activity: SooktaActivity.fertilizing,
+      activityName: 'การใส่ปุ๋ย',
       dateTime: DateTime(2026, 7, 29, 10),
       scoreBefore: 8,
       scoreAfter: 6,
@@ -29,6 +31,7 @@ void main() {
     );
 
     expect(csv, contains('Selected recommendations'));
+    expect(csv, contains('"Activity","Fertilizing"'));
     expect(RegExp(r'[ก-๙]').hasMatch(csv), isFalse);
   });
 

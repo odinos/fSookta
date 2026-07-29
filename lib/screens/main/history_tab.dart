@@ -28,11 +28,19 @@ class _HistoryTabState extends State<HistoryTab> {
   String? _activityFilter;
 
   @override
+  void didUpdateWidget(covariant HistoryTab oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.text.isThai != widget.text.isThai) {
+      _activityFilter = null;
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final state = AppStateScope.of(context);
     final thai = widget.text.isThai;
     final history = state.history;
-    final filteredHistory = _filteredHistory(history);
+    final filteredHistory = _filteredHistory(history, thai);
 
     return Container(
       color: const Color(0xFFFDF8E1),
@@ -199,14 +207,15 @@ class _HistoryTabState extends State<HistoryTab> {
 
   List<EvaluationHistoryRecord> _filteredHistory(
     List<EvaluationHistoryRecord> history,
+    bool thai,
   ) {
     return history.where((record) {
       final matchesRisk = switch (_riskFilter) {
         _HistoryRiskFilter.all => true,
         _HistoryRiskFilter.highRisk => record.riskBefore >= RiskLevel.high,
       };
-      final matchesActivity =
-          _activityFilter == null || record.activityName == _activityFilter;
+      final matchesActivity = _activityFilter == null ||
+          record.localizedActivityName(thai: thai) == _activityFilter;
       return matchesRisk && matchesActivity;
     }).toList(growable: false);
   }
@@ -351,7 +360,7 @@ class _HistorySummaryAndFilters extends StatelessWidget {
     final highRiskCount = filteredHistory
         .where((record) => record.riskBefore >= RiskLevel.high)
         .length;
-    final activityNames = _activityNames(history);
+    final activityNames = _activityNames(history, thai);
 
     return Card(
       child: Padding(
@@ -422,12 +431,13 @@ class _HistorySummaryAndFilters extends StatelessWidget {
     return values.reduce((sum, score) => sum + score) / values.length;
   }
 
-  static List<String> _activityNames(List<EvaluationHistoryRecord> history) {
+  static List<String> _activityNames(
+    List<EvaluationHistoryRecord> history,
+    bool thai,
+  ) {
     final names = <String>{};
     for (final record in history) {
-      if (record.activityName.trim().isNotEmpty) {
-        names.add(record.activityName.trim());
-      }
+      names.add(record.localizedActivityName(thai: thai));
     }
     return names.toList(growable: false)..sort();
   }
@@ -507,7 +517,7 @@ class _HistoryCard extends StatelessWidget {
         title: Text(
           [
             if ((record.farmerName ?? '').isNotEmpty) record.farmerName!,
-            record.activityName,
+            record.localizedActivityName(thai: thai),
           ].join(' • '),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,

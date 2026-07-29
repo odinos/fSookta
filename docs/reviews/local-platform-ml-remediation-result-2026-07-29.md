@@ -12,8 +12,10 @@
 
 - Flutter source analysis ผ่านโดยไม่มี issue
 - Flutter test ทั้งหมดผ่าน 162 รายการ
-- Android release App Bundle build ผ่านหลังเหลือ Gradle configuration ชุดเดียว
-- iOS release แบบ `--no-codesign` build ผ่านจากสำเนาใน `/private/tmp`
+- หลักฐาน baseline ก่อนเชื่อม Recommendation Catalog:
+  Android release App Bundle build ผ่านหลังเหลือ Gradle configuration ชุดเดียว
+- หลักฐาน baseline ก่อนเชื่อม Recommendation Catalog:
+  iOS release แบบ `--no-codesign` build ผ่านจากสำเนาใน `/private/tmp`
 - MoveNet TFLite โหลดและ infer ได้ทั้ง Android Emulator และ iOS Simulator
 - XGBoost ONNX โหลดและ infer ได้ทั้งสองระบบ และให้ probability เท่ากันสำหรับ input เดียวกัน
 - Video frame contract ผ่านทั้งสองระบบโดยไม่ต้องแก้ native algorithm
@@ -232,8 +234,11 @@ research export schema หรือ native iOS/Android source
 - Android `flutter build apk --debug --no-pub`: ผ่าน
 - iOS `flutter build ios --simulator --debug --no-pub`:
   worktree ติด FileProvider CodeSign; clean local `/private/tmp` copy ผ่าน
-- Android `flutter build appbundle --release --no-pub`: ผ่าน
-- iOS `flutter build ios --release --no-codesign --no-pub`: ผ่านใน `/private/tmp`
+- Android `flutter build appbundle --release --no-pub`:
+  ผ่านใน baseline ก่อนเชื่อม Catalog เท่านั้น ไม่ใช่ final build ของ source ปัจจุบัน
+- iOS `flutter build ios --release --no-codesign --no-pub`:
+  ผ่านใน `/private/tmp` สำหรับ baseline ก่อนเชื่อม Catalog เท่านั้น
+  ไม่ใช่ final build ของ source ปัจจุบัน
 - Android/iOS `pose_device_inference_test.dart`: ผ่าน
 - Android/iOS `ml_device_inference_test.dart`: ผ่านและค่าเท่ากัน
 - Android/iOS `video_frame_contract_test.dart`: ผ่าน

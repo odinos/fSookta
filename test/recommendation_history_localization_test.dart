@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:fsookta/app/app_state.dart';
+import 'package:fsookta/core/models/assessment_session.dart';
 import 'package:fsookta/core/recommendations/recommendation_catalog_models.dart';
 
 void main() {
@@ -241,6 +242,105 @@ void main() {
         ['Split fertilizer into smaller loads per round.'],
       );
     }
+  });
+
+  test('mixed-type saved lists are rejected without shifting positions', () {
+    final mixedKeys = EvaluationHistoryRecord.fromJson(<String, Object?>{
+      ..._recordJson(),
+      'selectedSuggestionKeys': <Object?>[
+        'act_reduce_arm_raise',
+        7,
+        'act_fert_split_load',
+      ],
+      'selectedSuggestions': <String>[
+        'Reduce prolonged arm raising',
+        'Split fertilizer into smaller loads per round',
+      ],
+    });
+    final mixedLegacy = EvaluationHistoryRecord.fromJson(<String, Object?>{
+      ..._recordJson(),
+      'selectedSuggestionKeys': <String>[
+        'act_reduce_arm_raise',
+        'act_fert_split_load',
+      ],
+      'selectedSuggestions': <Object?>[
+        'Reduce prolonged arm raising',
+        <String, String>{'text': 'invalid'},
+        'Split fertilizer into smaller loads per round',
+      ],
+    });
+
+    expect(mixedKeys.selectedSuggestionKeys, isEmpty);
+    expect(
+      mixedKeys.localizedSelectedSuggestions(RecommendationLanguage.en),
+      [
+        'Reduce prolonged arm raising.',
+        'Split fertilizer into smaller loads per round.',
+      ],
+    );
+    expect(mixedLegacy.selectedSuggestions, isEmpty);
+    expect(
+      mixedLegacy.localizedSelectedSuggestions(RecommendationLanguage.en),
+      [
+        'Reduce prolonged arm raising.',
+        'Split fertilizer into smaller loads per round.',
+      ],
+    );
+  });
+
+  test('scalar and map legacy suggestion lists default to empty', () {
+    for (final malformed in <Object?>[
+      'Reduce prolonged arm raising',
+      <String, String>{'text': 'Reduce prolonged arm raising'},
+    ]) {
+      final record = EvaluationHistoryRecord.fromJson(<String, Object?>{
+        ..._recordJson(),
+        'selectedSuggestions': malformed,
+      });
+
+      expect(record.selectedSuggestions, isEmpty);
+      expect(
+        record.localizedSelectedSuggestions(RecommendationLanguage.en),
+        isEmpty,
+      );
+    }
+  });
+
+  test('typed and exact legacy activity names localize in either language', () {
+    final typedThaiRecord = EvaluationHistoryRecord.fromJson(
+      <String, Object?>{
+        ..._recordJson(),
+        'activity': SooktaActivity.fertilizing.name,
+        'activityName': 'การใส่ปุ๋ย',
+      },
+    );
+    final legacyThaiRecord = EvaluationHistoryRecord.fromJson(
+      <String, Object?>{
+        ..._recordJson(),
+        'activityName': 'การตัดแต่งกิ่ง',
+      },
+    );
+    final legacyEnglishRecord = EvaluationHistoryRecord.fromJson(
+      <String, Object?>{
+        ..._recordJson(),
+        'activityName': 'On-farm Transport',
+      },
+    );
+    final unknownRecord = EvaluationHistoryRecord.fromJson(
+      <String, Object?>{
+        ..._recordJson(),
+        'activityName': 'ค่าภายในที่ไม่รู้จัก',
+      },
+    );
+
+    expect(typedThaiRecord.localizedActivityName(thai: false), 'Fertilizing');
+    expect(legacyThaiRecord.localizedActivityName(thai: false), 'Pruning');
+    expect(
+      legacyEnglishRecord.localizedActivityName(thai: true),
+      'การขนย้ายผลผลิต',
+    );
+    expect(unknownRecord.localizedActivityName(thai: false), 'Activity');
+    expect(unknownRecord.localizedActivityName(thai: true), 'กิจกรรม');
   });
 }
 

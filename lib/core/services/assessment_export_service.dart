@@ -99,6 +99,9 @@ class AssessmentExportService {
       beforeScore: bundle.before.userScore,
       afterScore: bundle.after.userScore,
     );
+    final activityName = bundle.activity.label(thai: thai);
+    final recommendationLanguage =
+        thai ? RecommendationLanguage.th : RecommendationLanguage.en;
     final rows = <List<Object?>>[
       [thai ? 'หัวข้อ' : 'Field', thai ? 'ข้อมูล' : 'Value'],
       [thai ? 'เลขประเมิน' : 'Record ID', record?.id ?? '-'],
@@ -115,7 +118,7 @@ class AssessmentExportService {
         record?.appVersion ?? SooktaBuildInfo.label,
       ],
       [thai ? 'รหัสผู้เข้าร่วมวิจัย' : 'Farmer ID', profile.farmerId],
-      [thai ? 'กิจกรรม' : 'Activity', bundle.activityName],
+      [thai ? 'กิจกรรม' : 'Activity', activityName],
       [
         thai ? 'ช่วงงาน' : 'Activity stage',
         bundle.activity.stageLabel(thai: thai),
@@ -147,7 +150,7 @@ class AssessmentExportService {
         farmerId: profile.farmerId,
         dateTime: record?.dateTime ?? DateTime.now(),
         activityStage: bundle.activity.stageLabel(thai: false),
-        specificTask: bundle.activityName,
+        specificTask: activityName,
         breakdown: bundle.breakdown,
         bodyPartRisks: bundle.before.bodyPartRisks,
         impact: beforeImpact,
@@ -217,7 +220,12 @@ class AssessmentExportService {
         (entry) => [_bodyPart(entry.key, thai), _risk(entry.value, thai)],
       ),
       [],
-      [thai ? 'คำแนะนำที่เลือก' : 'Selected recommendations'],
+      [
+        RecommendationCatalogService.joinedText(
+          selectionKey: 'report.selected_recommendations',
+          language: recommendationLanguage,
+        ),
+      ],
       ...selectedSuggestions.map((suggestion) => [suggestion]),
       [],
       [
@@ -241,6 +249,7 @@ class AssessmentExportService {
         thai ? RecommendationLanguage.th : RecommendationLanguage.en;
     final localizedSuggestions =
         record.localizedSelectedSuggestions(recommendationLanguage);
+    final activityName = record.localizedActivityName(thai: thai);
     final impactComparison = EconomicImpactService.compareBeforeAfter(
       beforeImpact: record.economicLoss,
       beforeScore: record.scoreBefore,
@@ -267,7 +276,7 @@ class AssessmentExportService {
         record.appVersion ?? '-',
       ],
       [thai ? 'รหัสผู้เข้าร่วมวิจัย' : 'Farmer ID', profile.farmerId],
-      [thai ? 'กิจกรรม' : 'Activity', record.activityName],
+      [thai ? 'กิจกรรม' : 'Activity', activityName],
       [
         thai ? 'ช่วงงาน' : 'Activity stage',
         record.activity?.stageLabel(thai: thai) ?? '-',
@@ -312,7 +321,7 @@ class AssessmentExportService {
         farmerId: profile.farmerId,
         dateTime: record.dateTime,
         activityStage: record.activity?.stageLabel(thai: false) ?? '-',
-        specificTask: record.activityName,
+        specificTask: activityName,
         breakdown: record.assessmentBreakdown,
         bodyPartRisks: record.bodyPartRisks,
         impact: beforeImpact,

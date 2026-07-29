@@ -606,12 +606,12 @@ List<_ScreenContract> _screens({required bool thai}) {
       requiredText: thai
           ? const <String>[
               'ผลการประเมินเบื้องต้น',
-              'เลือกวิธีลดความเสี่ยง',
+              'คำแนะนำตามกิจกรรมและความเสี่ยง',
               'ดูผลหลังปรับปรุง',
             ]
           : const <String>[
               'Initial Assessment',
-              'Choose risk-reduction actions',
+              'Recommendations by activity and risk',
               'View Improved Result',
             ],
       requiredKeys: const <String>[

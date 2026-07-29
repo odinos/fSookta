@@ -83,7 +83,7 @@ void main() {
       userScore: 7,
       userScoreColor: 0xFFFFB74D,
       limitValue: 7,
-      suggestionKey: 'act_transplant_raise_work_height',
+      suggestionKey: 'act_transplant_raise_bed',
       economicLoss: 18471,
       bodyPartRisks: {BodyPart.trunk: RiskLevel.high},
     );
@@ -102,7 +102,7 @@ void main() {
       jobType: JobType.lifting,
       before: before,
       after: after,
-      selectedSuggestionKeys: const ['act_transplant_raise_work_height'],
+      selectedSuggestionKeys: const ['act_transplant_raise_bed'],
       breakdown: const AssessmentBreakdown(
         primaryMethod: AssessmentMethod.rebaIsoCombined,
         rebaInput: rebaInput,

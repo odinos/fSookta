@@ -6,7 +6,7 @@ import 'recommendation_catalog_models.dart';
 const recommendationCatalogVersion = '2026-07-29.1';
 const recommendationSourceRegistryVersion = '2026-07-29.1';
 const recommendationCatalogChecksum =
-    'b77cf75ade1db152dfdebb82268ad1295d2409f6a2d96ba712b2433ed754abb0';
+    'ed67933430ff3a341b2e0597bdaf3ce1049fd9b7e3f7b8a7fe408b159d256e47';
 
 const generatedRecommendationCatalog = <RecommendationCatalogItem>[
   RecommendationCatalogItem(

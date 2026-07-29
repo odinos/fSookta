@@ -17,6 +17,23 @@ from tools.recommendations.validate_sources import (
     validate_registry,
 )
 
+EXPECTED_SOURCE_IDS = {
+    "body_map_recommendations",
+    "app_recommendations_v3",
+    "ilo_ergonomic_checkpoints_agriculture",
+    "reba_employee_assessment_worksheet",
+    "iso11228_pirawan_project_workbook",
+    "current_app_recommendation_copy",
+}
+
+EXPECTED_MODEL_PATHS = {
+    "assets/models/xgboost_model.onnx",
+    "assets/models/xgboost_model_metadata.json",
+    "assets/ml/daily_injury_logistic_model.json",
+    "assets/ml/movenet_thunder.tflite",
+    "assets/ml/movenet_multipose_lightning.tflite",
+}
+
 
 class SourceRegistryTest(unittest.TestCase):
     def test_registered_sources_exist_and_match_sha256(self) -> None:
@@ -30,6 +47,109 @@ class SourceRegistryTest(unittest.TestCase):
             Path("data/recommendations/baseline_model_hashes.json")
         )
         self.assertEqual(errors, [])
+
+    def test_registry_rejects_deletion_of_any_required_source(self) -> None:
+        payload = json.loads(
+            Path("data/recommendations/source_registry.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        for source_id in sorted(EXPECTED_SOURCE_IDS):
+            with self.subTest(source_id=source_id):
+                mutated = dict(payload)
+                mutated["sources"] = [
+                    source
+                    for source in payload["sources"]
+                    if source["id"] != source_id
+                ]
+                with tempfile.TemporaryDirectory() as temp_dir:
+                    registry_path = Path(temp_dir) / "registry.json"
+                    registry_path.write_text(
+                        json.dumps(mutated),
+                        encoding="utf-8",
+                    )
+
+                    errors = validate_registry(registry_path)
+
+                self.assertIn(f"required_source_missing:{source_id}", errors)
+
+    def test_registry_rejects_unexpected_source_ids(self) -> None:
+        payload = json.loads(
+            Path("data/recommendations/source_registry.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        with tempfile.TemporaryDirectory() as temp_dir:
+            extra_path = Path(temp_dir) / "extra-source.bin"
+            extra_path.write_bytes(b"extra")
+            extra_source = dict(payload["sources"][0])
+            extra_source.update(
+                {
+                    "id": "unexpected_source",
+                    "localPath": str(extra_path),
+                    "sha256": hashlib.sha256(b"extra").hexdigest(),
+                }
+            )
+            payload["sources"].append(extra_source)
+            registry_path = Path(temp_dir) / "registry.json"
+            registry_path.write_text(
+                json.dumps(payload),
+                encoding="utf-8",
+            )
+
+            errors = validate_registry(registry_path)
+
+        self.assertIn("unexpected_source_id:unexpected_source", errors)
+
+    def test_model_baseline_rejects_deletion_of_any_required_path(self) -> None:
+        payload = json.loads(
+            Path("data/recommendations/baseline_model_hashes.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        for model_path in sorted(EXPECTED_MODEL_PATHS):
+            with self.subTest(model_path=model_path):
+                mutated = dict(payload)
+                mutated["artifacts"] = [
+                    artifact
+                    for artifact in payload["artifacts"]
+                    if artifact["path"] != model_path
+                ]
+                with tempfile.TemporaryDirectory() as temp_dir:
+                    baseline_path = Path(temp_dir) / "baseline.json"
+                    baseline_path.write_text(
+                        json.dumps(mutated),
+                        encoding="utf-8",
+                    )
+
+                    errors = validate_model_baseline(baseline_path)
+
+                self.assertIn(f"required_model_missing:{model_path}", errors)
+
+    def test_model_baseline_rejects_unexpected_paths(self) -> None:
+        payload = json.loads(
+            Path("data/recommendations/baseline_model_hashes.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        with tempfile.TemporaryDirectory() as temp_dir:
+            extra_path = Path(temp_dir) / "extra-model.bin"
+            extra_path.write_bytes(b"extra")
+            payload["artifacts"].append(
+                {
+                    "path": str(extra_path),
+                    "sha256": hashlib.sha256(b"extra").hexdigest(),
+                }
+            )
+            baseline_path = Path(temp_dir) / "baseline.json"
+            baseline_path.write_text(
+                json.dumps(payload),
+                encoding="utf-8",
+            )
+
+            errors = validate_model_baseline(baseline_path)
+
+        self.assertIn(f"unexpected_model_path:{extra_path}", errors)
 
     def test_unmarked_source_hash_mismatch_still_fails(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -56,20 +176,20 @@ class SourceRegistryTest(unittest.TestCase):
                 hash_policy="legacy_baseline_snapshot",
                 local_path="lib/core/localization/sookta_strings.dart",
             )
-            model_path = root / "model.bin"
-            model_path.write_bytes(b"model")
             model_baseline_path = root / "model_baseline.json"
-            model_baseline_path.write_text(
-                json.dumps(
+            artifacts = []
+            for model_path_value in sorted(EXPECTED_MODEL_PATHS):
+                model_path = root / model_path_value
+                model_path.parent.mkdir(parents=True, exist_ok=True)
+                model_path.write_bytes(b"model")
+                artifacts.append(
                     {
-                        "artifacts": [
-                            {
-                                "path": str(model_path),
-                                "sha256": hashlib.sha256(b"model").hexdigest(),
-                            }
-                        ]
+                        "path": model_path_value,
+                        "sha256": hashlib.sha256(b"model").hexdigest(),
                     }
-                ),
+                )
+            model_baseline_path.write_text(
+                json.dumps({"artifacts": artifacts}),
                 encoding="utf-8",
             )
             output = io.StringIO()
@@ -162,29 +282,44 @@ class SourceRegistryTest(unittest.TestCase):
         local_path: str | None = None,
     ) -> Path:
         registry_local_path = local_path or str(root / "source.dart")
-        candidate_path = Path(registry_local_path)
-        source_path = (
-            candidate_path
-            if candidate_path.is_absolute()
-            else root / candidate_path
-        )
-        source_path.parent.mkdir(parents=True, exist_ok=True)
-        source_path.write_bytes(b"current")
-        source = {
-            "id": source_id,
-            "title": "Legacy app recommendation copy",
-            "language": "th,en",
-            "localPath": registry_local_path,
-            "sha256": hashlib.sha256(b"original").hexdigest(),
-            "priority": 90,
-            "documentRole": document_role,
-            "copyrightOrDistributionNote": "Internal snapshot.",
-        }
-        if hash_policy is not None:
-            source["hashPolicy"] = hash_policy
+        sources = []
+        for required_source_id in sorted(EXPECTED_SOURCE_IDS):
+            is_target = required_source_id == source_id
+            candidate_local_path = (
+                registry_local_path
+                if is_target
+                else str(root / f"{required_source_id}.source")
+            )
+            candidate_path = Path(candidate_local_path)
+            source_path = (
+                candidate_path
+                if candidate_path.is_absolute()
+                else root / candidate_path
+            )
+            source_path.parent.mkdir(parents=True, exist_ok=True)
+            source_path.write_bytes(b"current")
+            source = {
+                "id": required_source_id,
+                "title": f"Source {required_source_id}",
+                "language": "th,en",
+                "localPath": candidate_local_path,
+                "sha256": hashlib.sha256(
+                    b"original" if is_target else b"current"
+                ).hexdigest(),
+                "priority": 90,
+                "documentRole": (
+                    document_role
+                    if is_target
+                    else "supporting_ergonomic_evidence"
+                ),
+                "copyrightOrDistributionNote": "Internal snapshot.",
+            }
+            if is_target and hash_policy is not None:
+                source["hashPolicy"] = hash_policy
+            sources.append(source)
         registry_path = root / "source_registry.json"
         registry_path.write_text(
-            json.dumps({"registryVersion": "test", "sources": [source]}),
+            json.dumps({"registryVersion": "test", "sources": sources}),
             encoding="utf-8",
         )
         return registry_path

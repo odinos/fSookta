@@ -246,10 +246,10 @@ def _context(key: str) -> tuple[str, str, str, str, str, str, str]:
                 "app_recommendations_v3",
                 page,
             )
-    source, page, _ = SOURCE_LOCATORS.get(
-        key,
-        ("current_app_recommendation_copy", "", "Legacy recommendation copy"),
-    )
+    locator = SOURCE_LOCATORS.get(key)
+    if locator is None:
+        raise ValueError(f"explicit source provenance required: {key}")
+    source, page, _ = locator
     category = (
         "restRotation"
         if key in {"act_rest_stretch", "act_iso_job_rotation", "act_iso_plan_recovery"}

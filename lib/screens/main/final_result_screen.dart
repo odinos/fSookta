@@ -62,8 +62,13 @@ class _FinalResultScreenState extends State<FinalResultScreen> {
         before: widget.bundle.before,
         after: widget.bundle.after,
         selectedSuggestionKeys: widget.bundle.selectedSuggestionKeys,
-        selectedSuggestions:
-            widget.bundle.selectedSuggestionKeys.map(strings.get).toList(),
+        selectedSuggestions: widget.bundle.selectedSuggestionKeys
+            .map((key) => _selectedSuggestionText(
+                  key: key,
+                  bundle: widget.bundle,
+                  strings: strings,
+                ))
+            .toList(),
         assessmentBreakdown: widget.bundle.breakdown,
         afterAssessmentBreakdown: widget.bundle.afterBreakdown,
       );
@@ -142,8 +147,13 @@ class _FinalResultScreenState extends State<FinalResultScreen> {
       afterScore: after.userScore,
     );
     final saved = impactComparison.savedAmount;
-    final suggestions =
-        widget.bundle.selectedSuggestionKeys.map(strings.get).toList();
+    final suggestions = widget.bundle.selectedSuggestionKeys
+        .map((key) => _selectedSuggestionText(
+              key: key,
+              bundle: widget.bundle,
+              strings: strings,
+            ))
+        .toList();
     final activityRiskRecommendations = _activityRiskRecommendationTexts(
       activity: widget.bundle.activity,
       before: before,
@@ -255,6 +265,7 @@ class _FinalResultScreenState extends State<FinalResultScreen> {
               const SizedBox(height: 16),
               _ActivityRiskRecommendationCard(
                 recommendations: farmerRecommendations,
+                strings: strings,
                 thai: thai,
               ),
             ],
@@ -305,6 +316,7 @@ class _FinalResultScreenState extends State<FinalResultScreen> {
               before: before,
               breakdown: widget.bundle.breakdown,
               detailedRecommendations: activityRiskRecommendations,
+              strings: strings,
               thai: thai,
               exporting: exporting,
               recordReady: recordReady,
@@ -438,20 +450,57 @@ List<String> _activityRiskRecommendationTexts({
   final texts = <String>[];
   for (final key in keys) {
     if (!seen.add(key)) continue;
-    final text = strings.get(key).trim();
+    final text = strings
+        .get(
+          key,
+          activity: activity.name,
+          bodyPart: _bodyPartContextForSelectionKey(key),
+          riskLevel: before.riskLevel.name,
+        )
+        .trim();
     if (text.isEmpty || text == key) continue;
     texts.add(text);
   }
   return texts;
 }
 
+String _selectedSuggestionText({
+  required String key,
+  required AssessmentBundle bundle,
+  required SooktaStrings strings,
+}) {
+  return strings.get(
+    key,
+    activity: bundle.activity.name,
+    bodyPart: _bodyPartContextForSelectionKey(key),
+    riskLevel: bundle.before.riskLevel.name,
+  );
+}
+
+String? _bodyPartContextForSelectionKey(String selectionKey) {
+  const prefixes = <String, String>{
+    'act_body_neck_': 'neck',
+    'act_body_trunk_': 'trunk',
+    'act_body_arms_': 'arms',
+    'act_body_wrists_': 'wrists',
+    'act_body_legs_': 'legs',
+    'act_body_manual_': 'manual',
+  };
+  for (final entry in prefixes.entries) {
+    if (selectionKey.startsWith(entry.key)) return entry.value;
+  }
+  return null;
+}
+
 class _ActivityRiskRecommendationCard extends StatelessWidget {
   const _ActivityRiskRecommendationCard({
     required this.recommendations,
+    required this.strings,
     required this.thai,
   });
 
   final List<FarmerRecommendation> recommendations;
+  final SooktaStrings strings;
   final bool thai;
 
   @override
@@ -459,7 +508,7 @@ class _ActivityRiskRecommendationCard extends StatelessWidget {
     final groups = FarmerRecommendationCategory.values.map((category) {
       return _RecommendationGroup(
         category: category,
-        title: _categoryTitle(category, thai),
+        title: _categoryTitle(category, strings),
         icon: _categoryIcon(category),
         items: recommendations
             .where((item) => item.category == category)
@@ -483,9 +532,7 @@ class _ActivityRiskRecommendationCard extends StatelessWidget {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    thai
-                        ? 'คำแนะนำตามกิจกรรมและความเสี่ยง'
-                        : 'Recommendations by activity and risk',
+                    strings.get('ui.recommendations.heading'),
                     style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
                 ),
@@ -493,14 +540,16 @@ class _ActivityRiskRecommendationCard extends StatelessWidget {
             ),
             const SizedBox(height: 6),
             Text(
-              thai
-                  ? 'เริ่มจากข้อที่ทำได้จริงในงานนี้ แล้วติดตามคะแนนครั้งถัดไป'
-                  : 'Start with actions that fit this task, then compare the next result.',
+              strings.get('ui.recommendations.instruction'),
               style: const TextStyle(color: Colors.black54, fontSize: 12.5),
             ),
             const SizedBox(height: 12),
             for (final group in groups) ...[
-              _RecommendationGroupView(group: group, thai: thai),
+              _RecommendationGroupView(
+                group: group,
+                strings: strings,
+                thai: thai,
+              ),
               const SizedBox(height: 10),
             ],
           ],
@@ -510,17 +559,17 @@ class _ActivityRiskRecommendationCard extends StatelessWidget {
   }
 }
 
-String _categoryTitle(FarmerRecommendationCategory category, bool thai) {
-  return switch (category) {
-    FarmerRecommendationCategory.posture =>
-      thai ? 'ท่าทางที่ควรปรับ' : 'Posture to adjust',
-    FarmerRecommendationCategory.riskReduction =>
-      thai ? 'วิธีลดความเสี่ยง' : 'Ways to reduce risk',
-    FarmerRecommendationCategory.restRotation =>
-      thai ? 'การพักหรือสลับงาน' : 'Rest or task rotation',
+String _categoryTitle(
+  FarmerRecommendationCategory category,
+  SooktaStrings strings,
+) {
+  return strings.get(switch (category) {
+    FarmerRecommendationCategory.posture => 'ui.category.posture',
+    FarmerRecommendationCategory.riskReduction => 'ui.category.risk_reduction',
+    FarmerRecommendationCategory.restRotation => 'ui.category.rest_rotation',
     FarmerRecommendationCategory.workloadSupport =>
-      thai ? 'อุปกรณ์ช่วยลดภาระงาน' : 'Tools or workload support',
-  };
+      'ui.category.workload_support',
+  });
 }
 
 IconData _categoryIcon(FarmerRecommendationCategory category) {
@@ -550,10 +599,12 @@ class _RecommendationGroup {
 class _RecommendationGroupView extends StatelessWidget {
   const _RecommendationGroupView({
     required this.group,
+    required this.strings,
     required this.thai,
   });
 
   final _RecommendationGroup group;
+  final SooktaStrings strings;
   final bool thai;
 
   @override
@@ -609,7 +660,7 @@ class _RecommendationGroupView extends StatelessWidget {
               ),
             if (group.items.isEmpty)
               Text(
-                thai ? 'ไม่มีคำแนะนำเพิ่มเติม' : 'No additional action',
+                strings.get('ui.recommendations.empty'),
                 style: const TextStyle(color: Colors.black54),
               ),
           ],
@@ -624,6 +675,7 @@ class _TechnicalDetailsSection extends StatelessWidget {
     required this.before,
     required this.breakdown,
     required this.detailedRecommendations,
+    required this.strings,
     required this.thai,
     required this.exporting,
     required this.recordReady,
@@ -633,6 +685,7 @@ class _TechnicalDetailsSection extends StatelessWidget {
   final ErgoResult before;
   final AssessmentBreakdown? breakdown;
   final List<String> detailedRecommendations;
+  final SooktaStrings strings;
   final bool thai;
   final bool exporting;
   final bool recordReady;
@@ -674,7 +727,7 @@ class _TechnicalDetailsSection extends StatelessWidget {
                   Align(
                     alignment: Alignment.centerLeft,
                     child: Text(
-                      thai ? 'คำแนะนำฉบับเต็ม' : 'Full recommendations',
+                      strings.get('ui.recommendations.full'),
                       style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
                   ),
