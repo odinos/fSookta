@@ -64,8 +64,14 @@ void main() {
       scrollable: find.byType(Scrollable).first,
     );
     expect(find.text('คำแนะนำตามกิจกรรมและความเสี่ยง'), findsOneWidget);
-    expect(find.textContaining('ลดน้ำหนักปุ๋ยต่อครั้ง'), findsOneWidget);
-    expect(find.text('ใช้เท้าหมุนตัวแทนการบิดเอว'), findsOneWidget);
+    expect(
+      find.text('แบ่งปุ๋ยเป็นน้ำหนักน้อยลงในแต่ละรอบ'),
+      findsOneWidget,
+    );
+    expect(
+      find.text('หลีกเลี่ยงการบิดลำตัวหรือเอียงตัวขณะทำงาน'),
+      findsOneWidget,
+    );
     expect(find.text('การพักหรือสลับงาน'), findsOneWidget);
     expect(find.text('อุปกรณ์ช่วยลดภาระงาน'), findsOneWidget);
     for (final category in const [
@@ -97,7 +103,8 @@ void main() {
         ))
         .map((widget) => widget.data ?? '')
         .where((text) =>
-            text.contains('ลดน้ำหนักปุ๋ย') || text.contains('ใช้เท้าหมุนตัว'));
+            text.contains('แบ่งปุ๋ยเป็นน้ำหนักน้อยลง') ||
+            text.contains('หลีกเลี่ยงการบิดลำตัว'));
     expect(farmerGuidance, isNotEmpty);
     expect(
       farmerGuidance.every((text) => text.length <= 70),

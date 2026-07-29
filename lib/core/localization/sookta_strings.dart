@@ -1,3 +1,6 @@
+import '../recommendations/recommendation_catalog_models.dart';
+import '../services/recommendation_catalog_service.dart';
+
 enum SooktaLocale {
   th,
   en,
@@ -9,6 +12,15 @@ class SooktaStrings {
   final SooktaLocale locale;
 
   String get(String key) {
+    if (key.startsWith('act_')) {
+      final catalogText = RecommendationCatalogService.tryJoinedText(
+        selectionKey: key,
+        language: locale == SooktaLocale.th
+            ? RecommendationLanguage.th
+            : RecommendationLanguage.en,
+      );
+      if (catalogText != null) return catalogText;
+    }
     final table = locale == SooktaLocale.th ? _th : _en;
     return table[key] ?? _en[key] ?? key;
   }
