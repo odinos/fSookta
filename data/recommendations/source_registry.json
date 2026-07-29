@@ -54,6 +54,16 @@
       "priority": 5,
       "documentRole": "project_case_and_scoring_context",
       "copyrightOrDistributionNote": "Employer-provided project workbook. Treat its A-F rubric as project-specific context, not as a verbatim normative ISO formula."
+    },
+    {
+      "id": "current_app_recommendation_copy",
+      "title": "Current Sookta recommendation localization table",
+      "language": "th,en",
+      "localPath": "lib/core/localization/sookta_strings.dart",
+      "sha256": "a112ff7a1fec833cf9312a91db263bb13d7c5989ebfa1fb13deac8d908952bfe",
+      "priority": 90,
+      "documentRole": "legacy_copy_and_ui_migration_audit",
+      "copyrightOrDistributionNote": "Internal project source snapshot. Use only for legacy alias comparison and non-advisory UI copy; external recommendation documents remain authoritative."
     }
   ]
 }
