@@ -1035,10 +1035,11 @@ class EvaluationHistoryRecord {
       riskAfter: _riskFromName(json['riskAfter'] as String?),
       economicLoss: json['economicLoss'] as int? ?? 0,
       moneySaved: json['moneySaved'] as int? ?? 0,
-      selectedSuggestionKeys: (json['selectedSuggestionKeys'] as List?)
-              ?.whereType<String>()
-              .toList() ??
-          const [],
+      selectedSuggestionKeys: json['selectedSuggestionKeys'] is List
+          ? (json['selectedSuggestionKeys'] as List)
+              .whereType<String>()
+              .toList()
+          : const [],
       selectedSuggestions: (json['selectedSuggestions'] as List?)
               ?.whereType<String>()
               .toList() ??
@@ -1159,39 +1160,35 @@ extension EvaluationHistoryRecommendationLocalization
       selectionKey: 'system.unmapped_saved_recommendation',
       language: language,
     );
-    if (selectedSuggestionKeys.isNotEmpty) {
-      return List.unmodifiable(
-        selectedSuggestionKeys.indexed.map((entry) {
+    final positionCount =
+        selectedSuggestionKeys.length > selectedSuggestions.length
+            ? selectedSuggestionKeys.length
+            : selectedSuggestions.length;
+    return List.unmodifiable(
+      List.generate(positionCount, (index) {
+        if (index < selectedSuggestionKeys.length) {
           final resolvedKeyText =
               RecommendationCatalogService.tryJoinedTextForSelectionKey(
-            selectionKey: entry.$2,
+            selectionKey: selectedSuggestionKeys[index],
             language: language,
           );
           if (resolvedKeyText != null) return resolvedKeyText;
-          if (entry.$1 >= selectedSuggestions.length) return fallback;
+        }
+        if (index < selectedSuggestions.length) {
           final legacyKey =
               RecommendationCatalogService.selectionKeyForLegacyText(
-                  selectedSuggestions[entry.$1]);
-          if (legacyKey == null) return fallback;
-          return RecommendationCatalogService.tryJoinedTextForSelectionKey(
-                selectionKey: legacyKey,
-                language: language,
-              ) ??
-              fallback;
-        }),
-      );
-    }
-
-    return List.unmodifiable(
-      selectedSuggestions.map((legacyText) {
-        final key =
-            RecommendationCatalogService.selectionKeyForLegacyText(legacyText);
-        if (key == null) return fallback;
-        return RecommendationCatalogService.tryJoinedTextForSelectionKey(
-              selectionKey: key,
+            selectedSuggestions[index],
+          );
+          if (legacyKey != null) {
+            final resolvedLegacyText =
+                RecommendationCatalogService.tryJoinedTextForSelectionKey(
+              selectionKey: legacyKey,
               language: language,
-            ) ??
-            fallback;
+            );
+            if (resolvedLegacyText != null) return resolvedLegacyText;
+          }
+        }
+        return fallback;
       }),
     );
   }

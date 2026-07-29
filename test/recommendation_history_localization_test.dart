@@ -60,6 +60,92 @@ void main() {
     );
   });
 
+  test('keys shorter than legacy text preserve trailing recommendations', () {
+    final record = EvaluationHistoryRecord.fromJson(<String, Object?>{
+      ..._recordJson(),
+      'selectedSuggestionKeys': <String>['act_fert_split_load'],
+      'selectedSuggestions': <String>[
+        'Split fertilizer into smaller loads per round',
+        'Reduce prolonged arm raising',
+      ],
+    });
+
+    expect(
+      record.localizedSelectedSuggestions(RecommendationLanguage.en),
+      [
+        'Split fertilizer into smaller loads per round.',
+        'Reduce prolonged arm raising.',
+      ],
+    );
+  });
+
+  test('keys longer than legacy text preserve every keyed recommendation', () {
+    final record = EvaluationHistoryRecord.fromJson(<String, Object?>{
+      ..._recordJson(),
+      'selectedSuggestionKeys': <String>[
+        'act_fert_split_load',
+        'act_reduce_arm_raise',
+      ],
+      'selectedSuggestions': <String>[
+        'Split fertilizer into smaller loads per round',
+      ],
+    });
+
+    expect(
+      record.localizedSelectedSuggestions(RecommendationLanguage.en),
+      [
+        'Split fertilizer into smaller loads per round.',
+        'Reduce prolonged arm raising.',
+      ],
+    );
+  });
+
+  test('duplicate saved positions preserve order and multiplicity', () {
+    final record = EvaluationHistoryRecord.fromJson(<String, Object?>{
+      ..._recordJson(),
+      'selectedSuggestionKeys': <String>[
+        'act_fert_split_load',
+        'act_fert_split_load',
+      ],
+      'selectedSuggestions': <String>[
+        'Split fertilizer into smaller loads per round',
+      ],
+    });
+
+    expect(
+      record.localizedSelectedSuggestions(RecommendationLanguage.en),
+      [
+        'Split fertilizer into smaller loads per round.',
+        'Split fertilizer into smaller loads per round.',
+      ],
+    );
+  });
+
+  test('mixed unknown and retired keys resolve each saved position in order',
+      () {
+    final record = EvaluationHistoryRecord.fromJson(<String, Object?>{
+      ..._recordJson(),
+      'selectedSuggestionKeys': <String>[
+        'retired_selection_key',
+        'unknown_selection_key',
+      ],
+      'selectedSuggestions': <String>[
+        'Reduce prolonged arm raising',
+        'คำแนะนำเก่าที่ไม่รู้จัก',
+        'Split fertilizer into smaller loads per round',
+      ],
+    });
+
+    expect(
+      record.localizedSelectedSuggestions(RecommendationLanguage.en),
+      [
+        'Reduce prolonged arm raising.',
+        'A saved recommendation could not be matched to the current approved catalog.',
+        'Split fertilizer into smaller loads per round.',
+      ],
+    );
+  });
+
   test('old Thai and English aliases resolve in either language', () {
     final thaiAliasRecord = EvaluationHistoryRecord.fromJson(
       <String, Object?>{
@@ -134,6 +220,27 @@ void main() {
           .selectedSuggestions,
       ['แบ่งปุ๋ยเป็นน้ำหนักน้อยลงในแต่ละรอบ'],
     );
+  });
+
+  test('malformed selectedSuggestionKeys defaults to an empty list', () {
+    for (final malformedValue in <Object?>[
+      'act_fert_split_load',
+      <String, String>{'key': 'act_fert_split_load'},
+    ]) {
+      final record = EvaluationHistoryRecord.fromJson(<String, Object?>{
+        ..._recordJson(),
+        'selectedSuggestionKeys': malformedValue,
+        'selectedSuggestions': <String>[
+          'Split fertilizer into smaller loads per round',
+        ],
+      });
+
+      expect(record.selectedSuggestionKeys, isEmpty);
+      expect(
+        record.localizedSelectedSuggestions(RecommendationLanguage.en),
+        ['Split fertilizer into smaller loads per round.'],
+      );
+    }
   });
 }
 
