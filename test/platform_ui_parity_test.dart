@@ -8,9 +8,9 @@ import 'package:fsookta/app/app_state.dart';
 import 'package:fsookta/app/sookta_app.dart';
 import 'package:fsookta/core/models/assessment_session.dart';
 import 'package:fsookta/core/models/evaluation_models.dart';
+import 'package:fsookta/core/recommendations/generated_recommendation_catalog.dart';
 import 'package:fsookta/core/recommendations/recommendation_catalog_models.dart';
 import 'package:fsookta/core/services/recommendation_catalog_service.dart';
-import 'package:fsookta/core/services/risk_recommendation_service.dart';
 import 'package:fsookta/screens/main/evaluation_form_screen.dart';
 import 'package:fsookta/screens/main/evaluation_menu_screen.dart';
 import 'package:fsookta/screens/main/final_result_screen.dart';
@@ -71,7 +71,13 @@ void main() {
               final capture = await _captureEntireScreen(
                 tester,
                 requiredKeys: screen.requiredKeys,
-                recommendation: screen.recommendation,
+                recommendationContext: screen.recommendation == null
+                    ? null
+                    : _RecommendationCaptureContext(
+                        language: language == AppLanguage.th
+                            ? RecommendationLanguage.th
+                            : RecommendationLanguage.en,
+                      ),
               );
               for (final expected in screen.requiredText) {
                 expect(
@@ -87,56 +93,23 @@ void main() {
               );
               final expectedRecommendation = screen.recommendation;
               if (expectedRecommendation != null) {
-                final resolved = _resolvedRecommendationContract(language);
-                expect(
-                  resolved.selectionKeys,
-                  expectedRecommendation.selectionKeys,
-                  reason:
-                      '${screen.name}/${language.name}/${viewport.name}/selection keys',
-                );
-                expect(
-                  resolved.displayItemIds,
-                  expectedRecommendation.displayItemIds,
-                  reason:
-                      '${screen.name}/${language.name}/${viewport.name}/display-item IDs',
-                );
-                expect(
-                  resolved.categoryOrder,
-                  expectedRecommendation.categoryOrder,
-                  reason:
-                      '${screen.name}/${language.name}/${viewport.name}/resolved category order',
-                );
-                if (screen.selectionKeysVisible) {
-                  expect(
-                    capture.selectionKeys,
-                    expectedRecommendation.selectionKeys,
-                    reason:
-                        '${screen.name}/${language.name}/${viewport.name}/visible selection keys',
-                  );
-                }
                 expect(
                   capture.categoryOrder,
                   expectedRecommendation.categoryOrder,
                   reason:
-                      '${screen.name}/${language.name}/${viewport.name}/visible category order',
+                      '${screen.name}/${language.name}/${viewport.name}/ordered categories',
                 );
                 expect(
-                  capture.displayTexts,
-                  expectedRecommendation.displayTexts,
+                  capture.recommendationItems,
+                  expectedRecommendation.items,
                   reason:
-                      '${screen.name}/${language.name}/${viewport.name}/display text',
+                      '${screen.name}/${language.name}/${viewport.name}/ordered recommendation items',
                 );
                 expect(
-                  capture.ttsInputs,
-                  expectedRecommendation.ttsInputs,
+                  capture.scoreFields,
+                  expectedRecommendation.scoreFields,
                   reason:
-                      '${screen.name}/${language.name}/${viewport.name}/TTS input',
-                );
-                expect(
-                  capture.scores,
-                  expectedRecommendation.scores,
-                  reason:
-                      '${screen.name}/${language.name}/${viewport.name}/numeric scores',
+                      '${screen.name}/${language.name}/${viewport.name}/score fields',
                 );
               }
               expect(tester.takeException(), isNull);
@@ -153,29 +126,106 @@ void main() {
           expect(captures['android']?.texts, equals(captures['ios']?.texts));
           expect(captures['android']?.keys, equals(captures['ios']?.keys));
           expect(
-            captures['android']?.selectionKeys,
-            equals(captures['ios']?.selectionKeys),
-          );
-          expect(
             captures['android']?.categoryOrder,
             equals(captures['ios']?.categoryOrder),
           );
           expect(
-            captures['android']?.displayTexts,
-            equals(captures['ios']?.displayTexts),
+            captures['android']?.recommendationItems,
+            equals(captures['ios']?.recommendationItems),
           );
           expect(
-            captures['android']?.ttsInputs,
-            equals(captures['ios']?.ttsInputs),
-          );
-          expect(
-            captures['android']?.scores,
-            equals(captures['ios']?.scores),
+            captures['android']?.scoreFields,
+            equals(captures['ios']?.scoreFields),
           );
         },
       );
     }
   }
+
+  testWidgets(
+    'capture includes every structurally scoped recommendation output',
+    (tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: Scaffold(
+            body: Column(
+              children: [
+                Column(
+                  key: ValueKey<String>('risk-action-groups'),
+                  children: [
+                    Card(
+                      key: ValueKey<String>('risk-action-group-posture'),
+                      child: Column(
+                        children: [
+                          CheckboxListTile(
+                            key: ValueKey<String>(
+                              'risk-action-act_use_legs',
+                            ),
+                            value: false,
+                            onChanged: null,
+                            title: Text('Approved recommendation'),
+                            secondary: SooktaTtsButton(
+                              text: 'Approved recommendation',
+                              thai: false,
+                            ),
+                          ),
+                          CheckboxListTile(
+                            key: ValueKey<String>(
+                              'risk-action-act_forbidden_extra',
+                            ),
+                            value: false,
+                            onChanged: null,
+                            title: Text('FORBIDDEN extra recommendation'),
+                            secondary: SooktaTtsButton(
+                              text: 'FORBIDDEN extra recommendation',
+                              thai: false,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                Text('8'),
+              ],
+            ),
+          ),
+        ),
+      );
+
+      final capture = await _captureEntireScreen(
+        tester,
+        requiredKeys: const <String>[],
+        recommendationContext: const _RecommendationCaptureContext(
+          language: RecommendationLanguage.en,
+        ),
+      );
+
+      expect(
+        capture.recommendationItems,
+        const <_RecommendationItemContract>[
+          _RecommendationItemContract(
+            categoryPosition: 0,
+            category: 'posture',
+            itemPosition: 0,
+            selectionKey: 'act_use_legs',
+            displayItemIds: <String>['act_use_legs.01'],
+            displayTexts: <String>['Approved recommendation'],
+            ttsInputs: <String>['Approved recommendation'],
+          ),
+          _RecommendationItemContract(
+            categoryPosition: 0,
+            category: 'posture',
+            itemPosition: 1,
+            selectionKey: 'act_forbidden_extra',
+            displayItemIds: <String>[],
+            displayTexts: <String>['FORBIDDEN extra recommendation'],
+            ttsInputs: <String>['FORBIDDEN extra recommendation'],
+          ),
+        ],
+      );
+    },
+  );
 }
 
 class _Viewport {
@@ -190,38 +240,41 @@ class _CapturedContract {
   const _CapturedContract({
     required this.texts,
     required this.keys,
-    required this.selectionKeys,
     required this.categoryOrder,
-    required this.displayTexts,
-    required this.ttsInputs,
-    required this.scores,
+    required this.recommendationItems,
+    required this.scoreFields,
   });
 
   final Set<String> texts;
   final Set<String> keys;
-  final List<String> selectionKeys;
   final List<String> categoryOrder;
-  final List<String> displayTexts;
-  final List<String> ttsInputs;
-  final List<int> scores;
+  final List<_RecommendationItemContract> recommendationItems;
+  final List<_ScoreFieldContract> scoreFields;
+}
+
+class _RecommendationCaptureContext {
+  const _RecommendationCaptureContext({
+    required this.language,
+  })  : activity = 'fertilizing',
+        bodyPart = 'trunk',
+        riskLevel = 'high';
+
+  final RecommendationLanguage language;
+  final String activity;
+  final String bodyPart;
+  final String riskLevel;
 }
 
 Future<_CapturedContract> _captureEntireScreen(
   WidgetTester tester, {
   required List<String> requiredKeys,
-  required _ExpectedRecommendationContract? recommendation,
+  required _RecommendationCaptureContext? recommendationContext,
 }) async {
   final texts = <String>{};
   final keys = <String>{};
-  final selectionKeys = <String>[];
   final categoryOrder = <String>[];
-  final displayTexts = <String>[];
-  final ttsInputs = <String>[];
-  final scores = <int>[];
-
-  void addOnce<T>(List<T> values, T value) {
-    if (!values.contains(value)) values.add(value);
-  }
+  final recommendationItems = <String, _RecommendationItemContract>{};
+  final scoreFields = <String, _ScoreFieldContract>{};
 
   void captureBuiltWidgets() {
     final visibleTexts = tester
@@ -236,75 +289,90 @@ Future<_CapturedContract> _captureEntireScreen(
         keys.add(key);
       }
     }
-    if (recommendation == null) return;
+    if (recommendationContext == null) return;
 
-    for (final widget in tester.allWidgets) {
-      final key = widget.key;
-      if (key is! ValueKey<String>) continue;
-      final value = key.value;
-      if (value.startsWith('risk-action-act_')) {
-        addOnce(
-          selectionKeys,
-          value.substring('risk-action-'.length),
+    final groupWidgets = tester.allWidgets.where((widget) {
+      final value = _stringKey(widget);
+      return value?.startsWith('risk-action-group-') == true ||
+          value?.startsWith('recommendation-group-') == true;
+    });
+    for (final groupWidget in groupWidgets) {
+      final groupKey = _stringKey(groupWidget)!;
+      final isSelectionGroup = groupKey.startsWith('risk-action-group-');
+      final groupPrefix =
+          isSelectionGroup ? 'risk-action-group-' : 'recommendation-group-';
+      final category = groupKey.substring(groupPrefix.length);
+      if (!categoryOrder.contains(category)) categoryOrder.add(category);
+      final categoryPosition = categoryOrder.indexOf(category);
+      final itemWidgets = tester.widgetList<Widget>(
+        find.descendant(
+          of: find.byWidget(groupWidget),
+          matching: find.byWidgetPredicate((widget) {
+            final value = _stringKey(widget);
+            if (value == null) return false;
+            return isSelectionGroup
+                ? value.startsWith('risk-action-act_')
+                : value.startsWith('recommendation-action-$category-');
+          }),
+        ),
+      );
+
+      for (final (encounteredPosition, itemWidget) in itemWidgets.indexed) {
+        final itemKey = _stringKey(itemWidget)!;
+        final itemPosition = isSelectionGroup
+            ? encounteredPosition
+            : int.parse(itemKey.split('-').last);
+        final displayTexts = isSelectionGroup
+            ? _checkboxTitleTexts(tester, itemWidget as CheckboxListTile)
+            : _descendantTexts(tester, itemWidget);
+        final ttsInputs = isSelectionGroup
+            ? _checkboxTtsInputs(tester, itemWidget as CheckboxListTile)
+            : _descendantTtsInputs(tester, itemWidget);
+        final catalogIdentity = isSelectionGroup
+            ? _resolveSelectionKey(
+                itemKey.substring('risk-action-'.length),
+                recommendationContext,
+              )
+            : _resolveRenderedTexts(displayTexts, recommendationContext);
+        recommendationItems['$categoryPosition:$itemPosition:$itemKey'] =
+            _RecommendationItemContract(
+          categoryPosition: categoryPosition,
+          category: category,
+          itemPosition: itemPosition,
+          selectionKey: catalogIdentity.selectionKey,
+          displayItemIds: catalogIdentity.displayItemIds,
+          displayTexts: displayTexts,
+          ttsInputs: ttsInputs,
         );
       }
-      for (final prefix in const <String>[
-        'risk-action-group-',
-        'recommendation-group-',
-      ]) {
-        if (value.startsWith(prefix)) {
-          addOnce(categoryOrder, value.substring(prefix.length));
-        }
-      }
-      if (value.startsWith('recommendation-action-')) {
-        final itemTexts = tester
-            .widgetList<Text>(
-              find.descendant(
-                of: find.byKey(key),
-                matching: find.byType(Text),
-              ),
-            )
-            .map((text) => text.data)
-            .whereType<String>();
-        for (final text in itemTexts) {
-          if (recommendation.displayTexts.contains(text)) {
-            addOnce(displayTexts, text);
-          }
-        }
-      }
     }
 
-    for (final tile in tester.widgetList<CheckboxListTile>(
-      find.byType(CheckboxListTile),
-    )) {
-      final title = tile.title;
-      if (title is Text && title.data != null) {
-        final text = title.data!;
-        if (recommendation.displayTexts.contains(text)) {
-          addOnce(displayTexts, text);
-        }
-      }
-    }
-
-    for (final rootKey in const <String>[
-      'risk-action-groups',
-      'farmer-guidance-card',
-    ]) {
-      final root = find.byKey(ValueKey<String>(rootKey));
-      if (root.evaluate().isEmpty) continue;
-      for (final button in tester.widgetList<SooktaTtsButton>(
-        find.descendant(of: root, matching: find.byType(SooktaTtsButton)),
-      )) {
-        if (recommendation.ttsInputs.contains(button.text)) {
-          addOnce(ttsInputs, button.text);
-        }
-      }
-    }
-
-    for (final text in visibleTexts) {
-      final score = int.tryParse(text);
-      if (score != null && recommendation.scores.contains(score)) {
-        addOnce(scores, score);
+    for (final widget in tester.allWidgets) {
+      final type = widget.runtimeType.toString();
+      if (type == '_RiskSummaryCard') {
+        final dynamic scoreWidget = widget;
+        final String label = scoreWidget.title as String;
+        final ErgoResult result = scoreWidget.result as ErgoResult;
+        scoreFields.putIfAbsent(
+          'risk-summary:$label',
+          () => _ScoreFieldContract(
+            position: scoreFields.length,
+            label: label,
+            value: result.userScore,
+          ),
+        );
+      } else if (type == '_ScoreBlock') {
+        final dynamic scoreWidget = widget;
+        final String label = scoreWidget.label as String;
+        final int score = scoreWidget.score as int;
+        scoreFields.putIfAbsent(
+          'score-block:$label',
+          () => _ScoreFieldContract(
+            position: scoreFields.length,
+            label: label,
+            value: score,
+          ),
+        );
       }
     }
   }
@@ -315,11 +383,9 @@ Future<_CapturedContract> _captureEntireScreen(
     return _CapturedContract(
       texts: texts,
       keys: keys,
-      selectionKeys: selectionKeys,
       categoryOrder: categoryOrder,
-      displayTexts: displayTexts,
-      ttsInputs: ttsInputs,
-      scores: scores,
+      recommendationItems: _orderedRecommendationItems(recommendationItems),
+      scoreFields: scoreFields.values.toList(growable: false),
     );
   }
 
@@ -340,11 +406,145 @@ Future<_CapturedContract> _captureEntireScreen(
   return _CapturedContract(
     texts: texts,
     keys: keys,
-    selectionKeys: selectionKeys,
     categoryOrder: categoryOrder,
-    displayTexts: displayTexts,
-    ttsInputs: ttsInputs,
-    scores: scores,
+    recommendationItems: _orderedRecommendationItems(recommendationItems),
+    scoreFields: scoreFields.values.toList(growable: false),
+  );
+}
+
+String? _stringKey(Widget widget) {
+  final key = widget.key;
+  return key is ValueKey<String> ? key.value : null;
+}
+
+List<String> _checkboxTitleTexts(
+  WidgetTester tester,
+  CheckboxListTile tile,
+) {
+  final title = tile.title;
+  if (title == null) return const <String>[];
+  if (title is Text) {
+    final text = _textValue(title);
+    return text == null ? const <String>[] : <String>[text];
+  }
+  return _descendantTexts(tester, title);
+}
+
+List<String> _checkboxTtsInputs(
+  WidgetTester tester,
+  CheckboxListTile tile,
+) {
+  final secondary = tile.secondary;
+  if (secondary == null) return const <String>[];
+  if (secondary is SooktaTtsButton) return <String>[secondary.text];
+  return _descendantTtsInputs(tester, secondary);
+}
+
+List<String> _descendantTexts(WidgetTester tester, Widget root) {
+  return tester
+      .widgetList<Text>(
+        find.descendant(
+          of: find.byWidget(root),
+          matching: find.byType(Text),
+        ),
+      )
+      .map(_textValue)
+      .whereType<String>()
+      .toList(growable: false);
+}
+
+String? _textValue(Text text) {
+  final value = text.data ?? text.textSpan?.toPlainText();
+  if (value == null || value.trim().isEmpty) return null;
+  return value;
+}
+
+List<String> _descendantTtsInputs(WidgetTester tester, Widget root) {
+  return tester
+      .widgetList<SooktaTtsButton>(
+        find.descendant(
+          of: find.byWidget(root),
+          matching: find.byType(SooktaTtsButton),
+        ),
+      )
+      .map((button) => button.text)
+      .toList(growable: false);
+}
+
+List<_RecommendationItemContract> _orderedRecommendationItems(
+  Map<String, _RecommendationItemContract> items,
+) {
+  final ordered = items.values.toList(growable: false)
+    ..sort((left, right) {
+      final categoryComparison =
+          left.categoryPosition.compareTo(right.categoryPosition);
+      return categoryComparison != 0
+          ? categoryComparison
+          : left.itemPosition.compareTo(right.itemPosition);
+    });
+  return ordered;
+}
+
+class _ResolvedCatalogIdentity {
+  const _ResolvedCatalogIdentity({
+    required this.selectionKey,
+    required this.displayItemIds,
+  });
+
+  final String selectionKey;
+  final List<String> displayItemIds;
+}
+
+_ResolvedCatalogIdentity _resolveSelectionKey(
+  String selectionKey,
+  _RecommendationCaptureContext context,
+) {
+  final items = RecommendationCatalogService.resolve(
+    selectionKey: selectionKey,
+    language: context.language,
+    activity: context.activity,
+    bodyPart: context.bodyPart,
+    riskLevel: context.riskLevel,
+  );
+  return _ResolvedCatalogIdentity(
+    selectionKey: selectionKey,
+    displayItemIds: items.map((item) => item.id).toList(growable: false),
+  );
+}
+
+_ResolvedCatalogIdentity _resolveRenderedTexts(
+  List<String> renderedTexts,
+  _RecommendationCaptureContext context,
+) {
+  final matches = <_ResolvedCatalogIdentity>[];
+  final selectionKeys =
+      generatedRecommendationCatalog.map((item) => item.selectionKey).toSet();
+  for (final selectionKey in selectionKeys) {
+    final items = RecommendationCatalogService.resolve(
+      selectionKey: selectionKey,
+      language: context.language,
+      activity: context.activity,
+      bodyPart: context.bodyPart,
+      riskLevel: context.riskLevel,
+    );
+    if (items.isEmpty) continue;
+    final joinedText =
+        items.map((item) => item.text(context.language)).join('\n');
+    if (!listEquals(renderedTexts, <String>[joinedText])) continue;
+    matches.add(
+      _ResolvedCatalogIdentity(
+        selectionKey: selectionKey,
+        displayItemIds: items.map((item) => item.id).toList(growable: false),
+      ),
+    );
+  }
+  if (matches.length == 1) return matches.single;
+  final marker = matches.isEmpty
+      ? '<unresolved-rendered-recommendation>'
+      : '<ambiguous-rendered-recommendation>';
+  return _ResolvedCatalogIdentity(
+    selectionKey: marker,
+    displayItemIds: const <String>[],
   );
 }
 
@@ -355,7 +555,6 @@ class _ScreenContract {
     required this.requiredText,
     this.requiredKeys = const <String>[],
     this.recommendation,
-    this.selectionKeysVisible = false,
   });
 
   final String name;
@@ -363,7 +562,6 @@ class _ScreenContract {
   final List<String> requiredText;
   final List<String> requiredKeys;
   final _ExpectedRecommendationContract? recommendation;
-  final bool selectionKeysVisible;
 }
 
 List<_ScreenContract> _screens({required bool thai}) {
@@ -426,7 +624,6 @@ List<_ScreenContract> _screens({required bool thai}) {
         thai: thai,
         scores: const <int>[8],
       ),
-      selectionKeysVisible: true,
     ),
     _ScreenContract(
       name: 'final farmer result',
@@ -456,32 +653,93 @@ List<_ScreenContract> _screens({required bool thai}) {
 
 class _ExpectedRecommendationContract {
   const _ExpectedRecommendationContract({
-    required this.selectionKeys,
-    required this.displayItemIds,
     required this.categoryOrder,
-    required this.displayTexts,
-    required this.ttsInputs,
-    required this.scores,
+    required this.items,
+    required this.scoreFields,
   });
 
-  final List<String> selectionKeys;
-  final List<String> displayItemIds;
   final List<String> categoryOrder;
-  final List<String> displayTexts;
-  final List<String> ttsInputs;
-  final List<int> scores;
+  final List<_RecommendationItemContract> items;
+  final List<_ScoreFieldContract> scoreFields;
 }
 
-class _ResolvedRecommendationContract {
-  const _ResolvedRecommendationContract({
-    required this.selectionKeys,
+class _RecommendationItemContract {
+  const _RecommendationItemContract({
+    required this.categoryPosition,
+    required this.category,
+    required this.itemPosition,
+    required this.selectionKey,
     required this.displayItemIds,
-    required this.categoryOrder,
+    required this.displayTexts,
+    required this.ttsInputs,
   });
 
-  final List<String> selectionKeys;
+  final int categoryPosition;
+  final String category;
+  final int itemPosition;
+  final String selectionKey;
   final List<String> displayItemIds;
-  final List<String> categoryOrder;
+  final List<String> displayTexts;
+  final List<String> ttsInputs;
+
+  @override
+  bool operator ==(Object other) {
+    return other is _RecommendationItemContract &&
+        categoryPosition == other.categoryPosition &&
+        category == other.category &&
+        itemPosition == other.itemPosition &&
+        selectionKey == other.selectionKey &&
+        listEquals(displayItemIds, other.displayItemIds) &&
+        listEquals(displayTexts, other.displayTexts) &&
+        listEquals(ttsInputs, other.ttsInputs);
+  }
+
+  @override
+  int get hashCode => Object.hash(
+        categoryPosition,
+        category,
+        itemPosition,
+        selectionKey,
+        Object.hashAll(displayItemIds),
+        Object.hashAll(displayTexts),
+        Object.hashAll(ttsInputs),
+      );
+
+  @override
+  String toString() {
+    return 'RecommendationItem(categoryPosition: $categoryPosition, '
+        'category: $category, itemPosition: $itemPosition, '
+        'selectionKey: $selectionKey, displayItemIds: $displayItemIds, '
+        'displayTexts: $displayTexts, ttsInputs: $ttsInputs)';
+  }
+}
+
+class _ScoreFieldContract {
+  const _ScoreFieldContract({
+    required this.position,
+    required this.label,
+    required this.value,
+  });
+
+  final int position;
+  final String label;
+  final int value;
+
+  @override
+  bool operator ==(Object other) {
+    return other is _ScoreFieldContract &&
+        position == other.position &&
+        label == other.label &&
+        value == other.value;
+  }
+
+  @override
+  int get hashCode => Object.hash(position, label, value);
+
+  @override
+  String toString() {
+    return 'ScoreField(position: $position, label: $label, value: $value)';
+  }
 }
 
 _ExpectedRecommendationContract _approvedRecommendationContract({
@@ -506,71 +764,86 @@ _ExpectedRecommendationContract _approvedRecommendationContract({
           'Use a cart to carry fertilizer sacks instead of carrying them on the body.',
         ];
   return _ExpectedRecommendationContract(
-    selectionKeys: const <String>[
-      'act_use_legs',
-      'act_avoid_twist',
-      'act_fert_split_load',
-      'act_rest_stretch',
-      'act_extra_fert_cart',
-    ],
-    displayItemIds: const <String>[
-      'act_use_legs.01',
-      'act_avoid_twist.01',
-      'act_fert_split_load.01',
-      'act_rest_stretch.01',
-      'act_extra_fert_cart.01',
-    ],
     categoryOrder: const <String>[
       'posture',
       'riskReduction',
       'restRotation',
       'workloadSupport',
     ],
-    displayTexts: displayTexts,
-    ttsInputs: displayTexts,
-    scores: scores,
-  );
-}
-
-_ResolvedRecommendationContract _resolvedRecommendationContract(
-  AppLanguage language,
-) {
-  final recommendations = RiskRecommendationService.farmerRecommendations(
-    activity: SooktaActivity.fertilizing,
-    riskLevel: RiskLevel.high,
-    bodyPartRisks: const <BodyPart, RiskLevel>{
-      BodyPart.trunk: RiskLevel.high,
-    },
-    thai: language == AppLanguage.th,
-  );
-  final grouped = <FarmerRecommendation>[
-    for (final category in FarmerRecommendationCategory.values)
-      ...recommendations.where((item) => item.category == category),
-  ];
-  final catalogLanguage = language == AppLanguage.th
-      ? RecommendationLanguage.th
-      : RecommendationLanguage.en;
-  final displayItemIds = <String>[
-    for (final recommendation in grouped)
-      ...RecommendationCatalogService.resolve(
-        selectionKey: recommendation.sourceKey,
-        language: catalogLanguage,
-        activity: SooktaActivity.fertilizing.name,
-        bodyPart: BodyPart.trunk.name,
-        riskLevel: RiskLevel.high.name,
-      ).map((item) => item.id),
-  ];
-  return _ResolvedRecommendationContract(
-    selectionKeys:
-        grouped.map((recommendation) => recommendation.sourceKey).toList(),
-    displayItemIds: displayItemIds,
-    categoryOrder: FarmerRecommendationCategory.values
-        .where(
-          (category) => grouped
-              .any((recommendation) => recommendation.category == category),
-        )
-        .map((category) => category.name)
-        .toList(),
+    items: <_RecommendationItemContract>[
+      _RecommendationItemContract(
+        categoryPosition: 0,
+        category: 'posture',
+        itemPosition: 0,
+        selectionKey: 'act_use_legs',
+        displayItemIds: const <String>['act_use_legs.01'],
+        displayTexts: <String>[displayTexts[0]],
+        ttsInputs: <String>[displayTexts[0]],
+      ),
+      _RecommendationItemContract(
+        categoryPosition: 0,
+        category: 'posture',
+        itemPosition: 1,
+        selectionKey: 'act_avoid_twist',
+        displayItemIds: const <String>['act_avoid_twist.01'],
+        displayTexts: <String>[displayTexts[1]],
+        ttsInputs: <String>[displayTexts[1]],
+      ),
+      _RecommendationItemContract(
+        categoryPosition: 1,
+        category: 'riskReduction',
+        itemPosition: 0,
+        selectionKey: 'act_fert_split_load',
+        displayItemIds: const <String>['act_fert_split_load.01'],
+        displayTexts: <String>[displayTexts[2]],
+        ttsInputs: <String>[displayTexts[2]],
+      ),
+      _RecommendationItemContract(
+        categoryPosition: 2,
+        category: 'restRotation',
+        itemPosition: 0,
+        selectionKey: 'act_rest_stretch',
+        displayItemIds: const <String>['act_rest_stretch.01'],
+        displayTexts: <String>[displayTexts[3]],
+        ttsInputs: <String>[displayTexts[3]],
+      ),
+      _RecommendationItemContract(
+        categoryPosition: 3,
+        category: 'workloadSupport',
+        itemPosition: 0,
+        selectionKey: 'act_extra_fert_cart',
+        displayItemIds: const <String>['act_extra_fert_cart.01'],
+        displayTexts: <String>[displayTexts[4]],
+        ttsInputs: <String>[displayTexts[4]],
+      ),
+    ],
+    scoreFields: scores.length == 1
+        ? <_ScoreFieldContract>[
+            _ScoreFieldContract(
+              position: 0,
+              label: thai ? 'คะแนนก่อนปรับปรุง' : 'Before Improvement',
+              value: scores[0],
+            ),
+            _ScoreFieldContract(
+              position: 1,
+              label: thai
+                  ? 'ถ้าทำตามที่เลือก คะแนนจะเป็น'
+                  : 'If selected actions are done',
+              value: scores[0],
+            ),
+          ]
+        : <_ScoreFieldContract>[
+            _ScoreFieldContract(
+              position: 0,
+              label: thai ? 'ก่อนปรับ' : 'Before',
+              value: scores[0],
+            ),
+            _ScoreFieldContract(
+              position: 1,
+              label: thai ? 'หลังปรับ' : 'After',
+              value: scores[1],
+            ),
+          ],
   );
 }
 

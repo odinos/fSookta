@@ -11,7 +11,7 @@
 ## สรุปผล
 
 - Flutter source analysis ผ่านโดยไม่มี issue
-- Flutter test ทั้งหมดผ่าน 161 รายการ
+- Flutter test ทั้งหมดผ่าน 162 รายการ
 - Android release App Bundle build ผ่านหลังเหลือ Gradle configuration ชุดเดียว
 - iOS release แบบ `--no-codesign` build ผ่านจากสำเนาใน `/private/tmp`
 - MoveNet TFLite โหลดและ infer ได้ทั้ง Android Emulator และ iOS Simulator
@@ -165,15 +165,21 @@
   โดยทุกแถวเป็น atomic display item คู่ภาษาเดียวกัน
 - Catalog version คือ `2026-07-29.1` และ checksum คือ
   `b77cf75ade1db152dfdebb82268ad1295d2409f6a2d96ba712b2433ed754abb0`
-- focused recommendation/calculation/ML suite ผ่าน 84 tests
-  และ full Flutter suite ผ่าน 161 tests
+- focused recommendation/calculation/ML suite ผ่าน 85 tests
+  และ full Flutter suite ผ่าน 162 tests
 - numeric regression ใช้ fixture REBA heavy-twist และ ISO long-distance
   ก่อนและหลังอ่าน Catalog ได้ผลเท่ากัน:
   REBA user score `9`, risk `veryHigh`, economic loss `32,244` บาท;
   ISO user score `6`, risk `medium`
-- parity fixture ไทยและอังกฤษตรวจ iOS/Android viewport ครบ
-  selection keys, display-item IDs, category order, display text,
-  TTS input และคะแนน `8 → 4` โดยให้ผลเหมือนกัน
+- parity fixture ไทยและอังกฤษตรวจ iOS/Android viewport แบบ ordered
+  structural contract ครบทั้งตำแหน่ง category/item, selection key,
+  display-item IDs ที่ผูกกลับจาก item ที่ render จริง, ข้อความคำแนะนำ
+  ทุกข้อความ, TTS input ของแต่ละ item และ score field พร้อม label/position
+  โดยหน้าคัดเลือกมี score `8` สอง field และหน้าสรุปมี `8 → 4`
+  เหมือนกันทั้งสอง platform
+- controlled extra-output fixture ยืนยันว่าข้อความ/TTS เพิ่มเติมในโครงสร้าง
+  recommendation ถูกเก็บเข้าผลทดสอบและทำให้ exact contract ต่าง
+  ไม่ถูกกรองทิ้งด้วย expected-value whitelist
 - Android debug build ผ่านที่
   `build/app/outputs/flutter-apk/app-debug.apk`
 - iOS simulator debug build จาก worktree ใน `Documents` compile จบ
@@ -196,8 +202,11 @@ Source/model integrity gate ยังคงตรวจ hash แบบ strict �
   `d3c57a6bc57698dada8a5782ea2c2a5c7ba6cc2e26014e82f06793749f4862c5`
 
 validator รายงาน drift นี้เป็นข้อมูล audit แต่ไม่ทำให้ gate ล้ม
-เพราะเป็น record เดียวที่ใช้เทียบ legacy copy; test ยืนยันว่า source อื่น
-ที่ hash ไม่ตรงหรือพยายามใช้ policy นี้ยัง fail เสมอ
+เฉพาะเมื่อ `id`, `documentRole`, `hashPolicy` และ normalized repo-relative
+`localPath` ตรงกับ `lib/core/localization/sookta_strings.dart` ทุกเงื่อนไข
+test ยืนยันว่า arbitrary path, authoritative recommendation path,
+absolute path, source อื่นที่ hash ไม่ตรง หรือ source อื่นที่พยายามใช้
+policy นี้ยัง fail เสมอ
 ผล `source_registry=PASS` และ `model_baseline=PASS`
 โดย model hashes ทั้งห้าตรง baseline:
 
@@ -216,8 +225,8 @@ research export schema หรือ native iOS/Android source
 ## หลักฐานการตรวจรอบสุดท้าย
 
 - `flutter analyze --no-pub`: ผ่าน, no issues
-- `flutter test --no-pub`: ผ่าน 161 tests
-- focused Task 8 Flutter suite: ผ่าน 84 tests
+- `flutter test --no-pub`: ผ่าน 162 tests
+- focused Task 8 Flutter suite: ผ่าน 85 tests
 - recommendation approval gate: ผ่าน 175/175 (100%)
 - source registry และ model baseline: ผ่าน พร้อม informational legacy drift
 - Android `flutter build apk --debug --no-pub`: ผ่าน

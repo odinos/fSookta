@@ -23,6 +23,7 @@ REQUIRED_SOURCE_FIELDS = {
 LEGACY_BASELINE_POLICY = "legacy_baseline_snapshot"
 LEGACY_BASELINE_SOURCE_ID = "current_app_recommendation_copy"
 LEGACY_BASELINE_DOCUMENT_ROLE = "legacy_copy_and_ui_migration_audit"
+LEGACY_BASELINE_LOCAL_PATH = "lib/core/localization/sookta_strings.dart"
 
 
 def _load_json(path: Path) -> dict[str, Any]:
@@ -38,10 +39,13 @@ def _sha256(path: Path) -> str:
 
 
 def _allows_legacy_baseline_drift(source: dict[str, Any]) -> bool:
+    local_path = Path(str(source.get("localPath", "")))
     return (
         source.get("hashPolicy") == LEGACY_BASELINE_POLICY
         and source.get("id") == LEGACY_BASELINE_SOURCE_ID
         and source.get("documentRole") == LEGACY_BASELINE_DOCUMENT_ROLE
+        and not local_path.is_absolute()
+        and local_path.as_posix() == LEGACY_BASELINE_LOCAL_PATH
     )
 
 

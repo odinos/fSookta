@@ -4,6 +4,7 @@ from contextlib import redirect_stdout
 import hashlib
 import io
 import json
+import os
 from pathlib import Path
 import sys
 import tempfile
@@ -53,6 +54,7 @@ class SourceRegistryTest(unittest.TestCase):
             registry_path = self._write_registry(
                 root,
                 hash_policy="legacy_baseline_snapshot",
+                local_path="lib/core/localization/sookta_strings.dart",
             )
             model_path = root / "model.bin"
             model_path.write_bytes(b"model")
@@ -71,21 +73,26 @@ class SourceRegistryTest(unittest.TestCase):
                 encoding="utf-8",
             )
             output = io.StringIO()
-            with (
-                patch.object(
-                    sys,
-                    "argv",
-                    [
-                        "validate_sources.py",
-                        "--registry",
-                        str(registry_path),
-                        "--model-baseline",
-                        str(model_baseline_path),
-                    ],
-                ),
-                redirect_stdout(output),
-            ):
-                exit_code = main()
+            original_directory = Path.cwd()
+            try:
+                os.chdir(root)
+                with (
+                    patch.object(
+                        sys,
+                        "argv",
+                        [
+                            "validate_sources.py",
+                            "--registry",
+                            str(registry_path),
+                            "--model-baseline",
+                            str(model_baseline_path),
+                        ],
+                    ),
+                    redirect_stdout(output),
+                ):
+                    exit_code = main()
+            finally:
+                os.chdir(original_directory)
 
         self.assertEqual(exit_code, 0)
         self.assertIn(
@@ -114,6 +121,37 @@ class SourceRegistryTest(unittest.TestCase):
             ["hash_policy_not_allowed:body_map_recommendations"],
         )
 
+    def test_legacy_snapshot_policy_requires_the_canonical_repo_relative_path(
+        self,
+    ) -> None:
+        invalid_paths = (
+            "source.dart",
+            "data/recommendations/recommendation_master.csv",
+            None,
+        )
+        for invalid_path in invalid_paths:
+            with self.subTest(local_path=invalid_path or "<absolute canonical>"):
+                with tempfile.TemporaryDirectory() as temp_dir:
+                    root = Path(temp_dir)
+                    local_path = invalid_path or str(
+                        root / "lib/core/localization/sookta_strings.dart"
+                    )
+                    registry_path = self._write_registry(
+                        root,
+                        hash_policy="legacy_baseline_snapshot",
+                        local_path=local_path,
+                    )
+
+                    errors = self._validate_registry_from(root, registry_path)
+
+                self.assertEqual(
+                    errors,
+                    [
+                        "hash_policy_not_allowed:"
+                        "current_app_recommendation_copy"
+                    ],
+                )
+
     def _write_registry(
         self,
         root: Path,
@@ -121,14 +159,22 @@ class SourceRegistryTest(unittest.TestCase):
         hash_policy: str | None = None,
         source_id: str = "current_app_recommendation_copy",
         document_role: str = "legacy_copy_and_ui_migration_audit",
+        local_path: str | None = None,
     ) -> Path:
-        source_path = root / "source.dart"
+        registry_local_path = local_path or str(root / "source.dart")
+        candidate_path = Path(registry_local_path)
+        source_path = (
+            candidate_path
+            if candidate_path.is_absolute()
+            else root / candidate_path
+        )
+        source_path.parent.mkdir(parents=True, exist_ok=True)
         source_path.write_bytes(b"current")
         source = {
             "id": source_id,
             "title": "Legacy app recommendation copy",
             "language": "th,en",
-            "localPath": str(source_path),
+            "localPath": registry_local_path,
             "sha256": hashlib.sha256(b"original").hexdigest(),
             "priority": 90,
             "documentRole": document_role,
@@ -142,6 +188,18 @@ class SourceRegistryTest(unittest.TestCase):
             encoding="utf-8",
         )
         return registry_path
+
+    def _validate_registry_from(
+        self,
+        root: Path,
+        registry_path: Path,
+    ) -> list[str]:
+        original_directory = Path.cwd()
+        try:
+            os.chdir(root)
+            return validate_registry(registry_path)
+        finally:
+            os.chdir(original_directory)
 
 
 if __name__ == "__main__":
