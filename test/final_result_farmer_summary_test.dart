@@ -128,6 +128,15 @@ void main() {
     await tester.tap(find.text('รายละเอียดสำหรับเจ้าหน้าที่และวิชาการ'));
     await tester.pumpAndSettle();
     expect(find.textContaining('ชาย 20-45 ปี'), findsOneWidget);
+    expect(
+      find.text(
+        '• ลดน้ำหนักปุ๋ยต่อครั้ง\n'
+        'ใช้สายพานหรือรถเข็น\n'
+        'จัดพัก 10 นาทีทุกชั่วโมง\n'
+        'หลีกเลี่ยงการทำงานบนพื้นที่ลาดชันต่อเนื่อง',
+      ),
+      findsOneWidget,
+    );
     await tester.scrollUntilVisible(
       find.text('จุดเสี่ยงที่พบ'),
       400,

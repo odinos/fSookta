@@ -13,13 +13,24 @@ class SooktaStrings {
 
   String get(String key) {
     if (key.startsWith('act_')) {
+      final language = locale == SooktaLocale.th
+          ? RecommendationLanguage.th
+          : RecommendationLanguage.en;
       final catalogText = RecommendationCatalogService.tryJoinedText(
         selectionKey: key,
-        language: locale == SooktaLocale.th
-            ? RecommendationLanguage.th
-            : RecommendationLanguage.en,
+        language: language,
       );
       if (catalogText != null) return catalogText;
+      final uniqueContextText =
+          RecommendationCatalogService.tryJoinedTextForSelectionKey(
+        selectionKey: key,
+        language: language,
+      );
+      if (uniqueContextText != null) return uniqueContextText;
+
+      // Recommendation keys must never silently fall back to legacy copy when
+      // a future Catalog introduces multiple contexts for the same key.
+      return key;
     }
     final table = locale == SooktaLocale.th ? _th : _en;
     return table[key] ?? _en[key] ?? key;

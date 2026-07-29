@@ -99,6 +99,47 @@ class RecommendationCatalogService {
     return items.map((item) => item.text(language)).join('\n');
   }
 
+  static String? tryJoinedTextForSelectionKey({
+    required String selectionKey,
+    required RecommendationLanguage language,
+  }) {
+    return tryJoinedTextForSelectionKeyFromCatalog(
+      catalog: generatedRecommendationCatalog,
+      selectionKey: selectionKey,
+      language: language,
+    );
+  }
+
+  /// Resolves a key without caller context only when every matching atomic
+  /// item belongs to the same Catalog context.
+  ///
+  /// This keeps legacy key-only display boundaries deterministic without
+  /// merging recommendations from incompatible contexts.
+  static String? tryJoinedTextForSelectionKeyFromCatalog({
+    required Iterable<RecommendationCatalogItem> catalog,
+    required String selectionKey,
+    required RecommendationLanguage language,
+  }) {
+    final matches = catalog
+        .where(
+          (item) =>
+              item.selectionKey == selectionKey &&
+              item.text(language).trim().isNotEmpty,
+        )
+        .toList(growable: false);
+    if (matches.isEmpty) return null;
+
+    final contexts = matches
+        .map((item) => (item.activity, item.bodyPart, item.riskLevel))
+        .toSet();
+    if (contexts.length != 1) return null;
+
+    matches.sort(
+      (left, right) => left.displayOrder.compareTo(right.displayOrder),
+    );
+    return matches.map((item) => item.text(language)).join('\n');
+  }
+
   static String? selectionKeyForLegacyText(String text) {
     return generatedRecommendationLegacyAliases[text];
   }

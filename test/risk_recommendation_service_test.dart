@@ -146,4 +146,24 @@ void main() {
     );
     expect(en.get('app_name'), 'Sookta');
   });
+
+  test('resolves contextual recommendation strings from approved catalog', () {
+    const th = SooktaStrings(SooktaLocale.th);
+    const en = SooktaStrings(SooktaLocale.en);
+
+    expect(
+      th.get('act_fert_ref_high'),
+      'ลดน้ำหนักปุ๋ยต่อครั้ง\n'
+      'ใช้สายพานหรือรถเข็น\n'
+      'จัดพัก 10 นาทีทุกชั่วโมง\n'
+      'หลีกเลี่ยงการทำงานบนพื้นที่ลาดชันต่อเนื่อง',
+    );
+    expect(
+      en.get('act_fert_ref_high'),
+      'Reduce fertilizer weight per trip.\n'
+      'Use a conveyor or cart.\n'
+      'Rest 10 minutes every hour.\n'
+      'Avoid continuous work on slopes.',
+    );
+  });
 }

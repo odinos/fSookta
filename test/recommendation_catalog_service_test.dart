@@ -194,6 +194,50 @@ void main() {
     );
   });
 
+  test('selection-key lookup resolves one context and rejects ambiguity', () {
+    final uniqueContext = [
+      _fixtureItem(
+        'unique-second',
+        activity: 'fertilizing',
+        bodyPart: 'any',
+        riskLevel: 'high',
+        displayOrder: 2,
+      ),
+      _fixtureItem(
+        'unique-first',
+        activity: 'fertilizing',
+        bodyPart: 'any',
+        riskLevel: 'high',
+      ),
+    ];
+    final ambiguousContexts = [
+      ...uniqueContext,
+      _fixtureItem(
+        'other-context',
+        activity: 'pruning',
+        bodyPart: 'any',
+        riskLevel: 'high',
+      ),
+    ];
+
+    expect(
+      RecommendationCatalogService.tryJoinedTextForSelectionKeyFromCatalog(
+        catalog: uniqueContext,
+        selectionKey: 'act_fixture',
+        language: RecommendationLanguage.en,
+      ),
+      'Advice unique-first\nAdvice unique-second',
+    );
+    expect(
+      RecommendationCatalogService.tryJoinedTextForSelectionKeyFromCatalog(
+        catalog: ambiguousContexts,
+        selectionKey: 'act_fixture',
+        language: RecommendationLanguage.en,
+      ),
+      isNull,
+    );
+  });
+
   test('maps legacy Thai and English history text to the selection key', () {
     expect(
       RecommendationCatalogService.selectionKeyForLegacyText(
