@@ -27,7 +27,14 @@ def _specificity(row: MasterRow) -> int:
         (False, True, False): 4,
         (False, False, False): 5,
     }
-    return rank.get((exact_activity, exact_body_part, exact_risk_level), 6)
+    shape = (exact_activity, exact_body_part, exact_risk_level)
+    if shape not in rank:
+        raise ValueError(
+            "unsupported context shape: "
+            f"{row['recommendation_id']} "
+            f"({row['activity']}, {row['body_part']}, {row['risk_level']})"
+        )
+    return rank[shape]
 
 
 def _dart_string(value: str) -> str:
@@ -64,9 +71,16 @@ def _approved_translations(
 
     for master in master_rows:
         translation = translations[master["recommendation_id"]]
+        master_thai = master.get("thai_source_text", "")
+        translation_thai = translation.get("thai_source_text", "")
+        if not master_thai.strip() or not translation_thai.strip():
+            raise ValueError(
+                "Thai text must be non-empty: "
+                f"{master['recommendation_id']}"
+            )
         if (
             translation.get("selection_key") != master.get("selection_key")
-            or translation.get("thai_source_text") != master.get("thai_source_text")
+            or translation_thai != master_thai
             or not translation.get("english_draft", "").strip()
         ):
             raise ValueError("approved translation does not match master")

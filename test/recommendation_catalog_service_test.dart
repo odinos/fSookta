@@ -2,6 +2,28 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:fsookta/core/recommendations/recommendation_catalog_models.dart';
 import 'package:fsookta/core/services/recommendation_catalog_service.dart';
 
+RecommendationCatalogItem _fixtureItem(
+  String id, {
+  required String activity,
+  required String bodyPart,
+  required String riskLevel,
+  int displayOrder = 1,
+}) {
+  return RecommendationCatalogItem(
+    id: id,
+    selectionKey: 'act_fixture',
+    displayOrder: displayOrder,
+    category: 'posture',
+    activity: activity,
+    bodyPart: bodyPart,
+    riskLevel: riskLevel,
+    thaiText: 'คำแนะนำ $id',
+    englishText: 'Advice $id',
+    sourceId: 'fixture',
+    sourcePage: '1',
+  );
+}
+
 void main() {
   test('resolves exact activity and risk context in both approved languages',
       () {
@@ -43,6 +65,97 @@ void main() {
     expect(items.single.activity, 'any');
     expect(items.single.bodyPart, 'any');
     expect(items.single.riskLevel, 'any');
+  });
+
+  test('competing fixture selects only the best of all six specificity tiers',
+      () {
+    final tierGroups = <List<RecommendationCatalogItem>>[
+      [
+        _fixtureItem(
+          'tier-1-second',
+          activity: 'pruning',
+          bodyPart: 'trunk',
+          riskLevel: 'high',
+          displayOrder: 2,
+        ),
+        _fixtureItem(
+          'tier-1-first',
+          activity: 'pruning',
+          bodyPart: 'trunk',
+          riskLevel: 'high',
+        ),
+      ],
+      [
+        _fixtureItem(
+          'tier-2',
+          activity: 'pruning',
+          bodyPart: 'any',
+          riskLevel: 'high',
+        ),
+      ],
+      [
+        _fixtureItem(
+          'tier-3',
+          activity: 'any',
+          bodyPart: 'trunk',
+          riskLevel: 'high',
+        ),
+      ],
+      [
+        _fixtureItem(
+          'tier-4',
+          activity: 'pruning',
+          bodyPart: 'any',
+          riskLevel: 'any',
+        ),
+      ],
+      [
+        _fixtureItem(
+          'tier-5',
+          activity: 'any',
+          bodyPart: 'trunk',
+          riskLevel: 'any',
+        ),
+      ],
+      [
+        _fixtureItem(
+          'tier-6',
+          activity: 'any',
+          bodyPart: 'any',
+          riskLevel: 'any',
+        ),
+      ],
+    ];
+    final expectedIds = [
+      ['tier-1-first', 'tier-1-second'],
+      ['tier-2'],
+      ['tier-3'],
+      ['tier-4'],
+      ['tier-5'],
+      ['tier-6'],
+    ];
+
+    for (var tier = 0; tier < tierGroups.length; tier++) {
+      final fixture = tierGroups
+          .skip(tier)
+          .expand((items) => items)
+          .toList(growable: false);
+
+      final resolved = RecommendationCatalogService.resolveFromCatalog(
+        catalog: fixture,
+        selectionKey: 'act_fixture',
+        language: RecommendationLanguage.en,
+        activity: 'pruning',
+        bodyPart: 'trunk',
+        riskLevel: 'high',
+      );
+
+      expect(
+        resolved.map((item) => item.id),
+        expectedIds[tier],
+        reason: 'specificity tier ${tier + 1}',
+      );
+    }
   });
 
   test('joined text follows display order and selected language', () {

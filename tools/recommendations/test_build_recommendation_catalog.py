@@ -65,6 +65,40 @@ class CatalogGeneratorTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "approval coverage must be 100%"):
             build_catalog([first, second], [_approved_row(first)])
 
+    def test_generator_rejects_blank_thai_in_master_or_translation(self) -> None:
+        blank_master = _master_row("act_test.blank_master")
+        blank_master["thai_source_text"] = "  "
+        translation_for_blank_master = _approved_row(blank_master)
+        translation_for_blank_master["thai_source_text"] = "คำแนะนำ"
+
+        blank_translation_master = _master_row("act_test.blank_translation")
+        blank_translation = _approved_row(blank_translation_master)
+        blank_translation["thai_source_text"] = "\t"
+
+        for master, translation in (
+            (blank_master, translation_for_blank_master),
+            (blank_translation_master, blank_translation),
+        ):
+            with self.subTest(recommendation_id=master["recommendation_id"]):
+                with self.assertRaisesRegex(
+                    ValueError,
+                    "Thai text must be non-empty",
+                ):
+                    build_catalog([master], [translation])
+
+    def test_generator_rejects_context_shapes_the_resolver_cannot_reach(
+        self,
+    ) -> None:
+        unsupported = _master_row(
+            "act_test.unsupported",
+            activity="pruning",
+            body_part="trunk",
+            risk_level="any",
+        )
+
+        with self.assertRaisesRegex(ValueError, "unsupported context shape"):
+            build_catalog([unsupported], [_approved_row(unsupported)])
+
     def test_generated_catalog_contains_approved_copy_without_review_metadata(
         self,
     ) -> None:

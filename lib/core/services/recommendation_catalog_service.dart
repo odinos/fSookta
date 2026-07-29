@@ -11,6 +11,27 @@ class RecommendationCatalogService {
     String? bodyPart,
     String? riskLevel,
   }) {
+    return resolveFromCatalog(
+      catalog: generatedRecommendationCatalog,
+      selectionKey: selectionKey,
+      language: language,
+      activity: activity,
+      bodyPart: bodyPart,
+      riskLevel: riskLevel,
+    );
+  }
+
+  /// Resolves an explicit catalog for generic specificity-contract tests.
+  ///
+  /// Runtime consumers should use [resolve], which binds the approved catalog.
+  static List<RecommendationCatalogItem> resolveFromCatalog({
+    required Iterable<RecommendationCatalogItem> catalog,
+    required String selectionKey,
+    required RecommendationLanguage language,
+    String? activity,
+    String? bodyPart,
+    String? riskLevel,
+  }) {
     final contexts = <(String, String, String)>[
       if (activity != null && bodyPart != null && riskLevel != null)
         (activity, bodyPart, riskLevel),
@@ -24,7 +45,7 @@ class RecommendationCatalogService {
     final seenContexts = <(String, String, String)>{};
     for (final context in contexts) {
       if (!seenContexts.add(context)) continue;
-      final matches = generatedRecommendationCatalog
+      final matches = catalog
           .where(
             (item) =>
                 item.selectionKey == selectionKey &&
