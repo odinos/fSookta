@@ -165,6 +165,7 @@ Future<void> _saveRecord(
       economicLoss: afterScore * 1000,
       bodyPartRisks: {BodyPart.trunk: afterRisk},
     ),
+    selectedSuggestionKeys: const [],
     selectedSuggestions: const ['ปรับท่าทาง'],
   );
 }

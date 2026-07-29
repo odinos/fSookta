@@ -79,6 +79,7 @@ void main() {
             BodyPart.neck: RiskLevel.low,
           },
         ),
+        selectedSuggestionKeys: const [],
         selectedSuggestions: const [
           'ยกแปลงหรือถังงานให้สูงขึ้น',
           'สลับพักและเปลี่ยนท่าทุกช่วงสั้น ๆ',

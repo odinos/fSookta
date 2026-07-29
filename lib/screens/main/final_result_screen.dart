@@ -61,6 +61,7 @@ class _FinalResultScreenState extends State<FinalResultScreen> {
         activityName: widget.bundle.activityName,
         before: widget.bundle.before,
         after: widget.bundle.after,
+        selectedSuggestionKeys: widget.bundle.selectedSuggestionKeys,
         selectedSuggestions:
             widget.bundle.selectedSuggestionKeys.map(strings.get).toList(),
         assessmentBreakdown: widget.bundle.breakdown,

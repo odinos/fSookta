@@ -8,8 +8,10 @@ import '../models/assessment_session.dart';
 import '../models/assessment_reference_sources.dart';
 import '../models/economic_impact_models.dart';
 import '../models/evaluation_models.dart';
+import '../recommendations/recommendation_catalog_models.dart';
 import 'economic_impact_service.dart';
 import 'ergo_calculator.dart';
+import 'recommendation_catalog_service.dart';
 
 class AssessmentExportService {
   const AssessmentExportService._();
@@ -235,6 +237,10 @@ class AssessmentExportService {
     bool thai = true,
   }) {
     final generatedAt = DateTime.now();
+    final recommendationLanguage =
+        thai ? RecommendationLanguage.th : RecommendationLanguage.en;
+    final localizedSuggestions =
+        record.localizedSelectedSuggestions(recommendationLanguage);
     final impactComparison = EconomicImpactService.compareBeforeAfter(
       beforeImpact: record.economicLoss,
       beforeScore: record.scoreBefore,
@@ -310,7 +316,7 @@ class AssessmentExportService {
         breakdown: record.assessmentBreakdown,
         bodyPartRisks: record.bodyPartRisks,
         impact: beforeImpact,
-        selectedSuggestions: record.selectedSuggestions,
+        selectedSuggestions: localizedSuggestions,
         thai: thai,
       ),
       if (record.aiRiskPercent != null) ...[
@@ -328,8 +334,13 @@ class AssessmentExportService {
         (entry) => [_bodyPart(entry.key, thai), _risk(entry.value, thai)],
       ),
       [],
-      [thai ? 'คำแนะนำที่เลือก' : 'Selected recommendations'],
-      ...record.selectedSuggestions.map((suggestion) => [suggestion]),
+      [
+        RecommendationCatalogService.joinedText(
+          selectionKey: 'report.selected_recommendations',
+          language: recommendationLanguage,
+        ),
+      ],
+      ...localizedSuggestions.map((suggestion) => [suggestion]),
       [],
       [
         thai ? 'หมายเหตุ' : 'Note',

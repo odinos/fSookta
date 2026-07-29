@@ -49,6 +49,7 @@ void main() {
         economicLoss: 6000,
         bodyPartRisks: {BodyPart.trunk: RiskLevel.medium},
       ),
+      selectedSuggestionKeys: const ['act_fert_split_load'],
       selectedSuggestions: const ['แบ่งน้ำหนักปุ๋ยต่อรอบให้น้อยลง'],
       assessmentBreakdown: const AssessmentBreakdown(
         primaryMethod: AssessmentMethod.rebaIsoCombined,
@@ -84,6 +85,7 @@ void main() {
     expect(record.scoreBefore, 8);
     expect(record.scoreAfter, 4);
     expect(record.assessmentBreakdown?.ergoInput.loadWeight, 15);
+    expect(record.selectedSuggestionKeys, ['act_fert_split_load']);
     expect(record.selectedSuggestions, ['แบ่งน้ำหนักปุ๋ยต่อรอบให้น้อยลง']);
   });
 }

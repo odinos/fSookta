@@ -210,6 +210,7 @@ void main() {
         limitValue: 9,
         suggestionKey: 'sugg_reba_med',
       ),
+      selectedSuggestionKeys: const [],
       selectedSuggestions: const ['ปรับระดับโต๊ะทำงาน'],
     );
 

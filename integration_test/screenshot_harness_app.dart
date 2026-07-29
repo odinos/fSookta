@@ -114,6 +114,10 @@ class _ScreenshotHarnessAppState extends State<ScreenshotHarnessApp> {
       activityName: SooktaActivity.harvesting.label(thai: true),
       before: before,
       after: after,
+      selectedSuggestionKeys: const [
+        'act_avoid_bend',
+        'act_reduce_arm_raise',
+      ],
       selectedSuggestions: const [
         if (_stressText)
           'หลีกเลี่ยงการก้มหลังค้างนาน และเปลี่ยนเป็นการย่อเข่าพร้อมพักเป็นช่วงสั้น ๆ'

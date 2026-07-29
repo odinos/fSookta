@@ -7,8 +7,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'build_info.dart';
 import '../core/models/assessment_session.dart';
 import '../core/models/evaluation_models.dart';
+import '../core/recommendations/recommendation_catalog_models.dart';
 import '../core/services/economic_impact_service.dart';
 import '../core/services/local_image_store.dart';
+import '../core/services/recommendation_catalog_service.dart';
 
 enum AppLanguage { th, en }
 
@@ -544,6 +546,10 @@ class SooktaAppState extends ChangeNotifier {
         activity: SooktaActivity.fertilizing,
         before: before,
         after: after,
+        selectedSuggestionKeys: const [
+          'act_iso_keep_load_close',
+          'act_fert_split_load',
+        ],
         selectedSuggestions: const [
           'ยกถังปุ๋ยให้ใกล้ตัวและลดการก้ม',
           'แบ่งน้ำหนักปุ๋ยต่อรอบให้น้อยลง',
@@ -652,6 +658,7 @@ class SooktaAppState extends ChangeNotifier {
     required String activityName,
     required ErgoResult before,
     required ErgoResult after,
+    required List<String> selectedSuggestionKeys,
     required List<String> selectedSuggestions,
     SooktaActivity? activity,
     AssessmentBreakdown? assessmentBreakdown,
@@ -664,6 +671,7 @@ class SooktaAppState extends ChangeNotifier {
       activityName: activityName,
       before: before,
       after: after,
+      selectedSuggestionKeys: selectedSuggestionKeys,
       selectedSuggestions: selectedSuggestions,
       activity: activity,
       assessmentBreakdown: assessmentBreakdown,
@@ -694,6 +702,7 @@ class SooktaAppState extends ChangeNotifier {
     required String activityName,
     required ErgoResult before,
     required ErgoResult after,
+    required List<String> selectedSuggestionKeys,
     required List<String> selectedSuggestions,
     SooktaActivity? activity,
     AssessmentBreakdown? assessmentBreakdown,
@@ -733,6 +742,7 @@ class SooktaAppState extends ChangeNotifier {
       riskAfter: after.riskLevel,
       economicLoss: before.economicLoss,
       moneySaved: impactComparison.savedAmount,
+      selectedSuggestionKeys: selectedSuggestionKeys,
       selectedSuggestions: selectedSuggestions,
       bodyPartRisks: before.bodyPartRisks,
       aiRiskPercent: before.aiRiskAlert == null
@@ -890,6 +900,7 @@ class EvaluationHistoryRecord {
     required this.riskAfter,
     required this.economicLoss,
     required this.moneySaved,
+    this.selectedSuggestionKeys = const [],
     required this.selectedSuggestions,
     required this.bodyPartRisks,
     this.aiRiskPercent,
@@ -931,6 +942,7 @@ class EvaluationHistoryRecord {
   final RiskLevel riskAfter;
   final int economicLoss;
   final int moneySaved;
+  final List<String> selectedSuggestionKeys;
   final List<String> selectedSuggestions;
   final Map<BodyPart, RiskLevel> bodyPartRisks;
   final int? aiRiskPercent;
@@ -973,6 +985,7 @@ class EvaluationHistoryRecord {
       'riskAfter': riskAfter.name,
       'economicLoss': economicLoss,
       'moneySaved': moneySaved,
+      'selectedSuggestionKeys': selectedSuggestionKeys,
       'selectedSuggestions': selectedSuggestions,
       'bodyPartRisks': bodyPartRisks.map(
         (part, risk) => MapEntry(part.name, risk.name),
@@ -1022,6 +1035,10 @@ class EvaluationHistoryRecord {
       riskAfter: _riskFromName(json['riskAfter'] as String?),
       economicLoss: json['economicLoss'] as int? ?? 0,
       moneySaved: json['moneySaved'] as int? ?? 0,
+      selectedSuggestionKeys: (json['selectedSuggestionKeys'] as List?)
+              ?.whereType<String>()
+              .toList() ??
+          const [],
       selectedSuggestions: (json['selectedSuggestions'] as List?)
               ?.whereType<String>()
               .toList() ??
@@ -1126,5 +1143,56 @@ class EvaluationHistoryRecord {
       }
     }
     return result;
+  }
+}
+
+extension EvaluationHistoryRecommendationLocalization
+    on EvaluationHistoryRecord {
+  List<String> localizedSelectedSuggestions(
+    RecommendationLanguage language,
+  ) {
+    if (selectedSuggestionKeys.isEmpty && selectedSuggestions.isEmpty) {
+      return const [];
+    }
+
+    final fallback = RecommendationCatalogService.joinedText(
+      selectionKey: 'system.unmapped_saved_recommendation',
+      language: language,
+    );
+    if (selectedSuggestionKeys.isNotEmpty) {
+      return List.unmodifiable(
+        selectedSuggestionKeys.indexed.map((entry) {
+          final resolvedKeyText =
+              RecommendationCatalogService.tryJoinedTextForSelectionKey(
+            selectionKey: entry.$2,
+            language: language,
+          );
+          if (resolvedKeyText != null) return resolvedKeyText;
+          if (entry.$1 >= selectedSuggestions.length) return fallback;
+          final legacyKey =
+              RecommendationCatalogService.selectionKeyForLegacyText(
+                  selectedSuggestions[entry.$1]);
+          if (legacyKey == null) return fallback;
+          return RecommendationCatalogService.tryJoinedTextForSelectionKey(
+                selectionKey: legacyKey,
+                language: language,
+              ) ??
+              fallback;
+        }),
+      );
+    }
+
+    return List.unmodifiable(
+      selectedSuggestions.map((legacyText) {
+        final key =
+            RecommendationCatalogService.selectionKeyForLegacyText(legacyText);
+        if (key == null) return fallback;
+        return RecommendationCatalogService.tryJoinedTextForSelectionKey(
+              selectionKey: key,
+              language: language,
+            ) ??
+            fallback;
+      }),
+    );
   }
 }

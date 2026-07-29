@@ -130,6 +130,7 @@ Future<SooktaAppState> _stateWithSevenRecords() async {
         limitValue: 9,
         suggestionKey: 'sugg_after',
       ),
+      selectedSuggestionKeys: const [],
       selectedSuggestions: const ['ใช้รถเข็น'],
       assessmentBreakdown: _breakdown(day),
       afterAssessmentBreakdown: _afterBreakdown(day),

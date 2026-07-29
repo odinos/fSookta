@@ -4,6 +4,7 @@ import 'package:share_plus/share_plus.dart';
 import '../../app/app_state.dart';
 import '../../app/sookta_app.dart';
 import '../../core/models/evaluation_models.dart';
+import '../../core/recommendations/recommendation_catalog_models.dart';
 import '../../core/services/assessment_export_service.dart';
 import '../../core/services/economic_impact_service.dart';
 import '../../core/theme/sookta_theme.dart';
@@ -29,6 +30,10 @@ class HistoryDetailScreen extends StatelessWidget {
     final state = AppStateScope.of(context);
     final thai = (state.language ?? AppLanguage.th) == AppLanguage.th;
     final record = state.historyById(historyId);
+    final localizedSuggestions = record?.localizedSelectedSuggestions(
+          thai ? RecommendationLanguage.th : RecommendationLanguage.en,
+        ) ??
+        const <String>[];
 
     return Scaffold(
       appBar: AppBar(title: Text(thai ? 'รายละเอียดผลตรวจ' : 'Result Details')),
@@ -214,10 +219,10 @@ class HistoryDetailScreen extends StatelessWidget {
                             style: const TextStyle(fontWeight: FontWeight.bold),
                           ),
                           const SizedBox(height: 8),
-                          if (record.selectedSuggestions.isEmpty)
+                          if (localizedSuggestions.isEmpty)
                             Text(thai ? 'ไม่มีรายการ' : 'No items')
                           else
-                            ...record.selectedSuggestions.map(
+                            ...localizedSuggestions.map(
                               (item) => Padding(
                                 padding: const EdgeInsets.only(bottom: 6),
                                 child: Row(
