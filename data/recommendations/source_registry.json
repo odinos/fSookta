@@ -1,0 +1,70 @@
+{
+  "registryVersion": "2026-07-29.1",
+  "sources": [
+    {
+      "id": "body_map_recommendations",
+      "title": "ชุดคำแนะนำตามความเสี่ยง Body map",
+      "language": "th",
+      "localPath": "/Users/kpc/Documents/TestSookta/Calibtation/ชุดคำแนะนำตามความเสี่ยง Body map.pdf",
+      "sha256": "fee5c283139b78f605edf18a40fd1d5b4a48893f8e0aa9b3a037630944cb4d2c",
+      "pageCount": 8,
+      "priority": 1,
+      "documentRole": "primary_recommendation_copy",
+      "copyrightOrDistributionNote": "Employer-provided reference. Record provenance only; do not redistribute the source document."
+    },
+    {
+      "id": "app_recommendations_v3",
+      "title": "คำแนะนำแต่ละระดับความเสี่ยงใน app Ref. ISO11228, REBA V3",
+      "language": "th",
+      "localPath": "/Users/kpc/Documents/Doc/fortrain/คำแนะนำแต่ละดับความเสี่ยงใน app Ref. ISO11228, REBA V3.pdf",
+      "sha256": "ec80da8a80a4c9fee6255b2787ae86c79fdddef69b53574eab07bb43fcab87b5",
+      "pageCount": 10,
+      "priority": 2,
+      "documentRole": "activity_specific_recommendation_copy",
+      "copyrightOrDistributionNote": "Employer-provided project reference. Record traceable excerpts only; do not redistribute the source document."
+    },
+    {
+      "id": "ilo_ergonomic_checkpoints_agriculture",
+      "title": "Ergonomic checkpoints in agriculture",
+      "language": "en",
+      "localPath": "/Users/kpc/Documents/Doc/fortrain/wcms_168042.pdf",
+      "sha256": "3ca8a3c621ad6efb58e818de8c5d64ec257bb13c74f191e96c5f60d4d47acf8e",
+      "pageCount": 261,
+      "priority": 3,
+      "documentRole": "supporting_ergonomic_evidence",
+      "copyrightOrDistributionNote": "ILO publication supplied as a project reference. Cite checkpoint/page; do not bundle the PDF in the application."
+    },
+    {
+      "id": "reba_employee_assessment_worksheet",
+      "title": "REBA Employee Assessment Worksheet",
+      "language": "en",
+      "localPath": "/Users/kpc/Documents/Doc/REBA.pdf",
+      "sha256": "b23cf52703aacf6cd348f81044f91672cc7bf50f5273be82243d4a11a95155e8",
+      "pageCount": 1,
+      "priority": 4,
+      "documentRole": "risk_level_provenance_only",
+      "copyrightOrDistributionNote": "Employer-provided assessment worksheet. Use for provenance; it is not a source for newly authored advice."
+    },
+    {
+      "id": "iso11228_pirawan_project_workbook",
+      "title": "ISO11228 Pirawan project workbook",
+      "language": "th",
+      "localPath": "/Users/kpc/Documents/Doc/ISO11228 Pirawan.xlsx",
+      "sha256": "980930d38680ffe215dda38cabe5985fe205b63ade112db63cd9a0a844b16342",
+      "priority": 5,
+      "documentRole": "project_case_and_scoring_context",
+      "copyrightOrDistributionNote": "Employer-provided project workbook. Treat its A-F rubric as project-specific context, not as a verbatim normative ISO formula."
+    },
+    {
+      "id": "current_app_recommendation_copy",
+      "title": "Current Sookta recommendation localization table",
+      "language": "th,en",
+      "localPath": "lib/core/localization/sookta_strings.dart",
+      "sha256": "a112ff7a1fec833cf9312a91db263bb13d7c5989ebfa1fb13deac8d908952bfe",
+      "hashPolicy": "legacy_baseline_snapshot",
+      "priority": 90,
+      "documentRole": "legacy_copy_and_ui_migration_audit",
+      "copyrightOrDistributionNote": "Internal project source snapshot. Use only for legacy alias comparison and non-advisory UI copy; external recommendation documents remain authoritative."
+    }
+  ]
+}

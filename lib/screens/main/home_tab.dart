@@ -219,8 +219,8 @@ class _DashboardSummaryCard extends StatelessWidget {
                       Expanded(
                         child: Text(
                           thai
-                              ? '${record.activityName} • ก่อน ${record.scoreBefore} หลัง ${record.scoreAfter}'
-                              : '${record.activityName} • Before ${record.scoreBefore} After ${record.scoreAfter}',
+                              ? '${record.localizedActivityName(thai: true)} • ก่อน ${record.scoreBefore} หลัง ${record.scoreAfter}'
+                              : '${record.localizedActivityName(thai: false)} • Before ${record.scoreBefore} After ${record.scoreAfter}',
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),

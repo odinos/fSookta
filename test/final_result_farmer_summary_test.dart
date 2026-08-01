@@ -7,6 +7,8 @@ import 'package:fsookta/app/app_state.dart';
 import 'package:fsookta/app/sookta_app.dart';
 import 'package:fsookta/core/models/assessment_session.dart';
 import 'package:fsookta/core/models/evaluation_models.dart';
+import 'package:fsookta/core/services/assessment_export_service.dart';
+import 'package:fsookta/core/services/economic_impact_service.dart';
 import 'package:fsookta/screens/main/final_result_screen.dart';
 
 void main() {
@@ -64,8 +66,14 @@ void main() {
       scrollable: find.byType(Scrollable).first,
     );
     expect(find.text('คำแนะนำตามกิจกรรมและความเสี่ยง'), findsOneWidget);
-    expect(find.textContaining('ลดน้ำหนักปุ๋ยต่อครั้ง'), findsOneWidget);
-    expect(find.text('ใช้เท้าหมุนตัวแทนการบิดเอว'), findsOneWidget);
+    expect(
+      find.text('แบ่งปุ๋ยเป็นน้ำหนักน้อยลงในแต่ละรอบ'),
+      findsOneWidget,
+    );
+    expect(
+      find.text('หลีกเลี่ยงการบิดลำตัวหรือเอียงตัวขณะทำงาน'),
+      findsOneWidget,
+    );
     expect(find.text('การพักหรือสลับงาน'), findsOneWidget);
     expect(find.text('อุปกรณ์ช่วยลดภาระงาน'), findsOneWidget);
     for (final category in const [
@@ -97,7 +105,8 @@ void main() {
         ))
         .map((widget) => widget.data ?? '')
         .where((text) =>
-            text.contains('ลดน้ำหนักปุ๋ย') || text.contains('ใช้เท้าหมุนตัว'));
+            text.contains('แบ่งปุ๋ยเป็นน้ำหนักน้อยลง') ||
+            text.contains('หลีกเลี่ยงการบิดลำตัว'));
     expect(farmerGuidance, isNotEmpty);
     expect(
       farmerGuidance.every((text) => text.length <= 70),
@@ -121,6 +130,15 @@ void main() {
     await tester.tap(find.text('รายละเอียดสำหรับเจ้าหน้าที่และวิชาการ'));
     await tester.pumpAndSettle();
     expect(find.textContaining('ชาย 20-45 ปี'), findsOneWidget);
+    expect(
+      find.text(
+        '• ลดน้ำหนักปุ๋ยต่อครั้ง\n'
+        'ใช้สายพานหรือรถเข็น\n'
+        'จัดพัก 10 นาทีทุกชั่วโมง\n'
+        'หลีกเลี่ยงการทำงานบนพื้นที่ลาดชันต่อเนื่อง',
+      ),
+      findsOneWidget,
+    );
     await tester.scrollUntilVisible(
       find.text('จุดเสี่ยงที่พบ'),
       400,
@@ -191,9 +209,75 @@ void main() {
     expect(speech, isNot(contains('ผลกระทบก่อนปรับ')));
     expect(speech.length, lessThanOrEqualTo(180));
   });
+
+  testWidgets(
+      'unknown selected keys never reach English render TTS save or export',
+      (tester) async {
+    const unknownKey = 'act_internal_unknown_fixture';
+    const approvedFallback =
+        'A saved recommendation could not be matched to the current approved catalog.';
+    final state = SooktaAppState()
+      ..setLanguage(AppLanguage.en)
+      ..saveProfile(const UserProfile(profileId: 'unknown-key-profile'));
+    addTearDown(state.dispose);
+    tester.view.physicalSize = const Size(390, 1800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final bundle = _bundle(selectedSuggestionKeys: const [unknownKey]);
+
+    await tester.pumpWidget(
+      AppStateScope(
+        state: state,
+        child: MaterialApp(home: FinalResultScreen(bundle: bundle)),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.text(unknownKey), findsNothing);
+    await tester.tap(find.byIcon(Icons.volume_up).first);
+    await tester.pump();
+    expect(spokenTexts.single, contains(approvedFallback));
+    expect(spokenTexts.single, isNot(contains(unknownKey)));
+
+    await tester.scrollUntilVisible(
+      find.text(approvedFallback),
+      400,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.text(approvedFallback), findsWidgets);
+    expect(state.history, hasLength(1));
+    expect(state.history.single.selectedSuggestionKeys, [unknownKey]);
+    expect(state.history.single.selectedSuggestions, [approvedFallback]);
+
+    final beforeImpact = EconomicImpactService.estimate(
+      overallRisk: bundle.before.riskLevel,
+      dailyIncome: 300,
+      bodyPartRisks: bundle.before.bodyPartRisks,
+    );
+    final afterImpact = EconomicImpactService.estimateAfterBreakdown(
+      beforeImpact: beforeImpact,
+      beforeScore: bundle.before.userScore,
+      afterScore: bundle.after.userScore,
+    );
+    final csv = AssessmentExportService.buildExcelCsv(
+      bundle: bundle,
+      profile: state.profile,
+      selectedSuggestions: state.history.single.selectedSuggestions,
+      beforeImpact: beforeImpact,
+      afterImpact: afterImpact,
+      record: state.history.single,
+      thai: false,
+    );
+    expect(csv, contains(approvedFallback));
+    expect(csv, isNot(contains(unknownKey)));
+  });
 }
 
-AssessmentBundle _bundle() {
+AssessmentBundle _bundle({
+  List<String> selectedSuggestionKeys = const ['act_fert_split_load'],
+}) {
   const before = ErgoResult(
     riskLevel: RiskLevel.high,
     techScore: 8,
@@ -214,14 +298,14 @@ AssessmentBundle _bundle() {
     economicLoss: 6000,
     bodyPartRisks: {BodyPart.trunk: RiskLevel.medium},
   );
-  return const AssessmentBundle(
+  return AssessmentBundle(
     activity: SooktaActivity.fertilizing,
     activityName: 'การใส่ปุ๋ย',
     jobType: JobType.lifting,
     before: before,
     after: after,
-    selectedSuggestionKeys: ['act_fert_split_load'],
-    breakdown: AssessmentBreakdown(
+    selectedSuggestionKeys: selectedSuggestionKeys,
+    breakdown: const AssessmentBreakdown(
       primaryMethod: AssessmentMethod.reba,
       rebaInput: RebaInputData(trunkScore: 4, neckScore: 2),
       rebaResult: before,

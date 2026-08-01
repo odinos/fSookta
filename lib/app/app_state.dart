@@ -7,8 +7,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'build_info.dart';
 import '../core/models/assessment_session.dart';
 import '../core/models/evaluation_models.dart';
+import '../core/recommendations/recommendation_catalog_models.dart';
 import '../core/services/economic_impact_service.dart';
 import '../core/services/local_image_store.dart';
+import '../core/services/recommendation_catalog_service.dart';
 
 enum AppLanguage { th, en }
 
@@ -256,15 +258,22 @@ class SooktaAppState extends ChangeNotifier {
       if (historyJson != null) {
         final decoded = jsonDecode(historyJson);
         if (decoded is List) {
+          final restoredHistory = <EvaluationHistoryRecord>[];
+          for (final item in decoded.whereType<Map>()) {
+            try {
+              restoredHistory.add(
+                EvaluationHistoryRecord.fromJson(
+                  Map<String, Object?>.from(item),
+                ),
+              );
+            } on Object {
+              // A single damaged saved record must not discard valid profiles,
+              // drafts, or other history records.
+            }
+          }
           _history
             ..clear()
-            ..addAll(
-              decoded
-                  .whereType<Map>()
-                  .map((item) => EvaluationHistoryRecord.fromJson(
-                        Map<String, Object?>.from(item),
-                      )),
-            );
+            ..addAll(restoredHistory);
         }
       }
 
@@ -544,6 +553,10 @@ class SooktaAppState extends ChangeNotifier {
         activity: SooktaActivity.fertilizing,
         before: before,
         after: after,
+        selectedSuggestionKeys: const [
+          'act_iso_keep_load_close',
+          'act_fert_split_load',
+        ],
         selectedSuggestions: const [
           'ยกถังปุ๋ยให้ใกล้ตัวและลดการก้ม',
           'แบ่งน้ำหนักปุ๋ยต่อรอบให้น้อยลง',
@@ -652,6 +665,7 @@ class SooktaAppState extends ChangeNotifier {
     required String activityName,
     required ErgoResult before,
     required ErgoResult after,
+    required List<String> selectedSuggestionKeys,
     required List<String> selectedSuggestions,
     SooktaActivity? activity,
     AssessmentBreakdown? assessmentBreakdown,
@@ -664,6 +678,7 @@ class SooktaAppState extends ChangeNotifier {
       activityName: activityName,
       before: before,
       after: after,
+      selectedSuggestionKeys: selectedSuggestionKeys,
       selectedSuggestions: selectedSuggestions,
       activity: activity,
       assessmentBreakdown: assessmentBreakdown,
@@ -694,6 +709,7 @@ class SooktaAppState extends ChangeNotifier {
     required String activityName,
     required ErgoResult before,
     required ErgoResult after,
+    required List<String> selectedSuggestionKeys,
     required List<String> selectedSuggestions,
     SooktaActivity? activity,
     AssessmentBreakdown? assessmentBreakdown,
@@ -733,6 +749,7 @@ class SooktaAppState extends ChangeNotifier {
       riskAfter: after.riskLevel,
       economicLoss: before.economicLoss,
       moneySaved: impactComparison.savedAmount,
+      selectedSuggestionKeys: selectedSuggestionKeys,
       selectedSuggestions: selectedSuggestions,
       bodyPartRisks: before.bodyPartRisks,
       aiRiskPercent: before.aiRiskAlert == null
@@ -890,6 +907,7 @@ class EvaluationHistoryRecord {
     required this.riskAfter,
     required this.economicLoss,
     required this.moneySaved,
+    this.selectedSuggestionKeys = const [],
     required this.selectedSuggestions,
     required this.bodyPartRisks,
     this.aiRiskPercent,
@@ -931,6 +949,7 @@ class EvaluationHistoryRecord {
   final RiskLevel riskAfter;
   final int economicLoss;
   final int moneySaved;
+  final List<String> selectedSuggestionKeys;
   final List<String> selectedSuggestions;
   final Map<BodyPart, RiskLevel> bodyPartRisks;
   final int? aiRiskPercent;
@@ -973,6 +992,7 @@ class EvaluationHistoryRecord {
       'riskAfter': riskAfter.name,
       'economicLoss': economicLoss,
       'moneySaved': moneySaved,
+      'selectedSuggestionKeys': selectedSuggestionKeys,
       'selectedSuggestions': selectedSuggestions,
       'bodyPartRisks': bodyPartRisks.map(
         (part, risk) => MapEntry(part.name, risk.name),
@@ -1022,10 +1042,9 @@ class EvaluationHistoryRecord {
       riskAfter: _riskFromName(json['riskAfter'] as String?),
       economicLoss: json['economicLoss'] as int? ?? 0,
       moneySaved: json['moneySaved'] as int? ?? 0,
-      selectedSuggestions: (json['selectedSuggestions'] as List?)
-              ?.whereType<String>()
-              .toList() ??
-          const [],
+      selectedSuggestionKeys:
+          _optionalStringList(json['selectedSuggestionKeys']),
+      selectedSuggestions: _optionalStringList(json['selectedSuggestions']),
       bodyPartRisks: _bodyRisksFromJson(json['bodyPartRisks']),
       aiRiskPercent: json['aiRiskPercent'] as int?,
       aiAlertLevel: _aiAlertFromName(json['aiAlertLevel'] as String?),
@@ -1058,6 +1077,13 @@ class EvaluationHistoryRecord {
     if (value is int) return value;
     if (value is num) return value.toInt();
     return int.tryParse(value?.toString() ?? '');
+  }
+
+  static List<String> _optionalStringList(Object? value) {
+    if (value is! List || value.any((item) => item is! String)) {
+      return const [];
+    }
+    return List<String>.unmodifiable(value.cast<String>());
   }
 
   static double? _optionalDouble(Object? value) {
@@ -1126,5 +1152,96 @@ class EvaluationHistoryRecord {
       }
     }
     return result;
+  }
+}
+
+extension EvaluationHistoryRecommendationLocalization
+    on EvaluationHistoryRecord {
+  String localizedActivityName({required bool thai}) {
+    final typedActivity = activity ?? _legacyActivityFromLabel(activityName);
+    return typedActivity?.label(thai: thai) ?? (thai ? 'กิจกรรม' : 'Activity');
+  }
+
+  List<String> localizedSelectedSuggestions(
+    RecommendationLanguage language,
+  ) {
+    if (selectedSuggestionKeys.isEmpty && selectedSuggestions.isEmpty) {
+      return const [];
+    }
+
+    final fallback = RecommendationCatalogService.joinedText(
+      selectionKey: 'system.unmapped_saved_recommendation',
+      language: language,
+    );
+    final positionCount =
+        selectedSuggestionKeys.length > selectedSuggestions.length
+            ? selectedSuggestionKeys.length
+            : selectedSuggestions.length;
+    return List.unmodifiable(
+      List.generate(positionCount, (index) {
+        if (index < selectedSuggestionKeys.length) {
+          final selectionKey = selectedSuggestionKeys[index];
+          final resolvedKeyText = RecommendationCatalogService.tryJoinedText(
+                selectionKey: selectionKey,
+                language: language,
+                activity: activity?.name,
+                bodyPart: _bodyPartContextForSelectionKey(selectionKey),
+                riskLevel: riskBefore.name,
+              ) ??
+              RecommendationCatalogService.tryJoinedTextForSelectionKey(
+                selectionKey: selectedSuggestionKeys[index],
+                language: language,
+              );
+          if (resolvedKeyText != null) return resolvedKeyText;
+        }
+        if (index < selectedSuggestions.length) {
+          final legacyKey =
+              RecommendationCatalogService.selectionKeyForLegacyText(
+            selectedSuggestions[index],
+          );
+          if (legacyKey != null) {
+            final resolvedLegacyText =
+                RecommendationCatalogService.tryJoinedText(
+                      selectionKey: legacyKey,
+                      language: language,
+                      activity: activity?.name,
+                      bodyPart: _bodyPartContextForSelectionKey(legacyKey),
+                      riskLevel: riskBefore.name,
+                    ) ??
+                    RecommendationCatalogService.tryJoinedTextForSelectionKey(
+                      selectionKey: legacyKey,
+                      language: language,
+                    );
+            if (resolvedLegacyText != null) return resolvedLegacyText;
+          }
+        }
+        return fallback;
+      }),
+    );
+  }
+
+  static SooktaActivity? _legacyActivityFromLabel(String label) {
+    for (final activity in SooktaActivity.values) {
+      if (label == activity.label(thai: true) ||
+          label == activity.label(thai: false)) {
+        return activity;
+      }
+    }
+    return null;
+  }
+
+  static String? _bodyPartContextForSelectionKey(String selectionKey) {
+    const prefixes = <String, String>{
+      'act_body_neck_': 'neck',
+      'act_body_trunk_': 'trunk',
+      'act_body_arms_': 'arms',
+      'act_body_wrists_': 'wrists',
+      'act_body_legs_': 'legs',
+      'act_body_manual_': 'manual',
+    };
+    for (final entry in prefixes.entries) {
+      if (selectionKey.startsWith(entry.key)) return entry.value;
+    }
+    return null;
   }
 }

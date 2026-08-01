@@ -544,6 +544,10 @@ void _seedState(SooktaAppState state) {
       activityName: activity.label(thai: true),
       before: before,
       after: after,
+      selectedSuggestionKeys: const [
+        'act_transplant_raise_bed',
+        'act_rest_stretch',
+      ],
       selectedSuggestions: const [
         'ยกแปลงหรือวางงานให้สูงขึ้น',
         'พักและยืดเหยียดเป็นระยะ',

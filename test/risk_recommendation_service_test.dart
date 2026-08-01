@@ -23,8 +23,78 @@ void main() {
         inInclusiveRange(1, 2),
       );
     }
-    expect(items.map((item) => item.text), contains('ลดน้ำหนักปุ๋ยต่อครั้ง'));
+    expect(
+      items.map((item) => item.text),
+      contains('แบ่งปุ๋ยเป็นน้ำหนักน้อยลงในแต่ละรอบ'),
+    );
     expect(items.every((item) => item.text.length <= 70), isTrue);
+  });
+
+  test('catalog migration preserves selection keys and category counts', () {
+    final items = RiskRecommendationService.farmerRecommendations(
+      activity: SooktaActivity.fertilizing,
+      riskLevel: RiskLevel.high,
+      bodyPartRisks: const {BodyPart.trunk: RiskLevel.high},
+      thai: false,
+    );
+
+    expect(
+        items.map((item) => item.sourceKey),
+        containsAll(<String>[
+          'act_use_legs',
+          'act_fert_split_load',
+          'act_rest_stretch',
+          'act_extra_fert_cart',
+        ]));
+    expect(
+      items
+          .map((item) => (item.category, item.sourceKey))
+          .toList(growable: false),
+      const [
+        (FarmerRecommendationCategory.posture, 'act_use_legs'),
+        (
+          FarmerRecommendationCategory.riskReduction,
+          'act_fert_split_load',
+        ),
+        (
+          FarmerRecommendationCategory.restRotation,
+          'act_rest_stretch',
+        ),
+        (
+          FarmerRecommendationCategory.workloadSupport,
+          'act_extra_fert_cart',
+        ),
+        (FarmerRecommendationCategory.posture, 'act_avoid_twist'),
+      ],
+    );
+    expect(
+      items.map((item) => item.text).toList(growable: false),
+      const [
+        'Use force from the legs, not the back.',
+        'Split fertilizer into smaller loads per round.',
+        'Take breaks to stretch muscles.',
+        'Use a cart to carry fertilizer sacks instead of carrying them on the body.',
+        'Avoid twisting or side bending while working.',
+      ],
+    );
+    expect(items.every((item) => item.text.trim().isNotEmpty), isTrue);
+  });
+
+  test('keeps multi-line catalog text under one selection key', () {
+    final items = RiskRecommendationService.farmerRecommendations(
+      activity: SooktaActivity.transplanting,
+      riskLevel: RiskLevel.high,
+      bodyPartRisks: const {BodyPart.neck: RiskLevel.high},
+      thai: false,
+    );
+
+    final neckItems =
+        items.where((item) => item.sourceKey == 'act_adj_eye_level').toList();
+    expect(neckItems, hasLength(1));
+    expect(
+      neckItems.single.text,
+      'Adjust the work to eye level.\nReduce neck bending.',
+    );
   });
 
   test('returns document-based recommendations by activity and risk level', () {
@@ -60,5 +130,40 @@ void main() {
       expect(th.get(key), isNot(key), reason: 'Missing Thai text for $key');
       expect(en.get(key), isNot(key), reason: 'Missing English text for $key');
     }
+  });
+
+  test('routes recommendation strings through approved catalog copy', () {
+    const th = SooktaStrings(SooktaLocale.th);
+    const en = SooktaStrings(SooktaLocale.en);
+
+    expect(
+      th.get('act_adj_eye_level'),
+      'ปรับงานให้อยู่ระดับสายตา\nลดการก้มคอ',
+    );
+    expect(
+      en.get('act_use_legs'),
+      'Use force from the legs, not the back.',
+    );
+    expect(en.get('app_name'), 'Sookta');
+  });
+
+  test('resolves contextual recommendation strings from approved catalog', () {
+    const th = SooktaStrings(SooktaLocale.th);
+    const en = SooktaStrings(SooktaLocale.en);
+
+    expect(
+      th.get('act_fert_ref_high'),
+      'ลดน้ำหนักปุ๋ยต่อครั้ง\n'
+      'ใช้สายพานหรือรถเข็น\n'
+      'จัดพัก 10 นาทีทุกชั่วโมง\n'
+      'หลีกเลี่ยงการทำงานบนพื้นที่ลาดชันต่อเนื่อง',
+    );
+    expect(
+      en.get('act_fert_ref_high'),
+      'Reduce fertilizer weight per trip.\n'
+      'Use a conveyor or cart.\n'
+      'Rest 10 minutes every hour.\n'
+      'Avoid continuous work on slopes.',
+    );
   });
 }

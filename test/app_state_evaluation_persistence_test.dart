@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -49,6 +51,7 @@ void main() {
         economicLoss: 6000,
         bodyPartRisks: {BodyPart.trunk: RiskLevel.medium},
       ),
+      selectedSuggestionKeys: const ['act_fert_split_load'],
       selectedSuggestions: const ['แบ่งน้ำหนักปุ๋ยต่อรอบให้น้อยลง'],
       assessmentBreakdown: const AssessmentBreakdown(
         primaryMethod: AssessmentMethod.rebaIsoCombined,
@@ -84,6 +87,67 @@ void main() {
     expect(record.scoreBefore, 8);
     expect(record.scoreAfter, 4);
     expect(record.assessmentBreakdown?.ergoInput.loadWeight, 15);
+    expect(record.selectedSuggestionKeys, ['act_fert_split_load']);
     expect(record.selectedSuggestions, ['แบ่งน้ำหนักปุ๋ยต่อรอบให้น้อยลง']);
+  });
+
+  test('one malformed history row does not clear valid restored state',
+      () async {
+    const profile = UserProfile(
+      profileId: 'profile-isolation',
+      farmerId: 'FARM-ISO',
+      name: 'Valid farmer',
+    );
+    final validRecord = EvaluationHistoryRecord(
+      id: 11,
+      farmerProfileId: profile.profileId,
+      activity: SooktaActivity.fertilizing,
+      activityName: 'การใส่ปุ๋ย',
+      dateTime: DateTime(2026, 7, 29, 10),
+      scoreBefore: 8,
+      scoreAfter: 6,
+      riskBefore: RiskLevel.high,
+      riskAfter: RiskLevel.medium,
+      economicLoss: 1000,
+      moneySaved: 280,
+      selectedSuggestions: const [],
+      bodyPartRisks: const {BodyPart.trunk: RiskLevel.high},
+    );
+    final draft = EvaluationDraft(
+      activity: SooktaActivity.fertilizing,
+      jobType: JobType.lifting,
+      farmerProfileId: profile.profileId,
+      farmerId: profile.farmerId,
+      assessmentDateKey: '2026-07-29',
+    );
+    SharedPreferences.setMockInitialValues({
+      'sookta.language': 'en',
+      'sookta.farmers': jsonEncode([profile.toJson()]),
+      'sookta.activeProfileId': profile.profileId,
+      'sookta.history': jsonEncode([
+        validRecord.toJson(),
+        <String, Object?>{
+          ...validRecord.toJson(),
+          'id': <String, String>{'malformed': 'id'},
+        },
+      ]),
+      'sookta.evaluationDrafts': jsonEncode([draft.toJson()]),
+    });
+
+    final state = SooktaAppState();
+    addTearDown(state.dispose);
+    await state.restore();
+
+    expect(state.profile.profileId, profile.profileId);
+    expect(
+        state.farmers.map((farmer) => farmer.profileId), [profile.profileId]);
+    expect(state.history.map((record) => record.id), [validRecord.id]);
+    expect(
+      state.evaluationDraftForProfile(
+        profile.profileId,
+        activity: SooktaActivity.fertilizing,
+      ),
+      isNotNull,
+    );
   });
 }

@@ -131,6 +131,45 @@ void main() {
     );
     expect(exportButton.onPressed, isNull);
   });
+
+  testWidgets('English history list localizes Thai-created activity names',
+      (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final state = SooktaAppState()
+      ..setLanguage(AppLanguage.en)
+      ..saveProfile(
+        const UserProfile(
+          profileId: 'profile-history-locale',
+          farmerId: 'FARM-HISTORY-LOCALE',
+          name: 'Test farmer',
+        ),
+      );
+    addTearDown(state.dispose);
+
+    await _saveRecord(
+      state,
+      activity: SooktaActivity.fertilizing,
+      activityName: 'การใส่ปุ๋ย',
+      beforeScore: 8,
+      afterScore: 4,
+      beforeRisk: RiskLevel.high,
+      afterRisk: RiskLevel.medium,
+    );
+
+    await tester.pumpWidget(
+      AppStateScope(
+        state: state,
+        child: const MaterialApp(
+          home: HistoryTab(text: AppText(AppLanguage.en)),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('Fertilizing'), findsOneWidget);
+    expect(find.textContaining('Test farmer • Fertilizing'), findsOneWidget);
+    expect(find.textContaining('การใส่ปุ๋ย'), findsNothing);
+  });
 }
 
 Future<void> _saveRecord(
@@ -165,6 +204,7 @@ Future<void> _saveRecord(
       economicLoss: afterScore * 1000,
       bodyPartRisks: {BodyPart.trunk: afterRisk},
     ),
+    selectedSuggestionKeys: const [],
     selectedSuggestions: const ['ปรับท่าทาง'],
   );
 }

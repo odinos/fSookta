@@ -1,3 +1,6 @@
+import '../recommendations/recommendation_catalog_models.dart';
+import '../services/recommendation_catalog_service.dart';
+
 enum SooktaLocale {
   th,
   en,
@@ -8,9 +11,47 @@ class SooktaStrings {
 
   final SooktaLocale locale;
 
-  String get(String key) {
+  String get(
+    String key, {
+    String? activity,
+    String? bodyPart,
+    String? riskLevel,
+  }) {
+    if (_isCatalogKey(key)) {
+      final language = locale == SooktaLocale.th
+          ? RecommendationLanguage.th
+          : RecommendationLanguage.en;
+      final catalogText = RecommendationCatalogService.tryJoinedText(
+        selectionKey: key,
+        language: language,
+        activity: activity,
+        bodyPart: bodyPart,
+        riskLevel: riskLevel,
+      );
+      if (catalogText != null) return catalogText;
+      final uniqueContextText =
+          RecommendationCatalogService.tryJoinedTextForSelectionKey(
+        selectionKey: key,
+        language: language,
+      );
+      if (uniqueContextText != null) return uniqueContextText;
+
+      if (key.startsWith('act_')) {
+        return RecommendationCatalogService.joinedText(
+          selectionKey: 'system.unmapped_saved_recommendation',
+          language: language,
+        );
+      }
+    }
     final table = locale == SooktaLocale.th ? _th : _en;
     return table[key] ?? _en[key] ?? key;
+  }
+
+  static bool _isCatalogKey(String key) {
+    return key.startsWith('act_') ||
+        key.startsWith('ui.') ||
+        key.startsWith('system.') ||
+        key.startsWith('report.');
   }
 
   static const _en = <String, String>{

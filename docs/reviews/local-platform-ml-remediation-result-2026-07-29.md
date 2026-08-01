@@ -11,9 +11,11 @@
 ## สรุปผล
 
 - Flutter source analysis ผ่านโดยไม่มี issue
-- Flutter test ทั้งหมดผ่าน 132 รายการ
-- Android release App Bundle build ผ่านหลังเหลือ Gradle configuration ชุดเดียว
-- iOS release แบบ `--no-codesign` build ผ่านจากสำเนาใน `/private/tmp`
+- Flutter test ทั้งหมดผ่าน 162 รายการ
+- หลักฐาน baseline ก่อนเชื่อม Recommendation Catalog:
+  Android release App Bundle build ผ่านหลังเหลือ Gradle configuration ชุดเดียว
+- หลักฐาน baseline ก่อนเชื่อม Recommendation Catalog:
+  iOS release แบบ `--no-codesign` build ผ่านจากสำเนาใน `/private/tmp`
 - MoveNet TFLite โหลดและ infer ได้ทั้ง Android Emulator และ iOS Simulator
 - XGBoost ONNX โหลดและ infer ได้ทั้งสองระบบ และให้ probability เท่ากันสำหรับ input เดียวกัน
 - Video frame contract ผ่านทั้งสองระบบโดยไม่ต้องแก้ native algorithm
@@ -156,16 +158,91 @@
    ของเจ้าของแอป แต่ไม่จำเป็นสำหรับ local test และ no-codesign build
 4. คุณภาพกล้อง, gallery permission, TTS voice และ latency ต้องตรวจบนเครื่องจริง
 
+## ตรวจ Recommendation Catalog และ platform parity เพิ่มเติม
+
+ตรวจซ้ำวันที่ 30 กรกฎาคม 2026 หลังเชื่อม approved Recommendation Catalog:
+
+- Translation Review ผ่าน approval gate 175/175 แถว หรือ 100%
+- Generated Catalog มีข้อความไทย 175 แถวและอังกฤษ 175 แถว
+  โดยทุกแถวเป็น atomic display item คู่ภาษาเดียวกัน
+- Catalog version คือ `2026-07-29.1` และ checksum คือ
+  `b77cf75ade1db152dfdebb82268ad1295d2409f6a2d96ba712b2433ed754abb0`
+- focused recommendation/calculation/ML suite ผ่าน 85 tests
+  และ full Flutter suite ผ่าน 162 tests
+- numeric regression ใช้ fixture REBA heavy-twist และ ISO long-distance
+  ก่อนและหลังอ่าน Catalog ได้ผลเท่ากัน:
+  REBA user score `9`, risk `veryHigh`, economic loss `32,244` บาท;
+  ISO user score `6`, risk `medium`
+- parity fixture ไทยและอังกฤษตรวจ iOS/Android viewport แบบ ordered
+  structural contract ครบทั้งตำแหน่ง category/item, selection key,
+  display-item IDs ที่ผูกกลับจาก item ที่ render จริง, ข้อความคำแนะนำ
+  ทุกข้อความ, TTS input ของแต่ละ item และ score field พร้อม label/position
+  โดยหน้าคัดเลือกมี score `8` สอง field และหน้าสรุปมี `8 → 4`
+  เหมือนกันทั้งสอง platform
+- controlled extra-output fixture ยืนยันว่าข้อความ/TTS เพิ่มเติมในโครงสร้าง
+  recommendation ถูกเก็บเข้าผลทดสอบและทำให้ exact contract ต่าง
+  ไม่ถูกกรองทิ้งด้วย expected-value whitelist
+- Android debug build ผ่านที่
+  `build/app/outputs/flutter-apk/app-debug.apk`
+- iOS simulator debug build จาก worktree ใน `Documents` compile จบ
+  แต่ CodeSign ถูกขัดขวางโดย `com.apple.fileprovider.fpfs#P`/FinderInfo
+  ตามข้อจำกัด F7 เดิม ไม่ใช่ source หรือ Catalog error
+- สำเนา source เดียวกันที่ไม่มี `.git`, `.superpowers`, `build`
+  และ generated caches ที่ไม่จำเป็นใน
+  `/private/tmp/sookta-task8-ios.mrjP0g`
+  ผ่านคำสั่ง iOS เดียวกัน และสร้าง
+  `/private/tmp/sookta-task8-ios.mrjP0g/build/ios/iphonesimulator/Runner.app`
+
+Source/model integrity gate ยังคงตรวจ hash แบบ strict สำหรับเอกสารผู้ว่าจ้าง
+และ ML artifacts ทุกไฟล์ ส่วน `current_app_recommendation_copy`
+เป็น legacy migration snapshot ที่ตั้ง policy
+`legacy_baseline_snapshot` อย่างชัดเจน:
+
+- original baseline:
+  `a112ff7a1fec833cf9312a91db263bb13d7c5989ebfa1fb13deac8d908952bfe`
+- current post-Catalog source:
+  `d3c57a6bc57698dada8a5782ea2c2a5c7ba6cc2e26014e82f06793749f4862c5`
+
+validator รายงาน drift นี้เป็นข้อมูล audit แต่ไม่ทำให้ gate ล้ม
+เฉพาะเมื่อ `id`, `documentRole`, `hashPolicy` และ normalized repo-relative
+`localPath` ตรงกับ `lib/core/localization/sookta_strings.dart` ทุกเงื่อนไข
+test ยืนยันว่า arbitrary path, authoritative recommendation path,
+absolute path, source อื่นที่ hash ไม่ตรง หรือ source อื่นที่พยายามใช้
+policy นี้ยัง fail เสมอ
+ผล `source_registry=PASS` และ `model_baseline=PASS`
+โดย model hashes ทั้งห้าตรง baseline:
+
+| Artifact | SHA-256 |
+|---|---|
+| `assets/models/xgboost_model.onnx` | `dbedb2ab5ce57f3af0cd620e956f30ef34a64beaea493385afd3d27994002efc` |
+| `assets/models/xgboost_model_metadata.json` | `89db0df19fc6a4041a62fcd01e1155a288a19f243ed6908df5fdb03d9cbcb922` |
+| `assets/ml/daily_injury_logistic_model.json` | `c444a8e68ae59fc6e7c34315aa8f725b9d9c50112b01483852a5d3b3ef268a75` |
+| `assets/ml/movenet_thunder.tflite` | `8014d8fe22285265f52aa1cea84056b7704f75adf12341a7712d4cb28bd1d9b6` |
+| `assets/ml/movenet_multipose_lightning.tflite` | `d4489f89e6bd6777a8b9a1a16189832131f84ff90d82fae729e670b84d7948dd` |
+
+การตรวจรอบนี้ **ไม่มีการ train หรือ retrain ML ใด ๆ** และไม่ได้เปลี่ยน
+model artifact, feature schema, สูตร REBA/ISO, selection/effect logic,
+research export schema หรือ native iOS/Android source
+
 ## หลักฐานการตรวจรอบสุดท้าย
 
 - `flutter analyze --no-pub`: ผ่าน, no issues
-- `flutter test --no-pub`: ผ่าน 132 tests
-- Android `flutter build appbundle --release --no-pub`: ผ่าน
-- iOS `flutter build ios --release --no-codesign --no-pub`: ผ่านใน `/private/tmp`
+- `flutter test --no-pub`: ผ่าน 162 tests
+- focused Task 8 Flutter suite: ผ่าน 85 tests
+- recommendation approval gate: ผ่าน 175/175 (100%)
+- source registry และ model baseline: ผ่าน พร้อม informational legacy drift
+- Android `flutter build apk --debug --no-pub`: ผ่าน
+- iOS `flutter build ios --simulator --debug --no-pub`:
+  worktree ติด FileProvider CodeSign; clean local `/private/tmp` copy ผ่าน
+- Android `flutter build appbundle --release --no-pub`:
+  ผ่านใน baseline ก่อนเชื่อม Catalog เท่านั้น ไม่ใช่ final build ของ source ปัจจุบัน
+- iOS `flutter build ios --release --no-codesign --no-pub`:
+  ผ่านใน `/private/tmp` สำหรับ baseline ก่อนเชื่อม Catalog เท่านั้น
+  ไม่ใช่ final build ของ source ปัจจุบัน
 - Android/iOS `pose_device_inference_test.dart`: ผ่าน
 - Android/iOS `ml_device_inference_test.dart`: ผ่านและค่าเท่ากัน
 - Android/iOS `video_frame_contract_test.dart`: ผ่าน
 - Android draft media resume integration: ผ่าน
 - `git diff --check`: ผ่าน
 
-การตรวจครั้งนี้ไม่ได้ stage, commit, push หรือ upload ไฟล์ใดออกจากเครื่อง
+ไม่มีการ push หรือ upload ไฟล์ใดออกจากเครื่อง

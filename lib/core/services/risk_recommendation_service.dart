@@ -1,5 +1,7 @@
 import '../models/assessment_session.dart';
 import '../models/evaluation_models.dart';
+import '../recommendations/recommendation_catalog_models.dart';
+import 'recommendation_catalog_service.dart';
 
 enum FarmerRecommendationCategory {
   posture,
@@ -29,24 +31,26 @@ class RiskRecommendationService {
     required Map<BodyPart, RiskLevel> bodyPartRisks,
     required bool thai,
   }) {
+    final language =
+        thai ? RecommendationLanguage.th : RecommendationLanguage.en;
     final items = <FarmerRecommendation>[
-      _activityPosture(activity, thai),
-      _activityRiskReduction(activity, thai),
-      _restAction(riskLevel, thai),
-      _workloadSupport(activity, thai),
+      _activityPosture(activity, riskLevel, language),
+      _activityRiskReduction(activity, riskLevel, language),
+      _restAction(activity, riskLevel, language),
+      _workloadSupport(activity, riskLevel, language),
     ];
     final riskyParts = bodyPartRisks.entries
         .where((entry) => entry.value != RiskLevel.low)
         .map((entry) => entry.key)
         .take(1);
     for (final part in riskyParts) {
-      items.add(_bodyPosture(part, thai));
+      items.add(_bodyPosture(part, activity, riskLevel, language));
     }
 
     final seen = <String>{};
     final counts = <FarmerRecommendationCategory, int>{};
     return items.where((item) {
-      final key = '${item.category.name}:${item.text}';
+      final key = '${item.category.name}:${item.sourceKey}';
       if (!seen.add(key)) return false;
       final count = counts[item.category] ?? 0;
       if (count >= 2) return false;
@@ -57,26 +61,9 @@ class RiskRecommendationService {
 
   static FarmerRecommendation _activityPosture(
     SooktaActivity activity,
-    bool thai,
+    RiskLevel riskLevel,
+    RecommendationLanguage language,
   ) {
-    final text = switch (activity) {
-      SooktaActivity.transplanting =>
-        thai ? 'สลับยืนกับนั่งยองเป็นระยะ' : 'Alternate standing and squatting',
-      SooktaActivity.fertilizing =>
-        thai ? 'หันตัวเข้าหาปุ๋ยก่อนยก' : 'Face the fertilizer before lifting',
-      SooktaActivity.pesticide => thai
-          ? 'สลับข้างที่ถือท่อพ่น'
-          : 'Alternate the side holding the spray wand',
-      SooktaActivity.pruning => thai
-          ? 'หลีกเลี่ยงการยกแขนเหนือไหล่นาน'
-          : 'Avoid keeping arms above shoulder level',
-      SooktaActivity.harvesting => thai
-          ? 'ขยับเข้าใกล้ต้นก่อนเก็บ'
-          : 'Move closer to the plant before picking',
-      SooktaActivity.transport => thai
-          ? 'งอเข่าและรักษาหลังให้ตรงขณะยก'
-          : 'Bend the knees and keep the back straight',
-    };
     final sourceKey = switch (activity) {
       SooktaActivity.transplanting => 'act_avoid_bend',
       SooktaActivity.fertilizing || SooktaActivity.transport => 'act_use_legs',
@@ -84,6 +71,12 @@ class RiskRecommendationService {
       SooktaActivity.pruning => 'act_reduce_arm_raise',
       SooktaActivity.harvesting => 'act_harvest_move_closer',
     };
+    final text = RecommendationCatalogService.joinedText(
+      selectionKey: sourceKey,
+      language: language,
+      activity: activity.name,
+      riskLevel: riskLevel.name,
+    );
     return FarmerRecommendation(
       sourceKey: sourceKey,
       category: FarmerRecommendationCategory.posture,
@@ -93,24 +86,9 @@ class RiskRecommendationService {
 
   static FarmerRecommendation _activityRiskReduction(
     SooktaActivity activity,
-    bool thai,
+    RiskLevel riskLevel,
+    RecommendationLanguage language,
   ) {
-    final text = switch (activity) {
-      SooktaActivity.transplanting =>
-        thai ? 'ลดเวลาก้มทำงานต่อเนื่อง' : 'Reduce continuous bending time',
-      SooktaActivity.fertilizing =>
-        thai ? 'ลดน้ำหนักปุ๋ยต่อครั้ง' : 'Reduce fertilizer weight per trip',
-      SooktaActivity.pesticide =>
-        thai ? 'ลดระยะเวลาพ่นต่อเนื่อง' : 'Reduce continuous spraying time',
-      SooktaActivity.pruning => thai
-          ? 'หลีกเลี่ยงการตัดกิ่งในท่าบิดตัว'
-          : 'Avoid twisting while pruning',
-      SooktaActivity.harvesting => thai
-          ? 'หยุดงานเมื่อปวดมือหรือหลัง'
-          : 'Stop when hand or back pain occurs',
-      SooktaActivity.transport =>
-        thai ? 'ลดน้ำหนักกระสอบต่อครั้ง' : 'Reduce sack weight per trip',
-    };
     final sourceKey = switch (activity) {
       SooktaActivity.transplanting => 'act_transplant_raise_bed',
       SooktaActivity.fertilizing => 'act_fert_split_load',
@@ -119,6 +97,12 @@ class RiskRecommendationService {
       SooktaActivity.harvesting => 'act_harvest_empty_often',
       SooktaActivity.transport => 'act_transport_clear_path',
     };
+    final text = RecommendationCatalogService.joinedText(
+      selectionKey: sourceKey,
+      language: language,
+      activity: activity.name,
+      riskLevel: riskLevel.name,
+    );
     return FarmerRecommendation(
       sourceKey: sourceKey,
       category: FarmerRecommendationCategory.riskReduction,
@@ -126,18 +110,20 @@ class RiskRecommendationService {
     );
   }
 
-  static FarmerRecommendation _restAction(RiskLevel risk, bool thai) {
-    final text = switch (risk) {
-      RiskLevel.low =>
-        thai ? 'เปลี่ยนท่าทุก 30 นาที' : 'Change posture every 30 minutes',
-      RiskLevel.medium =>
-        thai ? 'พัก 5 นาทีทุก 30 นาที' : 'Rest 5 minutes every 30 minutes',
-      RiskLevel.high ||
-      RiskLevel.veryHigh =>
-        thai ? 'พัก 10 นาทีทุกชั่วโมง' : 'Rest 10 minutes every hour',
-    };
+  static FarmerRecommendation _restAction(
+    SooktaActivity activity,
+    RiskLevel riskLevel,
+    RecommendationLanguage language,
+  ) {
+    const sourceKey = 'act_rest_stretch';
+    final text = RecommendationCatalogService.joinedText(
+      selectionKey: sourceKey,
+      language: language,
+      activity: activity.name,
+      riskLevel: riskLevel.name,
+    );
     return FarmerRecommendation(
-      sourceKey: 'act_rest_stretch',
+      sourceKey: sourceKey,
       category: FarmerRecommendationCategory.restRotation,
       text: text,
     );
@@ -145,26 +131,9 @@ class RiskRecommendationService {
 
   static FarmerRecommendation _workloadSupport(
     SooktaActivity activity,
-    bool thai,
+    RiskLevel riskLevel,
+    RecommendationLanguage language,
   ) {
-    final text = switch (activity) {
-      SooktaActivity.transplanting => thai
-          ? 'ใช้เก้าอี้เตี้ยหรือเบาะรองนั่ง'
-          : 'Use a low stool or squat cushion',
-      SooktaActivity.fertilizing =>
-        thai ? 'ใช้รถเข็นหรือสายพาน' : 'Use a cart or conveyor',
-      SooktaActivity.pesticide => thai
-          ? 'ใช้รถเข็นหรือหัวฉีดต่อท่อยาว'
-          : 'Use a wheeled aid or long-hose nozzle',
-      SooktaActivity.pruning => thai
-          ? 'ใช้กรรไกรด้ามยาวที่น้ำหนักเบา'
-          : 'Use lightweight long-handled shears',
-      SooktaActivity.harvesting =>
-        thai ? 'วางตะกร้าบนแท่นสูง' : 'Place the basket on a raised stand',
-      SooktaActivity.transport => thai
-          ? 'ใช้รถเข็นล้อใหญ่หรือรถลาก'
-          : 'Use a large-wheel cart or trolley',
-    };
     final sourceKey = switch (activity) {
       SooktaActivity.transplanting => 'act_transplant_low_stool',
       SooktaActivity.fertilizing => 'act_extra_fert_cart',
@@ -173,6 +142,12 @@ class RiskRecommendationService {
       SooktaActivity.harvesting => 'act_reduce_load_tool',
       SooktaActivity.transport => 'act_use_cart_distance',
     };
+    final text = RecommendationCatalogService.joinedText(
+      selectionKey: sourceKey,
+      language: language,
+      activity: activity.name,
+      riskLevel: riskLevel.name,
+    );
     return FarmerRecommendation(
       sourceKey: sourceKey,
       category: FarmerRecommendationCategory.workloadSupport,
@@ -180,23 +155,12 @@ class RiskRecommendationService {
     );
   }
 
-  static FarmerRecommendation _bodyPosture(BodyPart part, bool thai) {
-    final text = switch (part) {
-      BodyPart.neck => thai
-          ? 'หลีกเลี่ยงการก้มหรือเอียงคอนาน'
-          : 'Avoid prolonged neck bending or tilting',
-      BodyPart.trunk => thai
-          ? 'ใช้เท้าหมุนตัวแทนการบิดเอว'
-          : 'Turn with the feet instead of twisting the waist',
-      BodyPart.arms =>
-        thai ? 'วางงานให้ต่ำกว่าระดับไหล่' : 'Keep work below shoulder level',
-      BodyPart.wrists => thai
-          ? 'รักษาข้อมือให้ตรงขณะจับอุปกรณ์'
-          : 'Keep wrists straight while holding tools',
-      BodyPart.legs => thai
-          ? 'สลับนั่ง ยืน และเดิน'
-          : 'Alternate sitting, standing, and walking',
-    };
+  static FarmerRecommendation _bodyPosture(
+    BodyPart part,
+    SooktaActivity activity,
+    RiskLevel riskLevel,
+    RecommendationLanguage language,
+  ) {
     final sourceKey = switch (part) {
       BodyPart.neck => 'act_adj_eye_level',
       BodyPart.trunk => 'act_avoid_twist',
@@ -204,6 +168,13 @@ class RiskRecommendationService {
       BodyPart.wrists => 'act_adj_wrist',
       BodyPart.legs => 'act_iso_job_rotation',
     };
+    final text = RecommendationCatalogService.joinedText(
+      selectionKey: sourceKey,
+      language: language,
+      activity: activity.name,
+      bodyPart: part.name,
+      riskLevel: riskLevel.name,
+    );
     return FarmerRecommendation(
       sourceKey: sourceKey,
       category: FarmerRecommendationCategory.posture,

@@ -4,6 +4,7 @@ import 'package:share_plus/share_plus.dart';
 import '../../app/app_state.dart';
 import '../../app/sookta_app.dart';
 import '../../core/models/evaluation_models.dart';
+import '../../core/recommendations/recommendation_catalog_models.dart';
 import '../../core/services/assessment_export_service.dart';
 import '../../core/services/economic_impact_service.dart';
 import '../../core/theme/sookta_theme.dart';
@@ -29,6 +30,11 @@ class HistoryDetailScreen extends StatelessWidget {
     final state = AppStateScope.of(context);
     final thai = (state.language ?? AppLanguage.th) == AppLanguage.th;
     final record = state.historyById(historyId);
+    final activityName = record?.localizedActivityName(thai: thai) ?? '';
+    final localizedSuggestions = record?.localizedSelectedSuggestions(
+          thai ? RecommendationLanguage.th : RecommendationLanguage.en,
+        ) ??
+        const <String>[];
 
     return Scaffold(
       appBar: AppBar(title: Text(thai ? 'รายละเอียดผลตรวจ' : 'Result Details')),
@@ -46,7 +52,7 @@ class HistoryDetailScreen extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            record.activityName,
+                            activityName,
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
@@ -96,8 +102,8 @@ class HistoryDetailScreen extends StatelessWidget {
                               final tts = SooktaTtsButton(
                                 thai: thai,
                                 text: thai
-                                    ? '${record.activityName} คะแนนก่อนปรับ ${record.scoreBefore} คะแนนหลังปรับ ${record.scoreAfter} ผลกระทบก่อนปรับ ${impactComparison.beforeImpact} บาทต่อปี หลังปรับประมาณ ${impactComparison.afterImpact} บาทต่อปี อาจประหยัดได้ ${impactComparison.savedAmount} บาทต่อปี'
-                                    : '${record.activityName}. Before score ${record.scoreBefore}. After score ${record.scoreAfter}. Before impact ${impactComparison.beforeImpact} baht per year. After impact about ${impactComparison.afterImpact} baht per year. Potential saving ${impactComparison.savedAmount} baht per year.',
+                                    ? '$activityName คะแนนก่อนปรับ ${record.scoreBefore} คะแนนหลังปรับ ${record.scoreAfter} ผลกระทบก่อนปรับ ${impactComparison.beforeImpact} บาทต่อปี หลังปรับประมาณ ${impactComparison.afterImpact} บาทต่อปี อาจประหยัดได้ ${impactComparison.savedAmount} บาทต่อปี'
+                                    : '$activityName. Before score ${record.scoreBefore}. After score ${record.scoreAfter}. Before impact ${impactComparison.beforeImpact} baht per year. After impact about ${impactComparison.afterImpact} baht per year. Potential saving ${impactComparison.savedAmount} baht per year.',
                               );
                               if (compact) {
                                 return Column(
@@ -214,10 +220,10 @@ class HistoryDetailScreen extends StatelessWidget {
                             style: const TextStyle(fontWeight: FontWeight.bold),
                           ),
                           const SizedBox(height: 8),
-                          if (record.selectedSuggestions.isEmpty)
+                          if (localizedSuggestions.isEmpty)
                             Text(thai ? 'ไม่มีรายการ' : 'No items')
                           else
-                            ...record.selectedSuggestions.map(
+                            ...localizedSuggestions.map(
                               (item) => Padding(
                                 padding: const EdgeInsets.only(bottom: 6),
                                 child: Row(
