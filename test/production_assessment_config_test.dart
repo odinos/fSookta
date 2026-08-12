@@ -79,7 +79,7 @@ void main() {
     expect(app, contains('signingConfigs'));
   });
 
-  test('iOS release artifact has a non-destructive framework inspection gate',
+  test('iOS release artifact rejects simulator Mach-O binaries',
       () {
     final script = File('tooling/verify_ios_release_artifact.sh');
     expect(script.existsSync(), isTrue);
@@ -87,5 +87,19 @@ void main() {
     expect(source, contains('integration_test.framework'));
     expect(source, contains('otool -L'));
     expect(source, contains('nm -u'));
+    expect(source, contains('IOSSIMULATOR'));
+    expect(source, contains('x86_64'));
+    expect(source, contains('vtool -show-build'));
+    expect(source, contains('codesign --verify'));
+  });
+
+  test('iOS build invalidates staged native assets when SDK changes', () {
+    final script = File('ios/scripts/flutter_build_with_metadata_retry');
+    expect(script.existsSync(), isTrue);
+    final source = script.readAsStringSync();
+    expect(source, contains('PLATFORM_NAME'));
+    expect(source, contains('IOSSIMULATOR'));
+    expect(source, contains('vtool -show-build'));
+    expect(source, contains('build/native_assets/ios'));
   });
 }
