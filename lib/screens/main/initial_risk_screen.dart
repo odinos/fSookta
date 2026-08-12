@@ -349,7 +349,7 @@ class _InitialRiskScreenState extends State<InitialRiskScreen> {
       ),
       4,
     );
-    final score = (before.userScore - reduction).clamp(1, 9).toInt();
+    final score = (before.userScore - reduction).clamp(1, 15).toInt();
     final risk = _riskFromUserScore(score);
     final affectedParts = <BodyPart>{};
     for (final key in selectedKeys) {
@@ -641,8 +641,8 @@ class _InitialRiskScreenState extends State<InitialRiskScreen> {
 
   RiskLevel _riskFromUserScore(int score) {
     if (score <= 3) return RiskLevel.low;
-    if (score <= 6) return RiskLevel.medium;
-    if (score <= 8) return RiskLevel.high;
+    if (score <= 7) return RiskLevel.medium;
+    if (score <= 10) return RiskLevel.high;
     return RiskLevel.veryHigh;
   }
 

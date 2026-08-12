@@ -63,7 +63,7 @@ void main() {
       expect(result.economicLoss, 0);
     });
 
-    test('heavy twist uses survey-based economic impact model', () {
+    test('very-high REBA keeps its official score above nine', () {
       const input = RebaInputData(
         dailyIncome: 500,
         trunkScore: 5,
@@ -79,9 +79,9 @@ void main() {
 
       final result = ErgoCalculator.calculateRebaRisk(input);
 
-      expect(result.techScore, greaterThanOrEqualTo(8));
-      expect(result.userScore, 9);
-      expect({RiskLevel.high, RiskLevel.veryHigh}, contains(result.riskLevel));
+      expect(result.techScore, 11);
+      expect(result.userScore, 11);
+      expect(result.riskLevel, RiskLevel.veryHigh);
       expect(result.economicLoss, 32244);
     });
 
@@ -124,7 +124,7 @@ void main() {
       final result = ErgoCalculator.calculateRebaRisk(input);
 
       expect(result.techScore, 9);
-      expect(result.userScore, 8);
+      expect(result.userScore, 9);
       expect(result.riskLevel, RiskLevel.high);
       expect(result.bodyPartRisks[BodyPart.trunk], RiskLevel.high);
       expect(result.suggestionKeys, contains('act_avoid_bend'));
