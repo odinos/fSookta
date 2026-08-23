@@ -107,3 +107,51 @@ evidence remain required for later tasks.
 ## Commit
 
 `031a14b1062f515ec62b3cab7e52f0333acd64d7` — `docs: add final handover source inventory`.
+
+## Fix Round 1/5: Required Staging Directories
+
+### Changed files
+
+- `tools/final_handover/build_inventory.py` now creates `artifacts/`,
+  `evidence/`, `renders/`, `archives/`, and `manifests/` under every chosen
+  output directory using idempotent `mkdir(exist_ok=True)` calls.  It has no
+  deletion path.
+- `tools/final_handover/test_build_inventory.py` runs the real generator against
+  a fresh `/private/tmp` directory, asserts exactly the five required child
+  directories, then reruns after adding a sentinel and asserts the sentinel is
+  retained.
+
+### Root cause and self-review
+
+The original `main()` created only `args.output_dir`; it did not create the
+five contract subdirectories.  The new behavioral regression test was first run
+against that implementation and failed, reporting all five directories missing.
+The minimal fix adds only the missing idempotent directory creation.  Self-review
+confirmed the rerun preserves a pre-existing file and creates no extra directory
+in a clean staging root.
+
+### Commands and exact results
+
+```text
+PYTHONPYCACHEPREFIX=/private/tmp/fsookta-final-handover/pycache python3 -m unittest tools/final_handover/test_build_inventory.py
+.
+----------------------------------------------------------------------
+Ran 1 test in 0.071s
+
+OK
+```
+
+```text
+staging_root=$(mktemp -d /private/tmp/fsookta-final-handover-fix-round-1.XXXXXX)
+python3 tools/final_handover/build_inventory.py --output-dir "$staging_root" --evidence-date 2026-08-23
+```
+
+Result: fresh staging root `/private/tmp/fsookta-final-handover-fix-round-1.Y1yKkx`
+contained exactly `archives`, `artifacts`, `evidence`, `manifests`, and
+`renders` as child directories.  The normal inventory rerun reported 155
+requirements and `validation_errors: []`.  `git diff --check` completed with no
+output.
+
+### Commit
+
+`f47e8f002b0624d079185cf9acb89eafe2cf7872` — `fix: create handover staging directories`.
