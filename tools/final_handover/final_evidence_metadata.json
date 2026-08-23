@@ -9,7 +9,15 @@
   "evidence": {
     "directory": "/private/tmp/fsookta-final-handover/evidence",
     "metadata_validation": "metadata_validation.json",
-    "metadata_validation_result": "valid"
+    "metadata_validation_result": "valid",
+    "log_sha256": {
+      "final_source_metadata.txt": "d8f8959bc34da429f0960826007567bfa81668d1e6d6657777e9ba8c0a0d79e2",
+      "flutter_pub_get_1.3.11+28.log": "5e349dd1abb25f057d7182a6b2462737e8cbc33af2acb4cf47cb98a17f5fdf72",
+      "flutter_analyze_1.3.11+28.log": "5eac47bdb4cc0afc389378aac6879012ac5e95e44fc5ea1e60aea315d420d417",
+      "flutter_test_1.3.11+28.log": "e271388b2a7794154482d7beda0349233678d4d82aec6724654083cb2878e61c",
+      "build_android_1.3.11+28.log": "05549ad5f00bbc1e010c92d9f1a7d34dfd939e857249374509ee12c757289758",
+      "build_ios_1.3.11+28.log": "b966bf602c2663708362f2044e3cf4f43e19ca88a87b5653c5da1303d2aa9872"
+    }
   },
   "technical_artifacts": [
     {
