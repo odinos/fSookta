@@ -571,6 +571,11 @@ def build_repository_doc(output: Path, repo: Path, archive_manifest: dict) -> No
         ("4. Production deployment", ["Android: supply the owner-controlled upload keystore through a secure channel, configure android/key.properties locally, verify signer, then upload to Google Play Console.", "iOS: use the owner-controlled distribution identity/provisioning profile and App Store Connect role, verify archive/export, then upload through the approved release process.", "Complete store metadata, privacy declarations, device acceptance, staged release, and acceptance evidence before calling the build production-delivered."]),
     ]:
         doc.add_heading(heading, level=2); add_bullets(doc, steps, bullets)
+        if heading == "4. Production deployment":
+            final_deployment_bullet = doc.paragraphs[-1]
+            final_deployment_bullet.paragraph_format.page_break_before = True
+            final_deployment_bullet.paragraph_format.keep_together = True
+            final_deployment_bullet.paragraph_format.space_before = Pt(6)
     doc.add_heading("Component ownership and restrictions", level=1)
     add_table(doc, ["Component", "Technical evidence", "Ownership / restriction status"], [
         ["Flutter application source, tests, tooling, documentation", f"Tracked at {COMMIT}", "Contractual ownership/assignment not verified - authorized parties must confirm"],

@@ -32,8 +32,8 @@
     },
     {
       "path": "/private/tmp/fsookta-final-handover/artifacts/02_Repository_Ownership_and_IP_Handover.docx",
-      "sha256": "4623b71f1f5b036bf3d455c23f23532cc66e53e6ab18aebbc7a8c7bda96eb075",
-      "byte_size": 40372,
+      "sha256": "75a3ac892e0379774654da20b7cec6a8ce98101237fb8c704a7b9c05eab01759",
+      "byte_size": 40402,
       "paragraphs": 45,
       "tables": 3,
       "headings": 8,
@@ -93,7 +93,7 @@
     },
     {
       "path": "/private/tmp/fsookta-final-handover/artifacts/02_Repository_Ownership_and_IP_Handover.pdf",
-      "sha256": "32073498f97d14cdd52ae6c60922e9a221d09cf97b58ca5a44597a0a105e7749",
+      "sha256": "00f0c23afdebffd1a45646b596c22d321165b371359ebf488b5efb808c2878d0",
       "byte_size": 102820,
       "pages": 5
     },
@@ -112,13 +112,13 @@
   ],
   "checksum_manifest": {
     "path": "/private/tmp/fsookta-final-handover/manifests/SHA256SUMS.txt",
-    "sha256": "1a77d690ce9f52c074d147077df9146808c4c7bcc74a3e447c16ab13e0ccc8bf",
+    "sha256": "297e7605155417c9902b551f7b37a2a3342c812ab01378c0acce621a297cb565",
     "entries": 12
   },
   "safe_manifest_hashes": {
     "source_snapshot_manifest": "00e613a77a89e92635710597d37d557ab4f8b989a74c1f9af622ce6e71cca69e",
     "workbook_build_summary": "7c7c057d109202cdf81841461f0cc4eccf27ccb5f3c5080a31b875d002df7b95",
-    "visual_qa_manifest": "71173fdf2f74b0475864d3797544469e4cf11793f21b3ad14a5c7c6781eebc53"
+    "visual_qa_manifest": "19305499c6d683808a38c0cf788f72e8c67e3f57d429692e4045b0169f4021c4"
   },
   "workbook_build_summary": {
     "path": "/private/tmp/fsookta-final-handover/manifests/task3_workbook_build_summary.json",
@@ -130,8 +130,8 @@
   "structural_preset_table_geometry_privacy": "passed",
   "visual_inspection": {
     "path": "/private/tmp/fsookta-final-handover/manifests/task3_visual_qa_manifest.json",
-    "sha256": "71173fdf2f74b0475864d3797544469e4cf11793f21b3ad14a5c7c6781eebc53",
-    "inspected_at": "2026-08-23T23:10:35+07:00",
+    "sha256": "19305499c6d683808a38c0cf788f72e8c67e3f57d429692e4045b0169f4021c4",
+    "inspected_at": "2026-08-23T23:30:38+07:00",
     "reviewer_role": "Task 3 artifact QA reviewer",
     "artifacts": 8,
     "render_references": 39,

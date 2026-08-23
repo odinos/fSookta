@@ -12,6 +12,8 @@ import zipfile
 from pathlib import Path
 from xml.etree import ElementTree as ET
 
+from docx import Document
+
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import build_task3_release as builder
@@ -226,6 +228,30 @@ class TitleResidueTests(unittest.TestCase):
             "</w:p></w:body></w:document>"
         )
         self.assertIn("title paragraph border", verifier.title_residue_violations(xml))
+
+
+class RepositoryPaginationTests(unittest.TestCase):
+    def test_final_deployment_bullet_has_explicit_safe_page_start(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            output = Path(temp) / "repository.docx"
+            builder.build_repository_doc(
+                output,
+                Path(temp),
+                {
+                    "archive": "/tmp/SookTa-1.3.11+28-source-snapshot.tar.gz",
+                    "file_count": 365,
+                    "sha256": "0" * 64,
+                },
+            )
+            document = Document(output)
+            target = next(
+                paragraph
+                for paragraph in document.paragraphs
+                if paragraph.text.startswith("Complete store metadata, privacy declarations")
+            )
+            self.assertIs(target.paragraph_format.page_break_before, True)
+            self.assertIs(target.paragraph_format.keep_together, True)
+            self.assertEqual(target.paragraph_format.space_before.pt, 6)
 
 
 if __name__ == "__main__":
