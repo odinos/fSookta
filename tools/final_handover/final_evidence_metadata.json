@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "authoritative_source": {
+    "commit": "bf8867a2083357cb9d60915bf6c2233801f923d8",
+    "tree_id": "b4ed5fd0c061492c74dba356ed8a114b5f6621ba",
+    "version": "1.3.11+28",
+    "file_count": 602
+  },
+  "evidence": {
+    "directory": "/private/tmp/fsookta-final-handover/evidence",
+    "metadata_validation": "metadata_validation.json",
+    "metadata_validation_result": "valid"
+  },
+  "technical_artifacts": [
+    {
+      "path": "/private/tmp/fsookta-final-handover/authoritative-materializations/source-gn4oc40g/source/build/app/outputs/bundle/release/app-release.aab",
+      "sha256": "e36f2fb76fbd459d2c049b91154e47e93e8654969b0789ddcd21e397f90a79e7",
+      "classification": "Technical release-build evidence only; not a production/upload artifact because release-signing handover evidence is absent."
+    },
+    {
+      "path": "/private/tmp/fsookta-final-handover/authoritative-materializations/source-gn4oc40g/source/build/ios/ipa/Sookta.ipa",
+      "sha256": "c7b54520ab63ebb8a522eb911eaafd6c353db80ed65522be56441f6cfda6c54d",
+      "classification": "Technical release-build evidence only; not a production/App-Store artifact because distribution-signing ownership and handover evidence are absent."
+    }
+  ],
+  "blockers": [
+    "Android: the authoritative source includes android/key.properties.example but no android/key.properties; upload-signing material is not evidenced.",
+    "iOS: source-level signing settings do not establish distribution-certificate, provisioning-profile, or App Store Connect ownership transfer; no credentials were inspected or copied."
+  ]
+}

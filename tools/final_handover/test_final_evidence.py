@@ -15,6 +15,19 @@ SPEC.loader.exec_module(final_evidence)
 
 
 class FinalEvidenceTest(unittest.TestCase):
+    def test_validation_covers_every_created_text_evidence_log(self) -> None:
+        self.assertEqual(
+            final_evidence.EVIDENCE_LOG_NAMES,
+            (
+                "final_source_metadata.txt",
+                "flutter_pub_get_1.3.11+28.log",
+                "flutter_analyze_1.3.11+28.log",
+                "flutter_test_1.3.11+28.log",
+                "build_android_1.3.11+28.log",
+                "build_ios_1.3.11+28.log",
+            ),
+        )
+
     def test_log_header_contains_auditable_required_metadata(self) -> None:
         header = final_evidence.render_log_header(
             command=("/Users/kpc/develop/flutter/bin/flutter", "test"),

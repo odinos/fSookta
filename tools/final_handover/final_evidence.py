@@ -24,7 +24,9 @@ from typing import Mapping, Sequence
 
 AUTHORITATIVE_COMMIT = "bf8867a2083357cb9d60915bf6c2233801f923d8"
 AUTHORITATIVE_VERSION = "1.3.11+28"
-PRIMARY_LOG_NAMES = (
+EVIDENCE_LOG_NAMES = (
+    "final_source_metadata.txt",
+    "flutter_pub_get_1.3.11+28.log",
     "flutter_analyze_1.3.11+28.log",
     "flutter_test_1.3.11+28.log",
     "build_android_1.3.11+28.log",
@@ -212,7 +214,7 @@ def write_source_metadata(
 
 def validate_evidence(evidence_dir: Path) -> dict[str, object]:
     records = []
-    for name in PRIMARY_LOG_NAMES:
+    for name in EVIDENCE_LOG_NAMES:
         path = evidence_dir / name
         errors = ["missing file"] if not path.exists() else validate_log_text(path.read_text(encoding="utf-8"))
         records.append({"path": str(path), "sha256": sha256(path) if path.exists() else None, "errors": errors})
