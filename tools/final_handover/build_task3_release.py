@@ -319,6 +319,33 @@ def gradle_plugins(repo: Path) -> list[tuple[str, str]]:
     return re.findall(r'id\s+"([^"]+)"\s+version\s+"([^"]+)"', text)
 
 
+def parse_pod_lock_entry(line: str) -> tuple[str, str] | None:
+    """Parse one top-level CocoaPods lock entry, including YAML-quoted scalars."""
+    if not line.startswith("  - "):
+        return None
+    scalar = line[4:].strip()
+    if scalar.endswith(":"):
+        scalar = scalar[:-1].rstrip()
+    if scalar.startswith(('"', "'")):
+        quote = scalar[0]
+        if not scalar.endswith(quote):
+            raise ValueError(f"malformed quoted CocoaPods lock entry: {line!r}")
+        if quote == '"':
+            try:
+                scalar = json.loads(scalar)
+            except json.JSONDecodeError as exc:
+                raise ValueError(f"invalid quoted CocoaPods lock entry: {line!r}") from exc
+        else:
+            scalar = scalar[1:-1].replace("''", "'")
+    match = re.fullmatch(r"(.+?) \(([^()]+)\)", scalar)
+    if not match:
+        return None
+    name, version = (value.strip() for value in match.groups())
+    if not name or name.startswith(('"', "'")) or name.endswith(('"', "'")):
+        raise ValueError(f"invalid CocoaPods dependency name: {name!r}")
+    return name, version
+
+
 def pod_versions(repo: Path) -> list[tuple[str, str]]:
     text = run_git(repo, "show", f"{COMMIT}:ios/Podfile.lock")
     pods = []
@@ -330,10 +357,10 @@ def pod_versions(repo: Path) -> list[tuple[str, str]]:
             continue
         if in_pods and line and not line.startswith(" "):
             break
-        match = re.match(r"  - ([^ ]+) \(([^)]+)\):?", line)
-        if match and match.group(1) not in seen:
-            seen.add(match.group(1))
-            pods.append((match.group(1), match.group(2)))
+        entry = parse_pod_lock_entry(line)
+        if entry and entry[0] not in seen:
+            seen.add(entry[0])
+            pods.append(entry)
     return pods
 
 

@@ -10,6 +10,7 @@ import tempfile
 import unittest
 import zipfile
 from pathlib import Path
+from unittest.mock import patch
 from xml.etree import ElementTree as ET
 
 from docx import Document
@@ -73,6 +74,56 @@ class DependencyRecordTests(unittest.TestCase):
         )
         self.assertEqual(record["classification"], "Unresolved - dependency graph review required")
         self.assertEqual(record["review_status"], "Human verification required")
+
+    def test_cocoapods_quoted_and_unquoted_names_and_urls_are_normalized(self) -> None:
+        pubspec_lock = """packages:
+  hosted_pkg:
+    dependency: direct main
+    description:
+      name: hosted_pkg
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.0.0"
+"""
+        podfile_lock = """PODS:
+  - "GoogleUtilities/NSData+zlib (8.1.0)":
+    - GoogleUtilities/Logger (= 8.1.0)
+  - Firebase/CoreOnly (12.0.0):
+  - nanopb (3.30910.0):
+DEPENDENCIES:
+  - Firebase/CoreOnly
+"""
+
+        def git_fixture(_repo: Path, *args: str, **_kwargs: object) -> str:
+            object_path = args[-1]
+            if object_path.endswith(":pubspec.lock"):
+                return pubspec_lock
+            if object_path.endswith(":android/settings.gradle"):
+                return ""
+            if object_path.endswith(":ios/Podfile.lock"):
+                return podfile_lock
+            raise AssertionError(f"unexpected Git object request: {object_path}")
+
+        with tempfile.TemporaryDirectory() as temp, patch.object(builder, "run_git", side_effect=git_fixture):
+            payload = builder.parse_dependencies(Path(temp), Path(temp) / "dependencies.json")
+
+        pod_records = [record for record in payload["records"] if record["platform"] == "iOS"]
+        self.assertEqual(
+            [(record["dependency"], record["resolved_version"]) for record in pod_records],
+            [
+                ("GoogleUtilities/NSData+zlib", "8.1.0"),
+                ("Firebase/CoreOnly", "12.0.0"),
+                ("nanopb", "3.30910.0"),
+            ],
+        )
+        self.assertEqual(
+            [record["source_url"] for record in pod_records],
+            [
+                "https://cocoapods.org/pods/GoogleUtilities",
+                "https://cocoapods.org/pods/Firebase",
+                "https://cocoapods.org/pods/nanopb",
+            ],
+        )
 
 
 class ArchiveExclusionTests(unittest.TestCase):
