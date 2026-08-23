@@ -1,0 +1,125 @@
+{
+  "schema_version": 1,
+  "baseline": {
+    "version": "1.3.11+28",
+    "commit": "bf8867a2083357cb9d60915bf6c2233801f923d8",
+    "tree": "b4ed5fd0c061492c74dba356ed8a114b5f6621ba"
+  },
+  "archive": {
+    "path": "/private/tmp/fsookta-final-handover/archives/SookTa-1.3.11+28-source-snapshot.tar.gz",
+    "sha256": "ed659bf1733b565de45b0dffb736503232c37d4deac9e2b580bb8492426466fc",
+    "byte_size": 45917437,
+    "file_count": 365,
+    "version": "1.3.11+28",
+    "commit": "bf8867a2083357cb9d60915bf6c2233801f923d8",
+    "tree": "b4ed5fd0c061492c74dba356ed8a114b5f6621ba",
+    "exclusions": "passed",
+    "unpack_reconciliation": "365/365 files match authoritative commit"
+  },
+  "docx": [
+    {
+      "path": "/private/tmp/fsookta-final-handover/artifacts/01_Final_Release_and_Scope_Closure.docx",
+      "sha256": "44c409abd9766631c488e2693d9c1798263812cda1f48772f3e84d3d73a9877e",
+      "byte_size": 40672,
+      "paragraphs": 53,
+      "tables": 2,
+      "headings": 8,
+      "true_list_paragraphs": 39,
+      "preset": "google_docs_default passed",
+      "table_geometry": "passed",
+      "privacy": "passed",
+      "title_sanitizer": "passed"
+    },
+    {
+      "path": "/private/tmp/fsookta-final-handover/artifacts/02_Repository_Ownership_and_IP_Handover.docx",
+      "sha256": "4623b71f1f5b036bf3d455c23f23532cc66e53e6ab18aebbc7a8c7bda96eb075",
+      "byte_size": 40372,
+      "paragraphs": 45,
+      "tables": 3,
+      "headings": 8,
+      "true_list_paragraphs": 25,
+      "preset": "google_docs_default passed",
+      "table_geometry": "passed",
+      "privacy": "passed",
+      "title_sanitizer": "passed"
+    }
+  ],
+  "xlsx": [
+    {
+      "path": "/private/tmp/fsookta-final-handover/artifacts/02_Third_Party_License_Register.xlsx",
+      "sha256": "f34155f899ca2f1662995ccf1ddf6c75697135e4b575ed4a7dc4fb8e979daf5c",
+      "byte_size": 20817,
+      "sheets": [
+        "License Register",
+        "Review Summary",
+        "Sources & Notes"
+      ],
+      "sheet_count": 3,
+      "formula_cells": 190,
+      "formula_error_scan": "0 errors",
+      "privacy": "passed",
+      "print_settings": "3/3 sheets landscape fit-to-width"
+    },
+    {
+      "path": "/private/tmp/fsookta-final-handover/artifacts/02_Repository_Access_Checklist.xlsx",
+      "sha256": "a1f0d3304b604399c2e5d205f77217000a3f8f5239138f3e3288b5c974ac1f8e",
+      "byte_size": 9930,
+      "sheets": [
+        "Access Checklist",
+        "Status Summary",
+        "Secure Handover Notes"
+      ],
+      "sheet_count": 3,
+      "formula_cells": 5,
+      "formula_error_scan": "0 errors",
+      "privacy": "passed",
+      "print_settings": "3/3 sheets landscape fit-to-width"
+    }
+  ],
+  "pdf": [
+    {
+      "path": "/private/tmp/fsookta-final-handover/artifacts/01_Final_Release_and_Scope_Closure.pdf",
+      "sha256": "406cf4593c3df4d1a0ac4a7155e683dca187eb8ce1b2b21e31962fe8cf0fa316",
+      "byte_size": 94690,
+      "pages": 5
+    },
+    {
+      "path": "/private/tmp/fsookta-final-handover/artifacts/02_Repository_Ownership_and_IP_Handover.pdf",
+      "sha256": "32073498f97d14cdd52ae6c60922e9a221d09cf97b58ca5a44597a0a105e7749",
+      "byte_size": 102820,
+      "pages": 5
+    },
+    {
+      "path": "/private/tmp/fsookta-final-handover/artifacts/02_Third_Party_License_Register.pdf",
+      "sha256": "66738226cc3ffe09ee716d6718c7948c9844028696426a9fb60a8ca0861e77ac",
+      "byte_size": 633211,
+      "pages": 9
+    },
+    {
+      "path": "/private/tmp/fsookta-final-handover/artifacts/02_Repository_Access_Checklist.pdf",
+      "sha256": "76e6265ddbdbde81b15ea26066ed357b7d5dfe8c549aaa9b027970ee73fada99",
+      "byte_size": 77226,
+      "pages": 4
+    }
+  ],
+  "checksum_manifest": {
+    "path": "/private/tmp/fsookta-final-handover/manifests/SHA256SUMS.txt",
+    "sha256": "1a78cfd7d35526c3c13d6abda2e68d372ec76ea26f2d4180c679062ee5561366",
+    "entries": 9
+  },
+  "formula_error_scan": "0 errors across both workbooks",
+  "structural_preset_table_geometry_privacy": "passed",
+  "visual_inspection": {
+    "docx_pages": 10,
+    "xlsx_sheet_renders": 6,
+    "xlsx_pdf_pages": 13,
+    "status": "inspected at 100%; no clipping, overlap, or broken page content in final renders"
+  },
+  "human_actions": [
+    "Original contract scope mapping and later-request approvals remain owner/researcher actions.",
+    "Production Android/iOS signing ownership and store access remain unverified.",
+    "Third-party license identifiers/notices require owner/legal review (185 pending rows).",
+    "Repository/service access transfer evidence and rights/acceptance signatures remain pending."
+  ],
+  "status": "passed_with_human_actions"
+}
