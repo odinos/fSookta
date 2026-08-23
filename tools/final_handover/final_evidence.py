@@ -152,6 +152,29 @@ def fallback_decision(platform_name: str, production_signing_verified: bool) -> 
     raise ValueError(f"unsupported platform for fallback: {platform_name}")
 
 
+def production_signing_verified(source: Path, platform_name: str) -> bool:
+    """Production signing defaults to unverified without reading any secret material."""
+    del source, platform_name
+    return False
+
+
+def pipeline_exit_code(
+    primary_exit_codes: Sequence[int],
+    fallback_exit_codes: Sequence[int],
+    *,
+    lockfile_changed: bool,
+    metadata_valid: bool,
+    runtime_summary_errors: Sequence[str],
+) -> int:
+    return 0 if (
+        not any(primary_exit_codes)
+        and not any(fallback_exit_codes)
+        and not lockfile_changed
+        and metadata_valid
+        and not runtime_summary_errors
+    ) else 1
+
+
 def environment_snapshot(flutter: str) -> dict[str, str]:
     flutter_exit, flutter_stdout, flutter_stderr = run_output((flutter, "--version"))
     xcode_exit, xcode_stdout, xcode_stderr = run_output(("xcodebuild", "-version"))
@@ -456,12 +479,16 @@ def main() -> int:
                 "Technical release-build evidence only; distribution/App Store ownership is not verified.",
             ),
         ))
-        android_fallback = fallback_decision("android", (archive.source / "android" / "key.properties").is_file())
-        ios_fallback = fallback_decision("ios", production_signing_verified=False)
+        android_fallback = fallback_decision("android", production_signing_verified(archive.source, "android"))
+        ios_fallback = fallback_decision("ios", production_signing_verified(archive.source, "ios"))
+        fallback_attempts = []
         for decision in (android_fallback, ios_fallback):
             assert decision is not None
             command = (args.flutter, *decision.command[1:])
-            write_build_log(args.evidence_dir / decision.log_name, command, archive.source, environment, decision.classification)
+            fallback_exit_code = write_build_log(args.evidence_dir / decision.log_name, command, archive.source, environment, decision.classification)
+            fallback_attempts.append({"log_name": decision.log_name, "exit_code": fallback_exit_code, "classification": decision.classification})
+    else:
+        fallback_attempts = []
 
     summary = validate_evidence(args.evidence_dir)
     write_validation_file(args.evidence_dir, summary)
@@ -487,11 +514,20 @@ def main() -> int:
             "lockfile_before": lock_before,
             "lockfile_after": lock_after,
             "lockfile_changed": changed_lockfile,
+            "fallback_attempts": fallback_attempts,
         },
     )
     safe_summary_output = args.safe_summary_output or args.evidence_dir / "final_evidence_safe_summary.json"
-    safe_summary_output.write_text(json.dumps(safe_summary, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     runtime_summary_errors = verify_runtime_summary(safe_summary)
+    pipeline_code = pipeline_exit_code(
+        exit_codes,
+        tuple(attempt["exit_code"] for attempt in fallback_attempts),
+        lockfile_changed=changed_lockfile,
+        metadata_valid=bool(summary["valid"]),
+        runtime_summary_errors=runtime_summary_errors,
+    )
+    safe_summary["pipeline_exit_code"] = pipeline_code
+    safe_summary_output.write_text(json.dumps(safe_summary, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     (args.evidence_dir / "verification_environment.json").write_text(
         json.dumps(
             {
@@ -499,12 +535,13 @@ def main() -> int:
                 "metadata_validation": summary,
                 "runtime_summary": str(safe_summary_output),
                 "runtime_summary_errors": runtime_summary_errors,
+                "pipeline_exit_code": pipeline_code,
             },
             ensure_ascii=False, indent=2, sort_keys=True,
         ) + "\n",
         encoding="utf-8",
     )
-    return 0 if not any(exit_codes) and not changed_lockfile and summary["valid"] and not runtime_summary_errors else 1
+    return pipeline_code
 
 
 if __name__ == "__main__":

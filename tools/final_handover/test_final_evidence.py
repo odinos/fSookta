@@ -68,6 +68,20 @@ class FinalEvidenceTest(unittest.TestCase):
         self.assertEqual(ios.command[-1], "--no-codesign")
         self.assertIsNone(final_evidence.fallback_decision("android", production_signing_verified=True))
 
+    def test_key_properties_presence_never_verifies_android_production_signing(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            source = Path(temporary_directory)
+            key_properties = source / "android" / "key.properties"
+            key_properties.parent.mkdir()
+            key_properties.write_text("storePassword=not-read\n", encoding="utf-8")
+
+            self.assertFalse(final_evidence.production_signing_verified(source, "android"))
+            self.assertIsNotNone(final_evidence.fallback_decision("android", final_evidence.production_signing_verified(source, "android")))
+
+    def test_failed_fallback_exit_code_propagates_to_pipeline_result(self) -> None:
+        self.assertEqual(final_evidence.pipeline_exit_code((0, 0), (0, 1), lockfile_changed=False, metadata_valid=True, runtime_summary_errors=()), 1)
+        self.assertEqual(final_evidence.pipeline_exit_code((0, 0), (0, 0), lockfile_changed=False, metadata_valid=True, runtime_summary_errors=()), 0)
+
     def test_validation_file_and_safe_summary_match_runtime_hashes_and_sizes(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
             directory = Path(temporary_directory)
@@ -123,6 +137,22 @@ class FinalEvidenceTest(unittest.TestCase):
 
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("1 records matched", result.stdout)
+
+    def test_standalone_summary_verifier_rejects_missing_null_record(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            directory = Path(temporary_directory)
+            summary = directory / "summary.json"
+            summary.write_text(json.dumps({"primary_logs": [{"path": str(directory / "missing.log"), "exists": False, "sha256": None, "byte_size": None}]}), encoding="utf-8")
+            result = subprocess.run([sys.executable, str(SUMMARY_VERIFIER), "--summary", str(summary)], cwd=REPOSITORY_ROOT, check=False, capture_output=True, text=True)
+
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("runtime-summary mismatch", result.stdout)
+
+    def test_current_twelve_record_summary_matches_runtime_files(self) -> None:
+        result = subprocess.run([sys.executable, str(SUMMARY_VERIFIER), "--summary", str(REPOSITORY_ROOT / "tools" / "final_handover" / "final_evidence_metadata.json")], cwd=REPOSITORY_ROOT, check=False, capture_output=True, text=True)
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("12 records matched", result.stdout)
     def test_validation_covers_every_created_text_evidence_log(self) -> None:
         self.assertEqual(
             final_evidence.EVIDENCE_LOG_NAMES,

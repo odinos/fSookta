@@ -40,15 +40,19 @@ def main() -> int:
     args = parser.parse_args()
     summary = json.loads(args.summary.read_text(encoding="utf-8"))
     mismatches = []
-    for record in records(summary):
+    summary_records = records(summary)
+    if not summary_records:
+        print("runtime-summary mismatch: no required records")
+        return 1
+    for record in summary_records:
         path = Path(record["path"])
         actual_hash, actual_size = fingerprint(path)
-        if actual_hash != record.get("sha256") or actual_size != record.get("byte_size"):
+        if record.get("exists") is not True or not path.exists() or actual_hash != record.get("sha256") or actual_size != record.get("byte_size"):
             mismatches.append(str(path))
     if mismatches:
         print("runtime-summary mismatch: " + ", ".join(mismatches))
         return 1
-    print(f"runtime-summary comparison: {len(records(summary))} records matched SHA-256 and byte size")
+    print(f"runtime-summary comparison: {len(summary_records)} records matched SHA-256 and byte size")
     return 0
 
 

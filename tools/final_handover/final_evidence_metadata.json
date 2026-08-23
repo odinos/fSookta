@@ -18,6 +18,10 @@
     "lockfile_after": {"byte_size": 29625, "exists": true, "sha256": "72490761346ebeacc4c6fa2ef99b94f44e140d8fb55b4ad0702e98b999f73cc1"},
     "lockfile_before": {"byte_size": 29625, "exists": true, "sha256": "72490761346ebeacc4c6fa2ef99b94f44e140d8fb55b4ad0702e98b999f73cc1"},
     "lockfile_changed": false,
+    "fallback_attempts": [
+      {"classification": "Non-production Android debug fallback; upload signing is not verified.", "exit_code": 0, "log_name": "build_android_fallback_debug_1.3.11+28.log"},
+      {"classification": "Non-production iOS no-codesign fallback; distribution/App Store ownership is not verified.", "exit_code": 0, "log_name": "build_ios_fallback_no_codesign_1.3.11+28.log"}
+    ],
     "tree_id": "b4ed5fd0c061492c74dba356ed8a114b5f6621ba",
     "version": "1.3.11+28"
   },
@@ -30,5 +34,6 @@
     {"byte_size": 4007, "exists": true, "path": "/private/tmp/fsookta-final-handover/evidence/build_android_1.3.11+28.log", "sha256": "6aad42fdf6fea550ce9f232ba7a8ad266b92a94c63793b39ffd056781ebca653"},
     {"byte_size": 4659, "exists": true, "path": "/private/tmp/fsookta-final-handover/evidence/build_ios_1.3.11+28.log", "sha256": "3a22b95eeeb0fa54884225a22ff6b69f692dd8bf2dc37f6586e824f59b41a8e6"}
   ],
+  "pipeline_exit_code": 0,
   "schema_version": 2
 }
