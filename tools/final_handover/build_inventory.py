@@ -26,6 +26,7 @@ TERMINAL_STATUSES = (
     "N/A with Rationale",
     "Exception Approval Required",
 )
+REQUIRED_STAGING_DIRS = ("artifacts", "evidence", "renders", "archives", "manifests")
 
 # Each value is (deliverable/governing text, required format).  English wording
 # and formatting are retained verbatim from the PDF's English table cells.
@@ -344,6 +345,8 @@ def main() -> int:
     parser.add_argument("--evidence-date", default="2026-08-23")
     args = parser.parse_args()
     args.output_dir.mkdir(parents=True, exist_ok=True)
+    for name in REQUIRED_STAGING_DIRS:
+        (args.output_dir / name).mkdir(exist_ok=True)
     requirements = build_requirements()
     evidence_map = build_evidence_map(requirements)
     errors = validate(requirements, evidence_map)
