@@ -47,22 +47,26 @@
   "xlsx": [
     {
       "path": "/private/tmp/fsookta-final-handover/artifacts/02_Third_Party_License_Register.xlsx",
-      "sha256": "f34155f899ca2f1662995ccf1ddf6c75697135e4b575ed4a7dc4fb8e979daf5c",
-      "byte_size": 20817,
+      "sha256": "c8eaf3397109baac7d69763c69dcd9d61e0f19aae92abaee9970b3ddfaa97f2c",
+      "byte_size": 21379,
       "sheets": [
         "License Register",
         "Review Summary",
         "Sources & Notes"
       ],
       "sheet_count": 3,
-      "formula_cells": 190,
+      "formula_cells": 189,
       "formula_error_scan": "0 errors",
+      "formula_contract": {
+        "checked_cells": 189,
+        "status": "passed"
+      },
       "privacy": "passed",
       "print_settings": "3/3 sheets landscape fit-to-width"
     },
     {
       "path": "/private/tmp/fsookta-final-handover/artifacts/02_Repository_Access_Checklist.xlsx",
-      "sha256": "a1f0d3304b604399c2e5d205f77217000a3f8f5239138f3e3288b5c974ac1f8e",
+      "sha256": "a6800c5ca0f500e521594e6b471b02602715818733b2d9fc11f14439259d00f7",
       "byte_size": 9930,
       "sheets": [
         "Access Checklist",
@@ -72,6 +76,10 @@
       "sheet_count": 3,
       "formula_cells": 5,
       "formula_error_scan": "0 errors",
+      "formula_contract": {
+        "checked_cells": 5,
+        "status": "passed"
+      },
       "privacy": "passed",
       "print_settings": "3/3 sheets landscape fit-to-width"
     }
@@ -91,34 +99,49 @@
     },
     {
       "path": "/private/tmp/fsookta-final-handover/artifacts/02_Third_Party_License_Register.pdf",
-      "sha256": "66738226cc3ffe09ee716d6718c7948c9844028696426a9fb60a8ca0861e77ac",
-      "byte_size": 633211,
+      "sha256": "0bc4dd2fca8bded4bd17df4bf49e9888c4b8f60fd358e9973bc9e6a2543c3353",
+      "byte_size": 634624,
       "pages": 9
     },
     {
       "path": "/private/tmp/fsookta-final-handover/artifacts/02_Repository_Access_Checklist.pdf",
-      "sha256": "76e6265ddbdbde81b15ea26066ed357b7d5dfe8c549aaa9b027970ee73fada99",
+      "sha256": "d81fb87192efddf62398a4b358565e2a57b0aba7a375b6f119c3a7217d21b02c",
       "byte_size": 77226,
       "pages": 4
     }
   ],
   "checksum_manifest": {
     "path": "/private/tmp/fsookta-final-handover/manifests/SHA256SUMS.txt",
-    "sha256": "1a78cfd7d35526c3c13d6abda2e68d372ec76ea26f2d4180c679062ee5561366",
-    "entries": 9
+    "sha256": "1a77d690ce9f52c074d147077df9146808c4c7bcc74a3e447c16ab13e0ccc8bf",
+    "entries": 12
+  },
+  "safe_manifest_hashes": {
+    "source_snapshot_manifest": "00e613a77a89e92635710597d37d557ab4f8b989a74c1f9af622ce6e71cca69e",
+    "workbook_build_summary": "7c7c057d109202cdf81841461f0cc4eccf27ccb5f3c5080a31b875d002df7b95",
+    "visual_qa_manifest": "71173fdf2f74b0475864d3797544469e4cf11793f21b3ad14a5c7c6781eebc53"
+  },
+  "workbook_build_summary": {
+    "path": "/private/tmp/fsookta-final-handover/manifests/task3_workbook_build_summary.json",
+    "sha256": "7c7c057d109202cdf81841461f0cc4eccf27ccb5f3c5080a31b875d002df7b95",
+    "checks": 7,
+    "status": "passed"
   },
   "formula_error_scan": "0 errors across both workbooks",
   "structural_preset_table_geometry_privacy": "passed",
   "visual_inspection": {
-    "docx_pages": 10,
-    "xlsx_sheet_renders": 6,
-    "xlsx_pdf_pages": 13,
-    "status": "inspected at 100%; no clipping, overlap, or broken page content in final renders"
+    "path": "/private/tmp/fsookta-final-handover/manifests/task3_visual_qa_manifest.json",
+    "sha256": "71173fdf2f74b0475864d3797544469e4cf11793f21b3ad14a5c7c6781eebc53",
+    "inspected_at": "2026-08-23T23:10:35+07:00",
+    "reviewer_role": "Task 3 artifact QA reviewer",
+    "artifacts": 8,
+    "render_references": 39,
+    "unique_render_files": 29,
+    "status": "passed"
   },
   "human_actions": [
     "Original contract scope mapping and later-request approvals remain owner/researcher actions.",
     "Production Android/iOS signing ownership and store access remain unverified.",
-    "Third-party license identifiers/notices require owner/legal review (185 pending rows).",
+    "Third-party license identifiers/notices require owner/legal review (184 pending rows).",
     "Repository/service access transfer evidence and rights/acceptance signatures remain pending."
   ],
   "status": "passed_with_human_actions"

@@ -3,6 +3,7 @@
 
 import fs from "node:fs/promises";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 import { SpreadsheetFile, Workbook } from "@oai/artifact-tool";
 import JSZip from "jszip";
 
@@ -74,6 +75,46 @@ async function renderSheets(workbook, stem, sheets) {
   return outputs;
 }
 
+function parseNdjson(ndjson) {
+  const records = ndjson.split(/\r?\n/).filter((line) => line.trim()).map((line) => JSON.parse(line));
+  if (records.length === 0) throw new Error("artifact-tool inspection output is empty");
+  return records;
+}
+
+export function assertFormulaErrorScanClean(ndjson) {
+  const records = parseNdjson(ndjson);
+  const cleanNotices = records.filter((record) => record.kind === "notice" && /matched 0 entries/i.test(record.message ?? ""));
+  const matches = records.filter((record) => !(record.kind === "notice" && /matched 0 entries/i.test(record.message ?? "")));
+  if (cleanNotices.length !== 1 || matches.length !== 0) {
+    throw new Error(`Formula error scan matched cells or returned an ambiguous result: ${JSON.stringify(records)}`);
+  }
+}
+
+export function assertInspectionMatches(ndjson, expected) {
+  const records = parseNdjson(ndjson);
+  const table = records.find((record) => record.kind === "table");
+  if (!table) throw new Error(`Expected artifact-tool table inspection is missing: ${expected.sheet}!${expected.address}`);
+  if (table.sheet !== expected.sheet || table.address !== expected.address) {
+    throw new Error(`Inspection range mismatch: expected ${expected.sheet}!${expected.address}, got ${table.sheet}!${table.address}`);
+  }
+  if (JSON.stringify(table.values) !== JSON.stringify(expected.values)) {
+    throw new Error(`Inspection value mismatch for ${expected.sheet}!${expected.address}`);
+  }
+  return table;
+}
+
+function splitRange(reference) {
+  const separator = reference.indexOf("!");
+  if (separator < 1) throw new Error(`Invalid sheet range: ${reference}`);
+  return [reference.slice(0, separator), reference.slice(separator + 1)];
+}
+
+function assertMatrix(actual, expected, label) {
+  if (JSON.stringify(actual) !== JSON.stringify(expected)) {
+    throw new Error(`${label} mismatch: expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`);
+  }
+}
+
 async function inspectAndScan(workbook, workbookName, checks) {
   const results = [];
   for (const check of checks) {
@@ -85,7 +126,33 @@ async function inspectAndScan(workbook, workbookName, checks) {
       tableMaxCols: check.cols ?? 12,
       maxChars: 12000,
     });
-    results.push({ range: check.range, ndjson: inspected.ndjson });
+    const [sheetName, address] = splitRange(check.range);
+    const table = assertInspectionMatches(inspected.ndjson, { sheet: sheetName, address, values: check.expectedValues });
+    const formulaChecks = [];
+    for (const formulaCheck of check.formulaChecks ?? []) {
+      const [formulaSheetName, formulaAddress] = splitRange(formulaCheck.range);
+      const range = workbook.worksheets.getItem(formulaSheetName).getRange(formulaAddress);
+      const inspectedFormulas = range.formulas;
+      const inspectedValues = range.values;
+      assertMatrix(inspectedFormulas, formulaCheck.expectedFormulas, `Expected formulas for ${formulaCheck.range}`);
+      assertMatrix(inspectedValues, formulaCheck.expectedValues, `Expected cached/calculated values for ${formulaCheck.range}`);
+      formulaChecks.push({
+        range: formulaCheck.range,
+        expected_formulas: formulaCheck.expectedFormulas,
+        inspected_formulas: inspectedFormulas,
+        expected_values: formulaCheck.expectedValues,
+        inspected_values: inspectedValues,
+        status: "passed",
+      });
+    }
+    results.push({
+      range: check.range,
+      ndjson: inspected.ndjson,
+      expected_values: check.expectedValues,
+      inspected_values: table.values,
+      formula_checks: formulaChecks,
+      status: "passed",
+    });
   }
   const errors = await workbook.inspect({
     kind: "match",
@@ -94,7 +161,24 @@ async function inspectAndScan(workbook, workbookName, checks) {
     summary: "final formula error scan",
     maxChars: 12000,
   });
-  const output = { workbook: workbookName, inspections: results, formula_error_scan: errors.ndjson };
+  assertFormulaErrorScanClean(errors.ndjson);
+  const contractChecks = results.flatMap((result) => [
+    {
+      range: result.range,
+      expected_values: result.expected_values,
+      inspected_values: result.inspected_values,
+      expected_formulas: [],
+      inspected_formulas: [],
+      status: "passed",
+    },
+    ...result.formula_checks,
+  ]);
+  const output = {
+    workbook: workbookName,
+    inspections: results,
+    formula_error_scan: errors.ndjson,
+    inspection_contract: { status: "passed", formula_error_matches: 0, checks: contractChecks },
+  };
   await fs.writeFile(path.join(renderDir, `${workbookName}__inspection.json`), JSON.stringify(output, null, 2));
   return output;
 }
@@ -197,10 +281,47 @@ async function buildLicenseRegister(records) {
   sources.getRange("A5:C10").format.rowHeight = 42;
 
   const output = path.join(artifactsDir, "02_Third_Party_License_Register.xlsx");
+  const pendingCount = records.filter((record) => record.license_identifier === "Human verification required").length;
+  const recordedCount = records.length - pendingCount;
+  const runtimeCount = records.filter((record) => record.classification === "Runtime").length;
+  const statusFormulas = records.map((_, index) => [`=IF(E${index + 5}="Human verification required","Pending legal review","Recorded")`]);
+  const statusValues = records.map((record) => [record.license_identifier === "Human verification required" ? "Pending legal review" : "Recorded"]);
+  const summaryValues = [
+    ["Metric", "Count"],
+    ["Total dependency records", records.length],
+    ["Pending legal review", pendingCount],
+    ["Recorded license identifier", recordedCount],
+    ["Runtime-classified records", runtimeCount],
+  ];
   const previewFiles = await renderSheets(workbook, "02_Third_Party_License_Register", ["License Register", "Review Summary", "Sources & Notes"]);
   const inspection = await inspectAndScan(workbook, "02_Third_Party_License_Register", [
-    { range: "Review Summary!A4:B8", rows: 10, cols: 4 },
-    { range: `License Register!A4:L${Math.min(endRow, 12)}`, rows: 12, cols: 12 },
+    {
+      range: "Review Summary!A4:B8",
+      rows: 10,
+      cols: 4,
+      expectedValues: summaryValues,
+      formulaChecks: [{
+        range: "Review Summary!B5:B8",
+        expectedFormulas: [
+          [`=COUNTA('License Register'!A5:A${endRow})`],
+          [`=COUNTIF('License Register'!L5:L${endRow},"Pending legal review")`],
+          [`=COUNTIF('License Register'!L5:L${endRow},"Recorded")`],
+          [`=COUNTIF('License Register'!H5:H${endRow},"Runtime")`],
+        ],
+        expectedValues: [[records.length], [pendingCount], [recordedCount], [runtimeCount]],
+      }],
+    },
+    {
+      range: `License Register!A4:L${Math.min(endRow, 12)}`,
+      rows: 12,
+      cols: 12,
+      expectedValues: [headers, ...rows.slice(0, 8).map((row, index) => [...row.slice(0, 11), statusValues[index][0]])],
+      formulaChecks: [{
+        range: `License Register!L5:L${endRow}`,
+        expectedFormulas: statusFormulas,
+        expectedValues: statusValues,
+      }],
+    },
   ]);
   const blob = await SpreadsheetFile.exportXlsx(workbook); await blob.save(output); await applyPrintSettings(output, "License Register", 8);
   return { output, sheets: 3, records: records.length, previewFiles, inspection };
@@ -281,8 +402,39 @@ async function buildAccessChecklist() {
   const output = path.join(artifactsDir, "02_Repository_Access_Checklist.xlsx");
   const previewFiles = await renderSheets(workbook, "02_Repository_Access_Checklist", ["Access Checklist", "Status Summary", "Secure Handover Notes"]);
   const inspection = await inspectAndScan(workbook, "02_Repository_Access_Checklist", [
-    { range: "Status Summary!A4:B9", rows: 10, cols: 4 },
-    { range: `Access Checklist!A4:F${Math.min(endRow, 10)}`, rows: 10, cols: 6 },
+    {
+      range: "Status Summary!A4:B9",
+      rows: 10,
+      cols: 4,
+      expectedValues: [
+        ["Status", "Count"],
+        ["Total checklist items", items.length],
+        ["Pending Owner Action", items.length],
+        ["Pending Researcher Evidence", 0],
+        ["Exception Approval Required", 0],
+        ["Completed - Evidence Attached", 0],
+      ],
+      formulaChecks: [{
+        range: "Status Summary!B5:B9",
+        expectedFormulas: [
+          [`=COUNTA('Access Checklist'!A5:A${endRow})`],
+          [`=COUNTIF('Access Checklist'!E5:E${endRow},"Pending Owner Action")`],
+          [`=COUNTIF('Access Checklist'!E5:E${endRow},"Pending Researcher Evidence")`],
+          [`=COUNTIF('Access Checklist'!E5:E${endRow},"Exception Approval Required")`],
+          [`=COUNTIF('Access Checklist'!E5:E${endRow},"Completed - Evidence Attached")`],
+        ],
+        expectedValues: [[items.length], [items.length], [0], [0], [0]],
+      }],
+    },
+    {
+      range: `Access Checklist!A4:F${Math.min(endRow, 10)}`,
+      rows: 10,
+      cols: 6,
+      expectedValues: [
+        ["System / Asset", "Required Access / Transfer", "Owner", "Transfer Evidence", "Status", "Security / Scope Note"],
+        ...items.slice(0, 6),
+      ],
+    },
   ]);
   const blob = await SpreadsheetFile.exportXlsx(workbook); await blob.save(output); await applyPrintSettings(output, "Access Checklist", 9);
   return { output, sheets: 3, items: items.length, previewFiles, inspection };
@@ -298,4 +450,6 @@ async function main() {
   process.stdout.write(JSON.stringify(summary, null, 2) + "\n");
 }
 
-await main();
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  await main();
+}

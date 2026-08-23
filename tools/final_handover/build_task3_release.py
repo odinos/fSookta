@@ -41,10 +41,14 @@ STAGING = Path("/private/tmp/fsookta-final-handover")
 
 
 EXCLUDED_PREFIXES = (
-    ".dart_tool/", ".idea/", ".vscode/", ".worktrees/", "build/", "Pods/",
-    "ios/Pods/", "DerivedData/", "outputs/", "data/research/", "docs/qa/",
+    "data/research/", "docs/qa/",
     "docs/uat_evidence_", "docs/user_manual_v1_1_1_android/",
 )
+EXCLUDED_SEGMENTS = {
+    ".dart_tool", ".gradle", ".idea", ".pub-cache", ".vscode", ".worktrees",
+    "build", "cache", "caches", "coverage", "deriveddata", "node_modules",
+    "outputs", "pods", "tmp", "vendor",
+}
 EXCLUDED_EXACT = {
     "android/app/google-services.json",
     "ios/Runner/GoogleService-Info.plist",
@@ -55,8 +59,13 @@ EXCLUDED_EXACT = {
     "docs/Sookta_Research_Training_Dataset_REBA_ISO11228.xlsx",
 }
 EXCLUDED_SUFFIXES = (
-    ".jks", ".keystore", ".p12", ".mobileprovision", ".cer", ".pem", ".key",
+    ".jks", ".keystore", ".mobileprovision", ".p8", ".p12", ".pfx", ".pem", ".key",
 )
+SENSITIVE_CONFIG_NAMES = {
+    ".env", ".npmrc", ".pypirc", "credentials.json", "firebase_app_id_file.json",
+    "firebase_options.dart", "google-services.json", "googleservice-info.plist",
+    "key.properties", "secrets.json", "service-account.json", "service_account.json",
+}
 
 
 def run_git(repo: Path, *args: str, text: bool = True) -> str | bytes:
@@ -66,9 +75,12 @@ def run_git(repo: Path, *args: str, text: bool = True) -> str | bytes:
 def excluded(path: str) -> bool:
     lower = path.lower()
     name = Path(path).name.lower()
+    parts = {part.lower() for part in Path(path).parts}
     if path in EXCLUDED_EXACT or path.startswith(EXCLUDED_PREFIXES):
         return True
-    if name in {"key.properties", "local.properties", ".env"}:
+    if parts & EXCLUDED_SEGMENTS:
+        return True
+    if name in SENSITIVE_CONFIG_NAMES or name == "local.properties":
         return True
     if name.startswith(".env.") or lower.endswith(EXCLUDED_SUFFIXES):
         return True
@@ -136,23 +148,7 @@ def parse_dependencies(repo: Path, output: Path) -> dict:
     lock = parse_pubspec_lock(run_git(repo, "show", f"{COMMIT}:pubspec.lock"))
     records = []
     for name, item in sorted(lock.items()):
-        desc = item.get("description") or {}
-        source = item.get("source", "unknown")
-        url = f"https://pub.dev/packages/{name}" if source == "hosted" else "Repository path at authoritative commit"
-        classification = item.get("dependency", "transitive")
-        records.append({
-            "dependency": name,
-            "resolved_version": str(item.get("version", "Unspecified")),
-            "purpose": purpose_for(name),
-            "source_url": url,
-            "license_identifier": "Human verification required",
-            "license_text_source": f"{url} (License tab/package archive)" if source == "hosted" else f"Git {COMMIT}:third_party/onnxruntime_16kb/LICENSE",
-            "platform": platform_for(name),
-            "classification": "Runtime" if classification in {"direct main", "transitive"} else "Development",
-            "dependency_scope": classification,
-            "restriction_notes": "Confirm license text and notice obligations before external distribution.",
-            "evidence_source": f"pubspec.lock at Git {COMMIT}",
-        })
+        records.append(dependency_record(name, item))
     for plugin, version in gradle_plugins(repo):
         records.append({
             "dependency": plugin,
@@ -181,23 +177,89 @@ def parse_dependencies(repo: Path, output: Path) -> dict:
             "restriction_notes": "Confirm podspec/license text and notice obligations before distribution.",
             "evidence_source": f"ios/Podfile.lock at Git {COMMIT}",
         })
-    records.append({
-        "dependency": "third_party/onnxruntime_16kb",
-        "resolved_version": "local override; wrapper pub version 1.4.1",
-        "purpose": "Android-compatible ONNX Runtime Flutter wrapper override",
-        "source_url": "Repository path at authoritative commit",
-        "license_identifier": "MIT",
-        "license_text_source": f"Git {COMMIT}:third_party/onnxruntime_16kb/LICENSE",
-        "platform": "Android/iOS",
-        "classification": "Runtime",
-        "dependency_scope": "Local dependency override",
-        "restriction_notes": "Retain copyright and permission notice in distributions.",
-        "evidence_source": f"pubspec.yaml and tracked LICENSE at Git {COMMIT}",
-    })
     payload = {"schema_version": 1, "baseline": {"version": VERSION, "commit": COMMIT}, "records": records}
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     return payload
+
+
+def dependency_record(name: str, item: dict) -> dict:
+    """Map one pub lock record without inventing source, license, or graph scope."""
+    description = item.get("description") or {}
+    source = str(item.get("source", "unknown"))
+    scope = str(item.get("dependency", "transitive"))
+    local_path = str(description.get("path", "")).strip()
+    git_url = str(description.get("url", "")).strip()
+    git_ref = str(description.get("ref", "")).strip()
+
+    if source == "hosted":
+        source_url = f"https://pub.dev/packages/{name}"
+        license_source = f"{source_url} (License tab/package archive)"
+        evidence_detail = source_url
+        license_identifier = "Human verification required"
+        review_status = "Human verification required"
+    elif source == "sdk":
+        source_url = "Flutter SDK"
+        license_source = "Flutter SDK LICENSE and package source at the pinned toolchain version"
+        evidence_detail = f"sdk:{description.get('name') or description.get('url') or name}"
+        license_identifier = "Human verification required"
+        review_status = "Human verification required"
+    elif source == "git":
+        repository = git_url or "Git repository not recorded"
+        revision = git_ref or "resolved ref not recorded"
+        suffix = f" (path {local_path})" if local_path else ""
+        source_url = f"{repository} at {revision}{suffix}"
+        license_source = f"License file in {repository} at {revision}{suffix}"
+        evidence_detail = source_url
+        license_identifier = "Human verification required"
+        review_status = "Human verification required"
+    elif source == "path":
+        actual_path = local_path or "path not recorded"
+        source_url = f"Repository path {actual_path} at authoritative commit"
+        evidence_detail = source_url
+        if actual_path.rstrip("/") == "third_party/onnxruntime_16kb":
+            license_source = f"Git {COMMIT}:third_party/onnxruntime_16kb/LICENSE"
+            license_identifier = "MIT"
+            review_status = "Recorded"
+        else:
+            license_source = f"License file under repository path {actual_path}; human verification required"
+            license_identifier = "Human verification required"
+            review_status = "Human verification required"
+    else:
+        source_url = f"Source type {source or 'unknown'} in pubspec.lock; human verification required"
+        license_source = f"Authoritative license source for {name} not resolved; human verification required"
+        evidence_detail = source_url
+        license_identifier = "Human verification required"
+        review_status = "Human verification required"
+
+    if scope == "direct main":
+        classification = "Runtime"
+    elif scope == "direct dev":
+        classification = "Development"
+    else:
+        classification = "Unresolved - dependency graph review required"
+
+    purpose = purpose_for(name)
+    if scope == "transitive" and purpose == "Resolved transitive package support":
+        purpose = "Resolved transitive package; runtime/development scope unresolved"
+    restriction = "Confirm license text and notice obligations before external distribution."
+    if review_status == "Recorded":
+        restriction = "Retain the tracked copyright and permission notice in distributions; native runtime notices still require review."
+    return {
+        "dependency": name,
+        "resolved_version": str(item.get("version", "Unspecified")),
+        "purpose": purpose,
+        "source_type": source,
+        "source_url": source_url,
+        "license_identifier": license_identifier,
+        "license_text_source": license_source,
+        "platform": platform_for(name),
+        "classification": classification,
+        "dependency_scope": scope,
+        "restriction_notes": restriction,
+        "evidence_source": f"pubspec.lock at Git {COMMIT}; {evidence_detail}",
+        "review_status": review_status,
+    }
 
 
 def parse_pubspec_lock(text: str) -> dict[str, dict]:
@@ -223,7 +285,7 @@ def parse_pubspec_lock(text: str) -> dict[str, dict]:
             records[current][field.group(1)] = value
             in_description = False
             continue
-        desc_field = re.match(r"^      (name|url|path|sha256):\s+(.+)$", line)
+        desc_field = re.match(r"^      (name|url|path|ref|resolved-ref|sha256):\s+(.+)$", line)
         if in_description and desc_field:
             records[current]["description"][desc_field.group(1)] = desc_field.group(2).strip().strip('"')
     if not records:
