@@ -103,3 +103,7 @@ All handover evidence is intentionally unresolved at this stage.  In particular,
 the existing Drive APKs, historic documents, and old sign-off must not be
 represented as evidence for baseline `1.3.11+28`; owner action and researcher
 evidence remain required for later tasks.
+
+## Commit
+
+`031a14b1062f515ec62b3cab7e52f0333acd64d7` — `docs: add final handover source inventory`.
