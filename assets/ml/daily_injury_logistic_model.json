@@ -1,0 +1,134 @@
+{
+  "version": "daily-injury-logistic-template-2026-06-14",
+  "source": "template_coefficients_pending_research_msd_symptom_labels",
+  "modelType": "binary_logistic_regression",
+  "description": "Separate Logistic Regression model for seven-transaction daily prediction only. It predicts whether a farmer's recent assessment pattern should be flagged for medical/research follow-up. It is intentionally not used for REBA or ISO11228 posture scoring.",
+  "predictionEquation": "p(y=1|x)=1/(1+exp(-(intercept+sum(beta_i*x_i))))",
+  "parameterEstimationRequired": "Coefficients must be fitted with maximum likelihood estimation by minimizing binary negative log-likelihood / cross-entropy on labeled daily treatment outcome data.",
+  "minTransactions": 7,
+  "thresholds": {
+    "watch": 0.45,
+    "high": 0.65,
+    "critical": 0.82
+  },
+  "features": [
+    "avg_reba_score_before_norm",
+    "max_reba_score_before_norm",
+    "avg_app_score_after_norm",
+    "avg_iso_score_before_norm",
+    "max_iso_score_before_norm",
+    "high_or_above_days_norm",
+    "very_high_days_norm",
+    "no_improvement_days_norm",
+    "trunk_high_days_norm",
+    "neck_high_days_norm",
+    "upper_limb_high_days_norm",
+    "iso_days_norm",
+    "load_weight_norm",
+    "max_load_weight_norm",
+    "high_tool_load_days_norm",
+    "frequency_of_lifting_norm",
+    "carrying_exposure_norm",
+    "push_pull_exposure_norm",
+    "avg_economic_loss_norm",
+    "repeated_same_activity_norm",
+    "recent_reba_score_slope_norm",
+    "recent_iso_score_slope_norm",
+    "avg_age_norm",
+    "male_ratio_norm",
+    "avg_bmi_norm",
+    "overweight_bmi_days_norm"
+  ],
+  "targetLabel": {
+    "name": "msd_symptom_present",
+    "values": {
+      "0": "No MSD symptom reported in the seven-transaction follow-up window",
+      "1": "MSD symptom reported by CMDQ/research follow-up in the seven-transaction window"
+    }
+  },
+  "logisticRegression": {
+    "version": "daily-injury-logistic-template-2026-06-14-legacy-combined",
+    "intercept": -2.6,
+    "coefficients": {
+      "avg_reba_score_before_norm": 1.05,
+      "max_reba_score_before_norm": 1.2,
+      "avg_app_score_after_norm": 0.45,
+      "avg_iso_score_before_norm": 0.8,
+      "max_iso_score_before_norm": 0.9,
+      "high_or_above_days_norm": 1.15,
+      "very_high_days_norm": 1.4,
+      "no_improvement_days_norm": 0.65,
+      "trunk_high_days_norm": 1.25,
+      "neck_high_days_norm": 0.45,
+      "upper_limb_high_days_norm": 0.85,
+      "iso_days_norm": 0.35,
+      "load_weight_norm": 0.45,
+      "max_load_weight_norm": 0.55,
+      "high_tool_load_days_norm": 0.3,
+      "frequency_of_lifting_norm": 0.35,
+      "carrying_exposure_norm": 0.35,
+      "push_pull_exposure_norm": 0.35,
+      "avg_economic_loss_norm": 0.55,
+      "repeated_same_activity_norm": 0.45,
+      "recent_reba_score_slope_norm": 0.35,
+      "recent_iso_score_slope_norm": 0.25,
+      "avg_age_norm": 0.0,
+      "male_ratio_norm": 0.0,
+      "avg_bmi_norm": 0.0,
+      "overweight_bmi_days_norm": 0.0
+    }
+  },
+  "logisticRegressions": {
+    "reba": {
+      "version": "daily-injury-reba-logistic-template-2026-06-26",
+      "source": "template_reba_coefficients_pending_research_msd_symptom_labels",
+      "intercept": -2.1,
+      "coefficients": {
+        "avg_reba_score_before_norm": 1.25,
+        "max_reba_score_before_norm": 1.25,
+        "avg_app_score_after_norm": 0.25,
+        "high_or_above_days_norm": 1.0,
+        "very_high_days_norm": 1.35,
+        "no_improvement_days_norm": 0.55,
+        "trunk_high_days_norm": 1.1,
+        "neck_high_days_norm": 0.45,
+        "upper_limb_high_days_norm": 0.9,
+        "avg_economic_loss_norm": 0.7,
+        "repeated_same_activity_norm": 0.4,
+        "recent_reba_score_slope_norm": 0.5,
+        "avg_age_norm": 0.0,
+        "male_ratio_norm": 0.0,
+        "avg_bmi_norm": 0.0,
+        "overweight_bmi_days_norm": 0.0
+      }
+    },
+    "iso11228": {
+      "version": "daily-injury-iso11228-logistic-template-2026-06-26",
+      "source": "template_iso11228_coefficients_pending_research_msd_symptom_labels",
+      "intercept": -2.4,
+      "coefficients": {
+        "avg_iso_score_before_norm": 1.15,
+        "max_iso_score_before_norm": 1.2,
+        "iso_days_norm": 0.65,
+        "load_weight_norm": 0.65,
+        "max_load_weight_norm": 0.75,
+        "high_tool_load_days_norm": 0.45,
+        "frequency_of_lifting_norm": 0.55,
+        "carrying_exposure_norm": 0.7,
+        "push_pull_exposure_norm": 0.7,
+        "avg_economic_loss_norm": 0.45,
+        "repeated_same_activity_norm": 0.35,
+        "recent_iso_score_slope_norm": 0.45,
+        "avg_age_norm": 0.0,
+        "male_ratio_norm": 0.0,
+        "avg_bmi_norm": 0.0,
+        "overweight_bmi_days_norm": 0.0
+      }
+    }
+  },
+  "trainingStatus": {
+    "readyForAppUse": true,
+    "researchTrained": false,
+    "reason": "The current historical REBA/ISO dataset does not contain confirmed seven-transaction MSD symptom outcome labels. The prediction equation follows Logistic Regression theory, but these coefficients are template coefficients and must be replaced by maximum-likelihood-fitted coefficients once the research team supplies CMDQ/research follow-up labels."
+  }
+}

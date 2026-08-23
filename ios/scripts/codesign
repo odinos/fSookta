@@ -1,0 +1,82 @@
+#!/bin/sh
+set -eu
+
+clean_path() {
+  target="$1"
+  [ -e "$target" ] || return 0
+
+  clean_root="$target"
+  case "$target" in
+    *.framework/*)
+      clean_root="${target%%.framework/*}.framework"
+      ;;
+  esac
+
+  case "$clean_root" in
+    *.app|*.appex|*.framework|*.bundle|*.storyboardc)
+      # Xcode may point TMPDIR inside the framework currently being built.
+      # Keep the metadata-free copy outside all build products.
+      tmp_root="/private/tmp/sookta-$(basename "$clean_root").clean.$$"
+      rm -rf "$tmp_root"
+      ditto --norsrc --noextattr "$clean_root" "$tmp_root" 2>/dev/null || true
+      if [ -d "$tmp_root" ]; then
+        rm -rf "$clean_root"
+        mv "$tmp_root" "$clean_root"
+      fi
+      ;;
+  esac
+
+  for _ in 1 2 3 4 5; do
+    /usr/bin/xattr -c "$clean_root" 2>/dev/null || true
+    /usr/bin/xattr -d com.apple.FinderInfo "$clean_root" 2>/dev/null || true
+    /usr/bin/xattr -d com.apple.ResourceFork "$clean_root" 2>/dev/null || true
+    /usr/bin/xattr -d 'com.apple.fileprovider.fpfs#P' "$clean_root" 2>/dev/null || true
+    /usr/bin/xattr -d com.apple.provenance "$clean_root" 2>/dev/null || true
+    /usr/bin/xattr -d com.apple.quarantine "$clean_root" 2>/dev/null || true
+
+    find "$clean_root" \( -name '.DS_Store' -o -name '._*' -o -name '__MACOSX' \) \
+      -exec rm -rf {} + 2>/dev/null || true
+    find "$clean_root" -exec /usr/bin/xattr -c {} \; 2>/dev/null || true
+    find "$clean_root" -exec /usr/bin/xattr -d com.apple.FinderInfo {} \; 2>/dev/null || true
+    find "$clean_root" -exec /usr/bin/xattr -d com.apple.ResourceFork {} \; 2>/dev/null || true
+    find "$clean_root" -exec /usr/bin/xattr -d 'com.apple.fileprovider.fpfs#P' {} \; 2>/dev/null || true
+    find "$clean_root" -exec /usr/bin/xattr -d com.apple.provenance {} \; 2>/dev/null || true
+    find "$clean_root" -exec /usr/bin/xattr -d com.apple.quarantine {} \; 2>/dev/null || true
+
+    # File Provider can stamp the framework directory again after recursive
+    # traversal, so strip the root once more immediately before codesign.
+    /usr/bin/xattr -c "$clean_root" 2>/dev/null || true
+    /usr/bin/xattr -d com.apple.FinderInfo "$clean_root" 2>/dev/null || true
+    /usr/bin/xattr -d com.apple.ResourceFork "$clean_root" 2>/dev/null || true
+    /usr/bin/xattr -d 'com.apple.fileprovider.fpfs#P' "$clean_root" 2>/dev/null || true
+    /usr/bin/xattr -d com.apple.provenance "$clean_root" 2>/dev/null || true
+    /usr/bin/xattr -d com.apple.quarantine "$clean_root" 2>/dev/null || true
+
+    if ! /usr/bin/xattr "$clean_root" 2>/dev/null | /usr/bin/grep -Eq 'FinderInfo|ResourceFork|fileprovider'; then
+      break
+    fi
+    /bin/sleep 0.2
+  done
+}
+
+for arg in "$@"; do
+  clean_path "$arg"
+done
+
+attempt=1
+while [ "$attempt" -le 3 ]; do
+  if /usr/bin/codesign "$@"; then
+    exit 0
+  else
+    status=$?
+  fi
+  if [ "$attempt" -eq 3 ]; then
+    exit "$status"
+  fi
+
+  echo "Sookta: codesign failed after File Provider metadata cleanup; retrying." >&2
+  for arg in "$@"; do
+    clean_path "$arg"
+  done
+  attempt=$((attempt + 1))
+done

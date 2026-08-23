@@ -1,0 +1,87 @@
+{
+  "version": "2026-05-17",
+  "source": "Notion: ERGO process Detail",
+  "sourcePageUrl": "https://www.notion.so/2bbf7c3699e0808f8233f2e82b9ad7df",
+  "purpose": "Structured ergonomic process contract for app calculation, research labeling, and later model training.",
+  "reba": {
+    "inputs": [
+      "trunk_posture_code",
+      "neck_posture_code",
+      "leg_posture_code",
+      "trunk_twist",
+      "trunk_side_flex",
+      "upper_arm_code",
+      "lower_arm_code",
+      "wrist_posture_code",
+      "wrist_twist",
+      "load_category",
+      "coupling_category",
+      "activity_category"
+    ],
+    "adjustments": {
+      "trunk_twist": 1,
+      "trunk_side_flex": 1,
+      "wrist_twist": 1
+    },
+    "riskMapping": {
+      "low": "1-3",
+      "medium": "4-7",
+      "high": ">=8"
+    }
+  },
+  "iso11228_1_lifting": {
+    "inputs": [
+      "load_weight_kg",
+      "lift_frequency_per_min",
+      "lift_duration_hours",
+      "vertical_position_cm",
+      "horizontal_distance_cm"
+    ],
+    "referenceMassKg": {
+      "male": 25.0,
+      "female": 20.0
+    },
+    "multiplierRange": {
+      "vertical": [0.7, 1.0],
+      "horizontal": [0.7, 1.0],
+      "frequency": [0.5, 1.0]
+    },
+    "formula": "RWL = reference_mass_kg * vertical_multiplier * horizontal_multiplier * frequency_multiplier",
+    "liftingIndexFormula": "LI = load_weight_kg / RWL",
+    "riskMapping": {
+      "low": "<=1",
+      "medium": ">1 and <=3",
+      "high": ">3"
+    }
+  },
+  "iso11228_2_push_pull": {
+    "inputs": [
+      "push_initial_force_n",
+      "push_sustained_force_n",
+      "push_duration"
+    ],
+    "forceLimitsN": {
+      "male": {
+        "initial": 25.0,
+        "sustained": 15.0
+      },
+      "female": {
+        "initial": 20.0,
+        "sustained": 12.0
+      }
+    },
+    "riskMapping": {
+      "low": "force_ratio < 0.8",
+      "medium": "force_ratio >= 0.8 and <= 1.0",
+      "high": "force_ratio > 1.0"
+    }
+  },
+  "trainingGate": {
+    "modelArtifactsRemainPendingUntil": [
+      "expert_reba_score is available",
+      "expert_risk_level is available",
+      "body-part and outcome labels are reviewed",
+      "fixed sample vectors pass on-device regression tests"
+    ]
+  }
+}

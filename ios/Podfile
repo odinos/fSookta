@@ -1,0 +1,251 @@
+platform :ios, '15.0'
+
+ENV['COCOAPODS_DISABLE_STATS'] = 'true'
+
+require 'fileutils'
+
+project 'Runner', {
+  'Debug' => :debug,
+  'Profile' => :release,
+  'Release' => :release,
+}
+
+def flutter_root
+  generated_xcode_build_settings_path = File.expand_path(File.join('..', 'Flutter', 'Generated.xcconfig'), __FILE__)
+  unless File.exist?(generated_xcode_build_settings_path)
+    raise "#{generated_xcode_build_settings_path} must exist. Run flutter pub get first."
+  end
+
+  File.foreach(generated_xcode_build_settings_path) do |line|
+    matches = line.match(/FLUTTER_ROOT\=(.*)/)
+    return matches[1].strip if matches
+  end
+  raise "FLUTTER_ROOT not found in #{generated_xcode_build_settings_path}."
+end
+
+require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelper'), flutter_root)
+
+flutter_ios_podfile_setup
+
+pre_install do |_installer|
+  # Remove macOS copy-conflict files such as `pb 3.h` from generated Pods.
+  # These can poison Xcode header maps and make Firebase/nanopb include the
+  # wrong header during archive builds.
+  Dir.glob(File.join(__dir__, 'Pods', '**', '* [0-9]*')).each do |path|
+    FileUtils.rm_rf(path)
+  end
+end
+
+target 'Runner' do
+  use_frameworks!
+  use_modular_headers!
+
+  flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
+  target 'RunnerTests' do
+    inherit! :search_paths
+  end
+end
+
+post_install do |installer|
+  pods_metadata_script = <<~'SCRIPT'
+    set -e
+
+    # Simulator pod products are not code-signed. Avoid replacing a framework
+    # while Xcode is still writing its Info.plist in a parallel build step.
+    if [ "${PLATFORM_NAME:-}" = "iphonesimulator" ]; then
+      exit 0
+    fi
+
+    strip_metadata() {
+      target="$1"
+      [ -e "$target" ] || return 0
+      case "$target" in
+        *.app|*.appex|*.framework|*.bundle|*.storyboardc)
+          tmp_root="/private/tmp/sookta-$(basename "$target").clean.$$"
+          rm -rf "$tmp_root"
+          ditto --norsrc --noextattr "$target" "$tmp_root" 2>/dev/null || true
+          if [ -d "$tmp_root" ]; then
+            rm -rf "$target"
+            mv "$tmp_root" "$target"
+          fi
+          ;;
+      esac
+      find "$target" \( -name '.DS_Store' -o -name '._*' -o -name '__MACOSX' \) -exec rm -rf {} + 2>/dev/null || true
+      find "$target" -exec xattr -c {} \; 2>/dev/null || true
+      find "$target" -exec xattr -d com.apple.FinderInfo {} \; 2>/dev/null || true
+      find "$target" -exec xattr -d com.apple.ResourceFork {} \; 2>/dev/null || true
+      find "$target" -exec xattr -d 'com.apple.fileprovider.fpfs#P' {} \; 2>/dev/null || true
+      find "$target" -exec xattr -d com.apple.provenance {} \; 2>/dev/null || true
+      find "$target" -exec xattr -d com.apple.quarantine {} \; 2>/dev/null || true
+      xattr -c "$target" 2>/dev/null || true
+    }
+
+    strip_metadata "${TARGET_BUILD_DIR}/${FULL_PRODUCT_NAME}"
+    strip_metadata "${CONFIGURATION_BUILD_DIR}/${FULL_PRODUCT_NAME}"
+    strip_metadata "${BUILT_PRODUCTS_DIR}/${FULL_PRODUCT_NAME}"
+  SCRIPT
+
+  installer.pods_project.targets.each do |target|
+    flutter_additional_ios_build_settings(target)
+    target.build_configurations.each do |config|
+      config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.0'
+      config.build_settings[
+        'CODE_SIGNING_ALLOWED[sdk=iphonesimulator*]'
+      ] = 'NO'
+    end
+
+    product_type = target.respond_to?(:product_type) ? target.product_type : nil
+    next unless product_type&.include?('framework') ||
+      product_type&.include?('bundle')
+
+    phase_name = '[Sookta] Strip macOS metadata before codesign'
+    target.shell_script_build_phases
+      .select { |phase| phase.name == phase_name }
+      .each { |phase| target.build_phases.delete(phase) }
+    metadata_phase = target.new_shell_script_build_phase(phase_name)
+    metadata_phase.shell_script = pods_metadata_script
+    target.build_phases.delete(metadata_phase)
+    target.build_phases.insert(target.build_phases.length, metadata_phase)
+  end
+
+  # CocoaPods can generate broken relative paths for Flutter's integration_test
+  # pod after this workspace is moved between folders. Archive builds then fail
+  # because Xcode resolves the headers under `/develop/flutter/...` instead of
+  # the local Flutter SDK. Force these file references back to absolute SDK
+  # paths during pod install.
+  integration_test_sources = {
+    'FLTIntegrationTestRunner.h' => 'integration_test/Sources/integration_test/include/FLTIntegrationTestRunner.h',
+    'IntegrationTestIosTest.h' => 'integration_test/Sources/integration_test/include/IntegrationTestIosTest.h',
+    'IntegrationTestPlugin.h' => 'integration_test/Sources/integration_test/include/IntegrationTestPlugin.h',
+    'FLTIntegrationTestRunner.m' => 'integration_test/Sources/integration_test/FLTIntegrationTestRunner.m',
+    'IntegrationTestIosTest.m' => 'integration_test/Sources/integration_test/IntegrationTestIosTest.m',
+    'IntegrationTestPlugin.m' => 'integration_test/Sources/integration_test/IntegrationTestPlugin.m',
+  }
+  integration_test_root = File.realpath(File.join(flutter_root, 'packages', 'integration_test', 'ios'))
+  installer.pods_project.files.each do |file_ref|
+    next unless integration_test_sources.key?(file_ref.display_name)
+
+    file_ref.source_tree = '<absolute>'
+    file_ref.path = File.join(integration_test_root, integration_test_sources[file_ref.display_name])
+  end
+
+  # tflite_flutter looks up TensorFlow Lite C symbols through Dart FFI on iOS.
+  # TensorFlowLiteC is delivered as static objects, so keep the specific C API
+  # symbols that Dart looks up in Runner instead of embedding a runtime framework.
+  frameworks_script = File.join(
+    installer.sandbox.root,
+    'Target Support Files',
+    'Pods-Runner',
+    'Pods-Runner-frameworks.sh',
+  )
+  if File.exist?(frameworks_script)
+    frameworks_contents = File.read(frameworks_script)
+    frameworks_contents.gsub!(
+      '/usr/bin/codesign --force',
+      "'${SRCROOT}/scripts/codesign' --force",
+    )
+    File.write(frameworks_script, frameworks_contents)
+  end
+
+  runner_project = Xcodeproj::Project.open(File.expand_path('Runner.xcodeproj', __dir__))
+  runner_target = runner_project.targets.find { |target| target.name == 'Runner' }
+  if runner_target
+    ['Run Script', 'Thin Binary'].each do |flutter_phase_name|
+      flutter_phase = runner_target.shell_script_build_phases
+        .find { |phase| phase.name == flutter_phase_name }
+      next unless flutter_phase
+
+      codesign_path = 'export PATH="${SRCROOT}/scripts:${PATH}"'
+      flutter_phase.shell_script = "#{codesign_path}\n#{flutter_phase.shell_script}" \
+        unless flutter_phase.shell_script.include?(codesign_path)
+    end
+
+    flutter_build_phase = runner_target.shell_script_build_phases
+      .find { |phase| phase.name == 'Run Script' }
+    if flutter_build_phase
+      flutter_build_phase.shell_script =
+        "export PATH=\"${SRCROOT}/scripts:${PATH}\"\n" \
+        "\"${SRCROOT}/scripts/flutter_build_with_metadata_retry\""
+    end
+
+    phase_name = '[Sookta] Embed TensorFlowLiteC'
+    runner_target.shell_script_build_phases
+      .select { |phase| phase.name == phase_name }
+      .each { |phase| runner_target.build_phases.delete(phase) }
+
+    metadata_script = <<~'SCRIPT'
+      set -e
+
+      strip_metadata() {
+        target="$1"
+        [ -e "$target" ] || return 0
+        case "$target" in
+          *.app|*.appex|*.framework|*.bundle|*.storyboardc)
+            tmp_root="/private/tmp/sookta-$(basename "$target").clean.$$"
+            rm -rf "$tmp_root"
+            ditto --norsrc --noextattr "$target" "$tmp_root" 2>/dev/null || true
+            if [ -d "$tmp_root" ]; then
+              rm -rf "$target"
+              mv "$tmp_root" "$target"
+            fi
+            ;;
+        esac
+        find "$target" \( -name '.DS_Store' -o -name '._*' -o -name '__MACOSX' \) -exec rm -rf {} + 2>/dev/null || true
+        find "$target" -exec xattr -c {} \; 2>/dev/null || true
+        find "$target" -exec xattr -d com.apple.FinderInfo {} \; 2>/dev/null || true
+        find "$target" -exec xattr -d com.apple.ResourceFork {} \; 2>/dev/null || true
+        find "$target" -exec xattr -d 'com.apple.fileprovider.fpfs#P' {} \; 2>/dev/null || true
+        find "$target" -exec xattr -d com.apple.provenance {} \; 2>/dev/null || true
+        find "$target" -exec xattr -d com.apple.quarantine {} \; 2>/dev/null || true
+        xattr -c "$target" 2>/dev/null || true
+      }
+
+      strip_metadata "${TARGET_BUILD_DIR}/${WRAPPER_NAME}"
+      strip_metadata "${TARGET_BUILD_DIR}/App.framework"
+      strip_metadata "${TARGET_BUILD_DIR}/Flutter.framework"
+      strip_metadata "${CONFIGURATION_BUILD_DIR}/App.framework"
+      strip_metadata "${CONFIGURATION_BUILD_DIR}/Flutter.framework"
+      strip_metadata "${BUILT_PRODUCTS_DIR}/App.framework"
+      strip_metadata "${BUILT_PRODUCTS_DIR}/Flutter.framework"
+      strip_metadata "${SRCROOT}/../build/native_assets/ios"
+    SCRIPT
+
+    pre_metadata_phase_name = '[Sookta] Strip macOS metadata before Flutter'
+    pre_metadata_phase = runner_target.shell_script_build_phases
+      .find { |phase| phase.name == pre_metadata_phase_name } ||
+      runner_target.new_shell_script_build_phase(pre_metadata_phase_name)
+    pre_metadata_phase.shell_script = metadata_script
+    runner_target.build_phases.delete(pre_metadata_phase)
+    run_script_phase = runner_target.shell_script_build_phases
+      .find { |phase| phase.name == 'Run Script' }
+    run_script_index = runner_target.build_phases.index(run_script_phase) || 0
+    runner_target.build_phases.insert(run_script_index, pre_metadata_phase)
+
+    metadata_phase_name = '[Sookta] Strip macOS metadata'
+    metadata_phase = runner_target.shell_script_build_phases
+      .find { |phase| phase.name == metadata_phase_name } ||
+      runner_target.new_shell_script_build_phase(metadata_phase_name)
+    metadata_phase.shell_script = metadata_script
+
+    tflite_symbols = [
+      '_TfLiteInterpreterOptionsCreate',
+      '_TfLiteInterpreterCreate',
+      '_TfLiteModelCreate',
+    ].map { |symbol| "-u #{symbol}" }.join(' ')
+    tflite_exports =
+      '-Xlinker -exported_symbols_list -Xlinker $(SRCROOT)/Runner/tflite_exported_symbols.txt'
+    runner_target.build_configurations.each do |config|
+      config.build_settings['COPY_PHASE_STRIP'] = 'NO'
+      config.build_settings['DEPLOYMENT_POSTPROCESSING'] = 'NO'
+      config.build_settings['STRIP_INSTALLED_PRODUCT'] = 'NO'
+      config.build_settings['STRIP_STYLE'] = 'debugging'
+      config.build_settings['ENABLE_DEBUG_DYLIB'] = 'NO'
+      config.build_settings.delete('OTHER_LDFLAGS')
+      config.build_settings['OTHER_LDFLAGS[sdk=iphoneos*]'] =
+        "$(inherited) #{tflite_exports} #{tflite_symbols}"
+      config.build_settings['OTHER_LDFLAGS[sdk=iphonesimulator*]'] =
+        "$(inherited) #{tflite_exports} #{tflite_symbols}"
+    end
+    runner_project.save
+  end
+end

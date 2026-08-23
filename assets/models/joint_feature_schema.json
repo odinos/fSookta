@@ -1,0 +1,51 @@
+{
+  "schemaId": "movenet-thunder-v1-17x3-normalized",
+  "version": "2026-05-17",
+  "description": "Canonical offline ML feature schema for fSookta. Features are flattened from MoveNet Thunder single-pose keypoints in landmark-index order. Each landmark contributes x, y, score.",
+  "sourceModel": "MoveNet Thunder",
+  "coordinateSystem": "normalized_image_coordinates",
+  "featureCount": 51,
+  "flattenOrder": "landmark_index_ascending_then_x_y_score",
+  "missingValue": 0.0,
+  "components": [
+    "x",
+    "y",
+    "score"
+  ],
+  "landmarks": [
+    "nose",
+    "leftEye",
+    "rightEye",
+    "leftEar",
+    "rightEar",
+    "leftShoulder",
+    "rightShoulder",
+    "leftElbow",
+    "rightElbow",
+    "leftWrist",
+    "rightWrist",
+    "leftHip",
+    "rightHip",
+    "leftKnee",
+    "rightKnee",
+    "leftAnkle",
+    "rightAnkle"
+  ],
+  "preprocessing": {
+    "xRange": [
+      0.0,
+      1.0
+    ],
+    "yRange": [
+      0.0,
+      1.0
+    ],
+    "scoreRange": [
+      0.0,
+      1.0
+    ],
+    "clipToRange": true,
+    "missingLandmarkPolicy": "emit_0_0_0",
+    "normalization": "none; model artifact may optionally provide mean and standardDeviation arrays"
+  }
+}

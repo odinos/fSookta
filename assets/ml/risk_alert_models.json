@@ -1,0 +1,257 @@
+{
+  "version": "baseline-lr-xgb-2026-05-17",
+  "source": "baseline_surrogate_pending_research_training",
+  "description": "Lightweight on-device Logistic Regression + XGBoost-compatible risk alert model. Replace with research-trained coefficients and exported trees when the study artifacts are available.",
+  "thresholds": {
+    "watch": 0.45,
+    "high": 0.65,
+    "critical": 0.82
+  },
+  "features": [
+    "job_type_reba",
+    "job_type_lifting",
+    "job_type_push_pull",
+    "user_score_norm",
+    "technical_score_norm",
+    "economic_loss_norm",
+    "body_risk_max_norm",
+    "duration_norm",
+    "frequency_norm",
+    "load_weight_norm",
+    "horizontal_distance_norm",
+    "vertical_deviation_norm",
+    "transport_distance_norm",
+    "force_ratio_norm",
+    "reba_trunk_norm",
+    "reba_neck_norm",
+    "reba_leg_norm",
+    "reba_upper_arm_norm",
+    "reba_wrist_norm",
+    "reba_trunk_twist",
+    "reba_trunk_side_flex",
+    "reba_wrist_twist",
+    "reba_load_norm",
+    "reba_coupling_norm",
+    "reba_activity_norm"
+  ],
+  "featureLabels": {
+    "job_type_reba": {
+      "th": "ประเภทงาน REBA",
+      "en": "REBA task type"
+    },
+    "job_type_lifting": {
+      "th": "ประเภทงานยก/ขนย้าย",
+      "en": "Lifting task type"
+    },
+    "job_type_push_pull": {
+      "th": "ประเภทงานดัน/ดึง",
+      "en": "Push/pull task type"
+    },
+    "user_score_norm": {
+      "th": "คะแนนความเสี่ยงผู้ใช้",
+      "en": "User risk score"
+    },
+    "technical_score_norm": {
+      "th": "คะแนนเทคนิค REBA/ISO",
+      "en": "Technical REBA/ISO score"
+    },
+    "economic_loss_norm": {
+      "th": "ผลกระทบทางเศรษฐกิจ",
+      "en": "Economic impact"
+    },
+    "body_risk_max_norm": {
+      "th": "อวัยวะที่เสี่ยงสูงสุด",
+      "en": "Highest body-part risk"
+    },
+    "duration_norm": {
+      "th": "ระยะเวลาทำงาน",
+      "en": "Work duration"
+    },
+    "frequency_norm": {
+      "th": "ความถี่ในการทำงาน",
+      "en": "Work frequency"
+    },
+    "load_weight_norm": {
+      "th": "น้ำหนักวัตถุ",
+      "en": "Load weight"
+    },
+    "horizontal_distance_norm": {
+      "th": "ระยะห่างแนวนอน H",
+      "en": "Horizontal distance H"
+    },
+    "vertical_deviation_norm": {
+      "th": "ความสูงมือเบี่ยงจากมาตรฐาน",
+      "en": "Vertical height deviation"
+    },
+    "transport_distance_norm": {
+      "th": "ระยะทางขนย้าย",
+      "en": "Transport distance"
+    },
+    "force_ratio_norm": {
+      "th": "แรงดัน/ดึงเทียบขีดจำกัด",
+      "en": "Push/pull force ratio"
+    },
+    "reba_trunk_norm": {
+      "th": "คะแนนลำตัว",
+      "en": "Trunk score"
+    },
+    "reba_neck_norm": {
+      "th": "คะแนนคอ",
+      "en": "Neck score"
+    },
+    "reba_leg_norm": {
+      "th": "คะแนนขา",
+      "en": "Leg score"
+    },
+    "reba_upper_arm_norm": {
+      "th": "คะแนนต้นแขน",
+      "en": "Upper-arm score"
+    },
+    "reba_wrist_norm": {
+      "th": "คะแนนข้อมือ",
+      "en": "Wrist score"
+    },
+    "reba_trunk_twist": {
+      "th": "ลำตัวบิด",
+      "en": "Trunk twist"
+    },
+    "reba_trunk_side_flex": {
+      "th": "ลำตัวเอียงข้าง",
+      "en": "Trunk side flexion"
+    },
+    "reba_wrist_twist": {
+      "th": "ข้อมือบิด",
+      "en": "Wrist twist"
+    },
+    "reba_load_norm": {
+      "th": "คะแนนน้ำหนักที่ถือ",
+      "en": "Load score"
+    },
+    "reba_coupling_norm": {
+      "th": "คะแนนการจับยึด",
+      "en": "Coupling score"
+    },
+    "reba_activity_norm": {
+      "th": "คะแนนกิจกรรมซ้ำ/ค้างท่า",
+      "en": "Activity score"
+    }
+  },
+  "logisticRegression": {
+    "intercept": -3.25,
+    "coefficients": {
+      "job_type_reba": 0.18,
+      "job_type_lifting": 0.16,
+      "job_type_push_pull": 0.14,
+      "user_score_norm": 2.55,
+      "technical_score_norm": 1.35,
+      "economic_loss_norm": 0.7,
+      "body_risk_max_norm": 1.05,
+      "duration_norm": 0.35,
+      "frequency_norm": 0.48,
+      "load_weight_norm": 0.65,
+      "horizontal_distance_norm": 0.42,
+      "vertical_deviation_norm": 0.3,
+      "transport_distance_norm": 0.3,
+      "force_ratio_norm": 1.15,
+      "reba_trunk_norm": 0.8,
+      "reba_neck_norm": 0.35,
+      "reba_leg_norm": 0.28,
+      "reba_upper_arm_norm": 0.58,
+      "reba_wrist_norm": 0.36,
+      "reba_trunk_twist": 0.42,
+      "reba_trunk_side_flex": 0.36,
+      "reba_wrist_twist": 0.32,
+      "reba_load_norm": 0.45,
+      "reba_coupling_norm": 0.24,
+      "reba_activity_norm": 0.3
+    }
+  },
+  "xgboost": {
+    "baseMargin": -1.2,
+    "learningRate": 0.85,
+    "trees": [
+      {
+        "split": "user_score_norm",
+        "threshold": 0.62,
+        "yes": {
+          "split": "body_risk_max_norm",
+          "threshold": 0.58,
+          "yes": {
+            "leaf": -0.28
+          },
+          "no": {
+            "leaf": 0.48
+          }
+        },
+        "no": {
+          "split": "economic_loss_norm",
+          "threshold": 0.45,
+          "yes": {
+            "leaf": 0.2
+          },
+          "no": {
+            "leaf": 0.76
+          }
+        }
+      },
+      {
+        "split": "force_ratio_norm",
+        "threshold": 0.85,
+        "yes": {
+          "split": "reba_trunk_norm",
+          "threshold": 0.72,
+          "yes": {
+            "leaf": -0.18
+          },
+          "no": {
+            "leaf": 0.36
+          }
+        },
+        "no": {
+          "leaf": 0.64
+        }
+      },
+      {
+        "split": "technical_score_norm",
+        "threshold": 0.55,
+        "yes": {
+          "split": "load_weight_norm",
+          "threshold": 0.7,
+          "yes": {
+            "leaf": -0.22
+          },
+          "no": {
+            "leaf": 0.32
+          }
+        },
+        "no": {
+          "split": "duration_norm",
+          "threshold": 0.5,
+          "yes": {
+            "leaf": 0.34
+          },
+          "no": {
+            "leaf": 0.54
+          }
+        }
+      },
+      {
+        "split": "reba_trunk_twist",
+        "threshold": 0.5,
+        "yes": {
+          "split": "reba_wrist_twist",
+          "threshold": 0.5,
+          "yes": {
+            "leaf": -0.08
+          },
+          "no": {
+            "leaf": 0.28
+          }
+        },
+        "no": {
+          "leaf": 0.46
+        }
+      }
+    ]
+  }
+}
