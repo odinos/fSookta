@@ -3,15 +3,19 @@
 from __future__ import annotations
 
 import hashlib
+import os
 from pathlib import Path
 
-ROOT = Path("/private/tmp/fsookta-final-handover")
+ROOT = Path(os.environ.get("FSOOKTA_HANDOVER_ROOT", "/private/tmp/fsookta-final-handover"))
 MANIFEST = ROOT / "manifests/SHA256SUMS.txt"
 ADDITIONS = {
     "manifests/task6_fix_round1_expected_visual_renders.json",
     "manifests/task6_fix_round1_contact_sheets.json",
     "manifests/task6_fix_round1_visual_decision.json",
     "manifests/task6_verification_summary.json",
+    "manifests/task6_round2_contact_sheets.json",
+    "manifests/task6_pdf_page_counts.json",
+    "manual-decisions/task6_round2_visual_decision.json",
 }
 
 

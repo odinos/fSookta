@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Patch unsupported OOXML print metadata after artifact-tool authoring."""
 from pathlib import Path
+import os
 from tempfile import NamedTemporaryFile
 from zipfile import ZIP_DEFLATED, ZipFile
 import xml.etree.ElementTree as ET
@@ -33,5 +34,6 @@ def patch(path):
     if info.filename.startswith('xl/worksheets/sheet') and info.filename.endswith('.xml'): data=patch_xml(data)
     dst.writestr(info,data)
  temp.replace(path)
-for name in ('06_Development_Audit_Trail.xlsx','07_Master_Test_and_Verification_Package.xlsx','08_UAT_Field_Test_and_Usability_Package.xlsx'): patch(Path('/private/tmp/fsookta-final-handover/artifacts')/name)
+root=Path(os.environ.get('FSOOKTA_HANDOVER_ROOT','/private/tmp/fsookta-final-handover'))
+for name in ('06_Development_Audit_Trail.xlsx','07_Master_Test_and_Verification_Package.xlsx','08_UAT_Field_Test_and_Usability_Package.xlsx'): patch(root/'artifacts'/name)
 print('print metadata patched: 3 workbooks')
