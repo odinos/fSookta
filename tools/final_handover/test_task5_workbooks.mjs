@@ -8,12 +8,25 @@ import {
   assertAllowedStatus,
   formulaContracts,
   persistedRows,
+  privacyRows,
   rebaRows,
   printFitToHeight,
   workbookFont,
   recommendationTriggerRows,
   syntheticExample,
+  trainingEvaluationRows,
 } from "./build_task5_workbooks.mjs";
+
+test("privacy register enumerates explicit and SDK-generated Firebase paths", () => {
+  const row = privacyRows({firebase_telemetry:{
+    events:{app_start:["platform","build_mode"],pose_analysis_failed:["platform","error_code"]},
+    log_app_open:true, analytics_observer_navigation:true,
+  }}).find((candidate) => candidate[0] === "Firebase telemetry");
+  assert.match(row[1], /app_start\(platform, build_mode\)/);
+  assert.match(row[1], /pose_analysis_failed\(platform, error_code\)/);
+  assert.match(row[3], /logAppOpen/);
+  assert.match(row[3], /SDK-generated navigation\/screen/);
+});
 
 test("defines every required Task 5 workbook sheet", () => {
   assert.equal(algorithmSheetNames.length, 15);
@@ -57,6 +70,19 @@ test("recommendation trigger matrix uses source-exact keys", () => {
 test("ISO timestamp examples remain text values", () => {
   assert.equal(typeof syntheticExample("expert_assessment_date", 82), "string");
   assert.match(syntheticExample("expert_assessment_date", 82), /^'/);
+});
+
+test("training evaluation exposes split, full parameters, and distinct missing evidence", () => {
+  const facts={training_evidence:[{evidence_id:"xgboost_training",component:"xgb",dataset_source:"source",dataset_path:"data/research/extracted/reba_labeled_pose_dataset.csv",dataset_status:"Pending Researcher Evidence",total_samples:388,training_samples:298,holdout_samples:90,unit:"rows",split_method:"GroupShuffleSplit",test_size:.22,random_seed:42,xgb_parameters:{objective:"reg:squarederror",n_estimators:96,max_depth:3,learning_rate:.055,subsample:.88,colsample_bytree:.86,reg_lambda:1.4,reg_alpha:.02,min_child_weight:2,random_state:42,n_jobs:1,tree_method:"hist"},preprocessing:"raw",features:51,labels:"labels",class_handling:"classes",selection_criteria:"none",holdout_risk_accuracy:.6667,holdout_mae:.8256,evaluation_boundary:"internal",raw_metrics_path:"data/research/extracted/xgboost_onnx_metrics.json",raw_metrics_status:"Pending Owner Action",raw_metrics_note:"missing",research_trained:true,citation:"script"}]};
+  const row=trainingEvaluationRows(facts)[0];
+  assert.equal(row[3], "data/research/extracted/reba_labeled_pose_dataset.csv");
+  assert.equal(row[4], "Pending Researcher Evidence");
+  assert.equal(row[9], "GroupShuffleSplit");
+  assert.equal(row[10], .22);
+  assert.equal(row[11], 42);
+  assert.match(row[12], /"n_estimators":96/);
+  assert.equal(row[21], "data/research/extracted/xgboost_onnx_metrics.json");
+  assert.equal(row[22], "Pending Owner Action");
 });
 
 test("REBA matrix contains complete source-controlled tables A, B, and C", () => {

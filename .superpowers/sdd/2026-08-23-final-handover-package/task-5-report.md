@@ -28,7 +28,7 @@ pairs:
 The two workbooks contain 24 sheets in total: 15 algorithm/recommendation
 sheets and 9 data-management/schema sheets. They contain 10 current, legacy,
 and test-only model/algorithm roles, 3 training-evidence records, 26 exact
-Thai-English recommendation pairs, 193 persisted top-level-key/nested-record
+Thai-English recommendation pairs, 190 persisted top-level-key/nested-record
 rows with record ownership preserved, and all 84 all-history CSV
 columns in exact source order.
 
@@ -69,8 +69,11 @@ migration behavior, explicit user-selected sharing, missing-value behavior,
 enumerations, derivations, privacy classes, and compatibility limits. No
 remote assessment database or assessment API schema was found. Optional
 Firebase telemetry remains separate from assessment persistence and default
-off unless enabled by the owner. The package now enumerates every outbound
-Analytics event/field and the parallel sanitized Crashlytics event context.
+off unless enabled by the owner. The package enumerates all explicit wrapper
+and generic `logEvent` call sites and fields found in source, `logAppOpen`, and
+the parallel sanitized Crashlytics event context. It separately discloses that
+`FirebaseAnalyticsObserver` may emit SDK-generated navigation/screen analytics
+whose exact names and payloads are not enumerated by repository source.
 
 All examples in the schema workbook are visibly synthetic. No real participant
 record, credential, token, secret, or private/raw evidence was included in the
@@ -87,33 +90,34 @@ Google Docs-targeted DOCX files passed the deterministic title sanitizer.
 Visual inspection covered all 74 final Task 5 render files: 17 DOCX/PDF pages,
 33 workbook-PDF pages, and 24 workbook-sheet renders. Repairs made during QA
 included separating document bullets, preventing the manual signature table
-from splitting incorrectly, enabling vertical workbook pagination, and using a
-Thai-capable font configuration for LibreOffice PDF conversion. Final surfaces
-are complete, unclipped, non-overlapping, and legible at normal document or PDF
-zoom; Thai and English glyphs render correctly.
+from splitting incorrectly, removing an orphan signature fragment and a blank
+page, enabling vertical workbook pagination, and using a Thai-capable font
+configuration for LibreOffice PDF conversion. Final surfaces are complete,
+unclipped, non-overlapping, and legible at normal document or PDF zoom; Thai
+and English glyphs render correctly.
 
 The hash-bound visual-QA manifest is
 `/private/tmp/fsookta-final-handover/manifests/task5_visual_qa_manifest.json`,
 SHA-256
-`cabf30c8de57c0e047785eb55666335742d759982469d85c5d2837605fc33576`.
+`4591fd7c6f38b1304d34182218784ca7c25983361490b523000a5989fe469b5f`.
 It binds all ten primary artifacts to the 74 inspected render files.
 
 ## Verification and checksum evidence
 
 Verification results:
 
-- Task 5 Python suite: 12 passed.
-- Task 5 Node workbook suite: 10 passed.
+- Task 5 Python suite: 17 passed.
+- Task 5 Node workbook suite: 12 passed.
 - Python compilation and Node syntax checks: passed.
 - Independent verifier: `passed_with_human_actions`; 10 primary artifacts, 17
   document pages, 24 workbook sheets, 33 workbook PDF pages, 10 formula
-  contracts, 10 model/algorithm roles, 3 training-evidence records, 193
+  contracts, 10 model/algorithm roles, 3 training-evidence records, 190
   persisted schema rows, 84 export schema rows, and zero formula errors.
 - Citation resolution, controlled status vocabulary, claim-boundary guards,
   archive/XML secret and participant-data scans, editable/reference pairing,
   visual-manifest freshness, and cumulative checksum binding: passed.
 - Cumulative checksum manifest: 50 entries; SHA-256
-  `0b847e337c1777aea039fd508e361bc02bf27cd5817ac4ee2a13787dd44b5c47`.
+  `4d32417c975f593c94f412e7820cd34965777f5e78fa78c710c988cbb041c6a5`.
 
 ## Reproducible implementation
 
@@ -128,8 +132,11 @@ TDD regressions now also cover source-exact 24-row recommendation key mapping,
 daily count-tier behavior, XGBoost split/parameters and missing paths,
 single-person gate authority, legacy/test-only asset hashes, Firebase fields,
 record-owner duplicate preservation, semantic completeness, 26 bilingual
-pairs, and ISO-8601 text examples. The cumulative prior-task regression passed
-56 Python and 16 Node tests; all targeted tests are green after the fixes.
+pairs, ISO-8601 text examples, independent Dart declaration/serializer
+extraction, exact telemetry call-site discovery, compact non-splitting
+signature rows, and the absence of manual page breaks that can create blank
+pages. The cumulative regression passed 61 Python and 18 Node tests; all
+targeted tests are green after the fixes.
 
 ## Human actions and concerns
 

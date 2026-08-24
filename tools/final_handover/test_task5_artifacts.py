@@ -35,7 +35,8 @@ class SourceGroundingTests(unittest.TestCase):
         self.assertEqual(roles["movenet_multipose"]["authority"], "Single-person eligibility gate")
         self.assertIn("evaluation_form_screen.dart", roles["movenet_multipose"]["citation"])
         self.assertEqual(roles["legacy_logistic_weights"]["current_reference_status"], "Legacy/test-only; not packaged")
-        self.assertEqual(roles["deprecated_risk_alert"]["current_reference_status"], "Deprecated service; test-only asset load")
+        self.assertEqual(roles["deprecated_risk_alert"]["current_reference_status"], "Deprecated service; JSON/fromJson test only; absent from current pubspec bundle")
+        self.assertIn("does not verify rootBundle", roles["deprecated_risk_alert"]["limitations"])
         self.assertEqual(len(roles["legacy_logistic_weights"]["binary_sha256"]), 64)
         self.assertEqual(len(roles["deprecated_risk_alert"]["binary_sha256"]), 64)
 
@@ -111,8 +112,86 @@ class SourceGroundingTests(unittest.TestCase):
         self.assertTrue(facts["firebase_telemetry"]["default_off"])
         self.assertTrue(facts["firebase_telemetry"]["crashlytics_context"])
 
+    def test_persisted_contracts_follow_exact_dart_declarations_and_serializer_owner(self) -> None:
+        facts = builder.inspect_source(SOURCE)
+        rows = {(row.get("owner"), row["field"]): row for row in facts["persisted_schema_rows"]}
+        expected = {
+            ("EvaluationHistoryRecord", "id"):("int", "No", "N/A"),
+            ("EvaluationHistoryRecord", "farmerBmiCategory"):("String?", "Yes", "N/A"),
+            ("EvaluationHistoryRecord", "timeOnTaskSeconds"):("int?", "Yes", "seconds"),
+            ("EvaluationDraft", "selectedImagePaths"):("List<String>", "No", "N/A"),
+            ("RebaInputData", "trunkTwist"):("bool", "No", "N/A"),
+            ("PoseRebaFrameAnalysis", "imageIndex"):("int", "No", "N/A"),
+            ("PoseRebaFrameAnalysis", "timestampMs"):("int?", "Yes", "milliseconds"),
+            ("PoseRebaFrameAnalysis", "neckFlexionDeg"):("double?", "Yes", "degrees"),
+            ("MotionAnalysisSummary", "sampleRateFps"):("double", "No", "frames/second"),
+            ("AssessmentBreakdown", "isoMethod"):("AssessmentMethod?", "Yes", "N/A"),
+            ("AssessmentBreakdown", "isoResult"):("ErgoResult?", "Yes", "N/A"),
+            ("AssessmentBreakdown", "xgboostProbability"):("double?", "Yes", "probability 0..1"),
+            ("ErgoResult", "techScore"):("double", "No", "score/ratio"),
+            ("ErgoInputData", "durationHours"):("double", "No", "hours"),
+            ("ErgoInputData", "workDaysPerWeek"):("double", "No", "days/week"),
+        }
+        for key, contract in expected.items():
+            row = rows[key]
+            self.assertEqual((row["type"], row["nullable"], row["unit"]), contract, key)
+            self.assertIn(key[0], row["persisted_location"])
+        self.assertIn("AssessmentBreakdown.ergoInput", rows[("ErgoInputData", "durationHours")]["persisted_location"])
+        self.assertIn("EvaluationHistoryRecord.assessmentBreakdown", rows[("AssessmentBreakdown", "isoResult")]["persisted_location"])
+        self.assertNotIn(("AssessmentBreakdown", "techScore"), rows)
+
+    def test_export_trend_and_multipose_and_firebase_call_sites_are_exact(self) -> None:
+        facts = builder.inspect_source(SOURCE)
+        trend = next(row for row in facts["export_schema_rows"] if row["field"] == "trend_level")
+        self.assertEqual(trend["allowed"], "Low; Medium; High; Very high (localized when Thai export is selected)")
+        self.assertNotIn("Critical", trend["derivation"])
+        multipose = {r["role_id"]: r for r in facts["model_algorithm_inventory"]}["movenet_multipose"]
+        self.assertIn("person count", multipose["output"].lower())
+        self.assertNotIn("candidate poses", multipose["output"].lower())
+        telemetry = facts["firebase_telemetry"]
+        self.assertEqual(telemetry["generic_call_sites"]["pose_analysis_failed"], ["platform", "error_code"])
+        self.assertEqual(telemetry["generic_call_site_paths"]["pose_analysis_failed"], "lib/screens/main/evaluation_form_screen.dart")
+        self.assertIn("lib/app/sookta_app.dart", telemetry["analytics_observer_call_sites"])
+        self.assertIn("lib/screens/main/training_data_export_screen.dart", telemetry["wrapper_call_sites"]["export_created"])
+        self.assertTrue(telemetry["log_app_open"])
+        self.assertTrue(telemetry["analytics_observer_navigation"])
+
+    def test_independent_verifier_extracts_source_contracts_without_builder_facts(self) -> None:
+        contracts = verifier.extract_authoritative_source_contracts(SOURCE)
+        self.assertEqual(contracts["dart_fields"][("EvaluationHistoryRecord", "id")], "int")
+        self.assertEqual(contracts["dart_fields"][("AssessmentBreakdown", "isoResult")], "ErgoResult?")
+        self.assertEqual(contracts["trend_levels"], ["Low", "Medium", "High", "Very high"])
+        self.assertEqual(contracts["telemetry_events"]["pose_analysis_failed"], ["platform", "error_code"])
+        self.assertIn("lib/screens/main/training_data_export_screen.dart", contracts["telemetry_call_sites"]["export_created"])
+        self.assertEqual(contracts["generic_call_site_paths"]["pose_analysis_failed"], "lib/screens/main/evaluation_form_screen.dart")
+        self.assertEqual(contracts["analytics_observer_call_sites"], ["lib/app/sookta_app.dart"])
+        self.assertEqual(contracts["xgb"]["test_size"], 0.22)
+        self.assertEqual(contracts["xgb"]["random_seed"], 42)
+        self.assertIn(("EvaluationHistoryRecord", "id"), contracts["serialized_fields"])
+        self.assertIn(("AssessmentBreakdown", "isoResult"), contracts["serialized_fields"])
+        self.assertIn(("ErgoResult", "techScore"), contracts["serialized_fields"])
+        self.assertNotIn(("AssessmentBreakdown", "techScore"), contracts["serialized_fields"])
+
 
 class ContentContractTests(unittest.TestCase):
+    def test_ai_report_avoids_manual_page_break_that_can_create_blank_page(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            output = Path(temp) / "ai.docx"
+            builder.build_ai_report(output, builder.inspect_source(SOURCE))
+            document = Document(output)
+            self.assertFalse(any('w:type="page"' in paragraph._p.xml for paragraph in document.paragraphs))
+
+    def test_signature_table_rows_are_compact_and_cannot_split(self) -> None:
+        document = Document()
+        builder._add_signature_table(document)
+        table = document.tables[0]
+        for row in table.rows:
+            self.assertTrue(row._tr.xpath("./w:trPr/w:cantSplit"))
+            for cell in row.cells:
+                for paragraph in cell.paragraphs:
+                    for run in paragraph.runs:
+                        self.assertLessEqual(run.font.size.pt, 8)
+
     def test_bullet_helper_applies_readable_paragraph_spacing(self) -> None:
         document = Document()
         builder._add_bullets(document, ["One", "Two"])

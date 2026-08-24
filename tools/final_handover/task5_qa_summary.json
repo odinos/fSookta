@@ -6,11 +6,11 @@
   "workbook_pdf_pages": 33,
   "formula_contracts": 10,
   "formula_error_scan": "0 errors",
-  "visual_manifest": "cabf30c8de57c0e047785eb55666335742d759982469d85c5d2837605fc33576",
+  "visual_manifest": "4591fd7c6f38b1304d34182218784ca7c25983361490b523000a5989fe469b5f",
   "checksum_entries": 50,
   "model_algorithm_roles": 10,
   "training_evidence_records": 3,
-  "persisted_schema_rows": 193,
+  "persisted_schema_rows": 190,
   "export_schema_rows": 84,
   "human_actions": [
     "Pending Owner Action: approve model/recommendation authority, scope, privacy disclosures, retention/deletion, and production use boundaries.",

@@ -11,7 +11,7 @@ import re
 from pathlib import Path
 
 from docx import Document
-from docx.enum.text import WD_BREAK
+from docx.oxml import OxmlElement
 from docx.shared import Inches, Pt
 
 from build_task4_architecture import (
@@ -132,6 +132,95 @@ def _semantic_type(field: str) -> tuple[str, str, str]:
     return "text", "Source enum/text vocabulary or non-empty identifier where required", "N/A"
 
 
+def _class_sections(text: str) -> dict[str, str]:
+    matches = list(re.finditer(r"(?m)^class\s+(\w+)", text))
+    return {
+        match.group(1): text[match.start():(matches[index + 1].start() if index + 1 < len(matches) else len(text))]
+        for index, match in enumerate(matches)
+    }
+
+
+def _dart_unit(field: str, dart_type: str) -> str:
+    key = field.lower()
+    if key.endswith("ms"): return "milliseconds"
+    if key.endswith("seconds"): return "seconds"
+    if key.endswith("hours"): return "hours"
+    if key.endswith("minutes"): return "minutes"
+    if key.endswith("daysperweek"): return "days/week"
+    if "frequency" in key: return "events/hour"
+    if key.endswith("fps"): return "frames/second"
+    if key.endswith("deg"): return "degrees"
+    if "probability" in key: return "probability 0..1"
+    if key.endswith("ratio"): return "ratio 0..1"
+    if "weight" in key: return "kg"
+    if "distance" in key: return "m or source-labeled distance"
+    if "income" in key: return "THB/day or source profile period"
+    if "economic" in key or "money" in key or "cost" in key or "loss" in key: return "THB"
+    if "score" in key or key in {"techscore", "limitvalue"}: return "score/ratio"
+    return "N/A"
+
+
+def _dart_allowed(field: str, dart_type: str) -> str:
+    base = dart_type.rstrip("?")
+    key = field.lower()
+    if base == "bool": return "true or false"
+    if base == "int": return ">= 0; source constructor/fromJson fallback applies"
+    if base == "double":
+        return "0..1" if any(token in key for token in ("ratio", "probability")) else ">= 0 unless source calculation permits signed value"
+    if base == "DateTime": return "ISO-8601 text in persisted JSON"
+    if base.startswith("List<"): return f"JSON array matching {base}"
+    if base.startswith("Map<"): return f"JSON object matching {base} enum-name mapping"
+    if base in {"RiskLevel", "AiAlertLevel", "SooktaActivity", "JobType", "AssessmentMethod", "MotionPattern"}: return f"{base}.name enum text"
+    if base in {"AssessmentBreakdown", "RebaInputData", "ErgoInputData", "ErgoResult", "MotionAnalysisSummary"}: return f"Nested {base} JSON object"
+    return "Text/identifier accepted by the owning constructor/fromJson"
+
+
+def _owner_location(owner: str, field: str) -> str:
+    if owner == "EvaluationHistoryRecord": return f"SharedPreferences sookta.history[] -> {owner}.{field}"
+    if owner == "EvaluationDraft": return f"SharedPreferences sookta.evaluationDrafts[] / legacy draft -> {owner}.{field}"
+    if owner == "UserProfile": return f"SharedPreferences sookta.farmers[] / sookta.profile -> {owner}.{field}"
+    if owner == "ErgoResult": return f"Nested AssessmentBreakdown rebaResult/isoResult -> {owner}.{field}"
+    if owner == "AssessmentBreakdown": return f"SharedPreferences sookta.history[] -> EvaluationHistoryRecord.assessmentBreakdown/afterAssessmentBreakdown -> {owner}.{field}"
+    if owner == "RebaInputData": return f"Nested EvaluationDraft.rebaInput or AssessmentBreakdown.rebaInput -> {owner}.{field}"
+    if owner == "ErgoInputData": return f"Nested EvaluationDraft.ergoInput or AssessmentBreakdown.ergoInput -> {owner}.{field}"
+    if owner == "PoseRebaFrameAnalysis": return f"Nested AssessmentBreakdown.poseFrames[] -> {owner}.{field}"
+    if owner == "MotionAnalysisSummary": return f"Nested AssessmentBreakdown.motionSummary -> {owner}.{field}"
+    return f"Nested persisted model -> {owner}.{field}"
+
+
+def _extract_persisted_dart_contracts(root: Path, record_sources: list[str]) -> list[dict]:
+    rows: list[dict] = []
+    seen: set[tuple[str, str, str]] = set()
+    all_sections: dict[str, tuple[str, str]] = {}
+    for relative in record_sources:
+        text = (root / relative).read_text(encoding="utf-8")
+        for owner, section in _class_sections(text).items():
+            all_sections.setdefault(owner, (relative, section))
+            declarations = {field: dart_type for dart_type, field in re.findall(r"(?m)^\s*final\s+([^;=]+?)\s+(\w+)\s*;", section)}
+            for _, field, expression in re.findall(r"(?m)^\s{4,12}(['\"])([^'\"]+)\1\s*:\s*([^,\n]+)", section):
+                if field not in declarations:
+                    continue
+                identity = (owner, field, relative)
+                if identity in seen:
+                    continue
+                rows.append({"owner":owner,"field":field,"source":relative,"dart_type":declarations[field].strip(),"serializer_expression":expression.strip(),"required":f"required this.{field}" in section})
+                seen.add(identity)
+    # ErgoResult is serialized by AssessmentBreakdown._resultToJson rather than
+    # by an ErgoResult.toJson method. Preserve the value-object owner.
+    if "ErgoResult" in all_sections and "AssessmentBreakdown" in all_sections:
+        result_relative, result_section = all_sections["ErgoResult"]
+        result_declarations = {field: dart_type for dart_type, field in re.findall(r"(?m)^\s*final\s+([^;=]+?)\s+(\w+)\s*;", result_section)}
+        breakdown_section = all_sections["AssessmentBreakdown"][1]
+        method = breakdown_section[breakdown_section.index("static Map<String, Object?> _resultToJson"):breakdown_section.index("static ErgoResult _resultFromJson")]
+        for _, field, expression in re.findall(r"(?m)^\s{6,10}(['\"])([^'\"]+)\1\s*:\s*([^,\n]+)", method):
+            if field in result_declarations:
+                identity = ("ErgoResult", field, result_relative)
+                if identity not in seen:
+                    rows.append({"owner":"ErgoResult","field":field,"source":result_relative,"dart_type":result_declarations[field].strip(),"serializer_expression":expression.strip(),"required":f"required this.{field}" in result_section})
+                    seen.add(identity)
+    return sorted(rows, key=lambda row: (row["source"], row["owner"], row["field"]))
+
+
 def _persisted_rows(preference_keys: list[str], record_rows: list[dict]) -> list[dict]:
     key_details = {
         "sookta.profile": ("Current farmer profile JSON object", "FarmerProfile", "Empty/default profile"),
@@ -160,18 +249,18 @@ def _persisted_rows(preference_keys: list[str], record_rows: list[dict]) -> list
         })
     for item in record_rows:
         field, owner, source = item["field"], item["owner"], item["source"]
-        dtype, allowed, unit = _semantic_type(field)
-        optional_tokens = ("optional", "after", "expert", "msd", "medical", "photo", "image", "avatar", "comments", "notes", "iso", "feedback", "path", "location")
-        nullable = "Yes" if any(token in field.lower() for token in optional_tokens) else "No"
+        dtype = item["dart_type"]
+        allowed, unit = _dart_allowed(field, dtype), _dart_unit(field, dtype)
+        nullable = "Yes" if dtype.endswith("?") else "No"
         readable = re.sub(r"(?<!^)(?=[A-Z])", " ", field).replace("_", " ").strip().lower()
         rows.append({
             "field": field, "owner": owner, "description": f"Persisted {readable} value owned by {owner}",
             "type": dtype, "nullable": nullable,
-            "allowed": allowed, "unit": unit, "source": owner, "derivation": f"Serialized by {owner}.toJson and restored by {owner}.fromJson",
-            "missing": "null/blank preserved" if nullable == "Yes" else "Required or restored from the constructor/fromJson default", "privacy": _privacy(field, owner),
-            "persisted_location": f"Owning {owner} JSON under AppState profile/draft/history preferences",
+            "allowed": allowed, "unit": unit, "source": owner, "derivation": f"Serializer expression: {item['serializer_expression']}",
+            "missing": "null preserved by nullable declaration/serializer" if nullable == "Yes" else "Non-null declaration; constructor/fromJson fallback is authoritative", "privacy": _privacy(field, owner),
+            "persisted_location": _owner_location(owner, field),
             "export_location": "Mapped only where assessment_export_service.dart declares a column", "synthetic_example": "synthetic_value",
-            "validation": f"Validate against {owner} constructor/fromJson and source enum/range before use", "version": VERSION, "evidence": source,
+            "validation": f"Dart `{dtype} {field}`; {'required constructor parameter' if item['required'] else 'constructor default/optional parameter'}; verify serializer expression and fromJson conversion", "version": VERSION, "evidence": source,
         })
     return rows
 
@@ -207,7 +296,9 @@ def _export_schema_rows(headers: list[str]) -> list[dict]:
         elif field == "REBA_reduction": derivation = "REBA_before - REBA_after"
         elif field == "REBA_reduction_percent": derivation = "REBA_reduction / REBA_before; blank when before <= 0"
         elif field in {"After Impact (THB)","Estimated Saved (THB)"}: derivation = "EconomicImpactService comparison: reduction capped at 4 points, rate capped at 1.0, rounded and clamped 0..999999"
-        elif field == "trend_level": derivation = "0-1 Low; 2-3 Watch; 4-5 High; 6-7 Critical by high-risk record count"
+        elif field == "trend_level":
+            derivation = "_trendLevel(highRiskCount): 0-1 Low; 2-3 Medium; 4-5 High; >=6 Very high; localized for Thai export"
+            allowed = "Low; Medium; High; Very high (localized when Thai export is selected)"
         example = "'2026-08-24T09:00:00+07:00" if field in date_fields else (6 if field in score_fields else f"SYN-{index:03d}" if "ID" in field or field.endswith("_id") else "synthetic_value")
         rows.append({"field":field,"description":descriptions[field],"type":dtype,"nullable":"No" if field in required else "Yes","allowed":allowed,"unit":unit,"source":source,"derivation":derivation,"missing":"Blank string for unavailable optional export value; '-' only where the source explicitly emits it","privacy":_privacy(field),"persisted_location":persisted,"export_location":f"{index}: {field}","synthetic_example":example,"validation":"Preserve exact column order, type/range, applicability and source blank behavior","version":VERSION,"evidence":"lib/core/services/assessment_export_service.dart"})
     return rows
@@ -229,20 +320,7 @@ def inspect_source(root: Path) -> dict:
         "lib/core/models/assessment_session.dart",
         "lib/core/models/evaluation_models.dart",
     ]
-    persisted_record_fields: list[dict] = []
-    seen_record_fields: set[tuple[str, str, str]] = set()
-    for relative in record_sources:
-        text = (root / relative).read_text(encoding="utf-8")
-        class_matches = list(re.finditer(r"(?m)^class\s+(\w+)", text))
-        for index, class_match in enumerate(class_matches):
-            owner = class_match.group(1)
-            end = class_matches[index + 1].start() if index + 1 < len(class_matches) else len(text)
-            section = text[class_match.start():end]
-            for _, field in re.findall(r"(?m)^\s{4,12}(['\"])([^'\"]+)\1\s*:", section):
-                identity = (owner, field, relative)
-                if identity not in seen_record_fields:
-                    persisted_record_fields.append({"owner": owner, "field": field, "source": relative})
-                    seen_record_fields.add(identity)
+    persisted_record_fields = _extract_persisted_dart_contracts(root, record_sources)
     xgb_artifact = manifest["artifacts"]["xgboost"]
     metrics_rel = xgb_artifact["metricsPath"]
     metrics_path = root / metrics_rel
@@ -288,13 +366,13 @@ def inspect_source(root: Path) -> dict:
         },
         {
             "role_id": "movenet_multipose", "component": "MoveNet MultiPose Lightning",
-            "identifier": "Bundled multipose fallback; upstream release/version not recorded in repository metadata",
+            "identifier": "Bundled single-person eligibility/person-count gate; upstream release/version not recorded",
             "binary_sha256": sha(root / "assets/ml/movenet_multipose_lightning.tflite"),
             "runtime_path": "assets/ml/movenet_multipose_lightning.tflite",
             "provenance": "Bundled pretrained TensorFlow Lite asset",
-            "input": "Image tensor", "output": "Candidate poses/keypoints",
+            "input": "Image tensor", "output": "Confident person count and eligible/reject decision (eligible only when count == 1)",
             "training_class": "Pretrained; not fine-tuned in project", "authority": "Single-person eligibility gate",
-            "fallback": "Reject unless exactly one confident person; Thunder estimates pose only after gate passes", "limitations": "Counts eligible people; does not supply the assessment pose",
+            "fallback": "Reject/recapture when count is zero, multiple, or unavailable; Thunder estimates pose only after gate passes", "limitations": "Person-count eligibility gate only; does not supply assessment keypoints",
             "citation": "lib/core/services/multi_person_pose_detector.dart; lib/screens/main/evaluation_form_screen.dart",
         },
         {
@@ -374,8 +452,8 @@ def inspect_source(root: Path) -> dict:
             "binary_sha256":sha(root / "assets/ml/risk_alert_models.json"), "runtime_path":"assets/ml/risk_alert_models.json",
             "provenance":"Deprecated JSON logistic model retained for compatibility tests", "input":"Legacy assessment feature map", "output":"Legacy risk-alert probabilities",
             "training_class":"Deprecated/test-only model", "authority":"No current assessment authority", "fallback":"Current daily predictor and deterministic assessment flow",
-            "limitations":"Asset load is evidenced by the legacy service test, not the current UI flow", "citation":"lib/core/services/risk_alert_model_service.dart; test/risk_alert_model_service_test.dart",
-            "current_reference_status":"Deprecated service; test-only asset load",
+            "limitations":"Test reads the JSON file directly and exercises fromJson; it does not verify rootBundle loading. Asset is absent from pubspec and the current bundle/UI flow", "citation":"lib/core/services/risk_alert_model_service.dart; test/risk_alert_model_service_test.dart; pubspec.yaml",
+            "current_reference_status":"Deprecated service; JSON/fromJson test only; absent from current pubspec bundle",
         },
     ]
     for item in inventory:
@@ -396,6 +474,7 @@ def inspect_source(root: Path) -> dict:
             "holdout_mae": xgb["holdout"]["combinedRebaEquivalentScoreMae"],
             "evaluation_boundary": "Internal holdout only; high/veryHigh classes only; no external/clinical validation",
             "raw_metrics_status": "Complete" if metrics_path.exists() else "Pending Owner Action",
+            "raw_metrics_path": metrics_rel,
             "raw_metrics_note": f"{metrics_rel} is {'present' if metrics_path.exists() else 'not present'} in authoritative baseline",
             "dataset_path":"data/research/extracted/reba_labeled_pose_dataset.csv", "dataset_status":"Complete" if (root / "data/research/extracted/reba_labeled_pose_dataset.csv").exists() else "Pending Researcher Evidence",
             "research_trained": True, "citation": "assets/models/xgboost_model_metadata.json; tools/research_dataset/train_xgboost_onnx_model.py",
@@ -443,7 +522,40 @@ def inspect_source(root: Path) -> dict:
         "daily_runtime_tiers": [{"high_risk_count":"0-1","level":"Low"},{"high_risk_count":"2-3","level":"Watch"},{"high_risk_count":"4-5","level":"High"},{"high_risk_count":"6-7","level":"Critical"}],
         "daily_probability_thresholds": {"values":daily.get("thresholds", daily.get("riskThresholds", {})), "loaded_by_helper":True, "used_by_predict_for_records":False, "note":"Threshold metadata is loaded and levelFor(probability) exists, but predictForRecords assigns level from _levelForHighRiskCount."},
         "export_schema_rows": _export_schema_rows(all_history_headers),
-        "firebase_telemetry": {"default_off":True,"flag":"SOOKTA_TELEMETRY_ENABLED","events":{"app_start":["platform","build_mode"],"assessment_image_added":["source","image_count"],"assessment_calculated":["activity","job_type","primary_method","risk_level","score","image_count","uses_iso11228"],"assessment_saved":["activity","before_risk","after_risk","before_score","after_score","suggestion_count"],"export_created":["export_type","record_count"]},"crashlytics_context":True,"note":"When enabled, safe event parameters go to Analytics and the same event/key-value context is logged to Crashlytics."},
+        "firebase_telemetry": {
+            "default_off": True,
+            "flag": "SOOKTA_TELEMETRY_ENABLED",
+            "wrapper_events": {
+                "app_start": ["platform", "build_mode"],
+                "assessment_image_added": ["source", "image_count"],
+                "assessment_calculated": ["activity", "job_type", "primary_method", "risk_level", "score", "image_count", "uses_iso11228"],
+                "assessment_saved": ["activity", "before_risk", "after_risk", "before_score", "after_score", "suggestion_count"],
+                "export_created": ["export_type", "record_count"],
+            },
+            "wrapper_call_sites": {
+                "app_start": ["lib/core/services/firebase_telemetry_service.dart"],
+                "assessment_image_added": ["lib/screens/main/evaluation_form_screen.dart"],
+                "assessment_calculated": ["lib/screens/main/evaluation_form_screen.dart"],
+                "assessment_saved": ["lib/screens/main/final_result_screen.dart"],
+                "export_created": ["lib/screens/main/final_result_screen.dart", "lib/screens/main/training_data_export_screen.dart"],
+            },
+            "events": {
+                "app_start": ["platform", "build_mode"],
+                "assessment_image_added": ["source", "image_count"],
+                "assessment_calculated": ["activity", "job_type", "primary_method", "risk_level", "score", "image_count", "uses_iso11228"],
+                "assessment_saved": ["activity", "before_risk", "after_risk", "before_score", "after_score", "suggestion_count"],
+                "export_created": ["export_type", "record_count"],
+                "pose_analysis_failed": ["platform", "error_code"],
+            },
+            "generic_call_sites": {"pose_analysis_failed": ["platform", "error_code"]},
+            "generic_call_site_paths": {"pose_analysis_failed": "lib/screens/main/evaluation_form_screen.dart"},
+            "log_app_open": True,
+            "analytics_observer_navigation": True,
+            "analytics_observer_call_sites": ["lib/app/sookta_app.dart"],
+            "observer_note": "FirebaseAnalyticsObserver can emit SDK-generated navigation/screen analytics; event names/payload are controlled by the Firebase SDK and are not explicitly enumerated in repository source.",
+            "crashlytics_context": True,
+            "note": "When enabled, explicit logEvent calls send sanitized parameters to Analytics and log the same context to Crashlytics. logAppOpen and observer-generated screen/navigation analytics are separate SDK paths.",
+        },
         "reference_sources": refs["sources"], "reference_copyright_note": refs["copyrightNote"],
         "daily_model": daily, "baseline_surrogate": baseline,
         "source_citations": [
@@ -453,11 +565,15 @@ def inspect_source(root: Path) -> dict:
                 "lib/core/services/daily_injury_prediction_service.dart",
                 "lib/core/services/multi_person_pose_detector.dart",
                 "lib/screens/main/evaluation_form_screen.dart",
+                "lib/screens/main/final_result_screen.dart",
+                "lib/screens/main/training_data_export_screen.dart",
+                "lib/app/sookta_app.dart",
                 "lib/core/services/firebase_telemetry_service.dart",
                 "lib/core/services/economic_impact_service.dart",
                 "lib/core/services/assessment_export_service.dart",
                 "lib/core/services/training_data_export_service.dart",
-                "lib/app/app_state.dart", "lib/core/models/evaluation_models.dart",
+                "lib/app/app_state.dart", "lib/core/models/assessment_session.dart",
+                "lib/core/models/evaluation_models.dart", "pubspec.yaml",
                 "assets/models/xgboost_model_metadata.json",
                 "assets/models/model_artifact_manifest.json",
                 "assets/ml/daily_injury_logistic_model.json",
@@ -500,10 +616,16 @@ def _add_signature_table(doc: Document) -> None:
         for i, value in enumerate(values):
             cells[i].text = value
     for row in table.rows:
+        tr_pr = row._tr.get_or_add_trPr()
+        tr_pr.append(OxmlElement("w:cantSplit"))
         for cell in row.cells:
             set_cell_margins(cell)
-            for run in cell.paragraphs[0].runs:
-                run.font.name = "Arial"
+            for paragraph in cell.paragraphs:
+                paragraph.paragraph_format.space_before = Pt(0)
+                paragraph.paragraph_format.space_after = Pt(0)
+                for run in paragraph.runs:
+                    run.font.name = "Arial"
+                    run.font.size = Pt(8)
         row.cells[0].paragraphs[0].runs[0].bold = True
 
 
@@ -542,7 +664,7 @@ def build_ai_report(output: Path, facts: dict) -> None:
         ("Labels", xgb["labels"]), ("Holdout result", f"risk accuracy {xgb['holdout_risk_accuracy']}; combined REBA-equivalent MAE {xgb['holdout_mae']}"),
         ("Boundary", xgb["evaluation_boundary"]), ("Raw metrics", f"{xgb['raw_metrics_status']}: {xgb['raw_metrics_note']}"),
     ])
-    doc.add_paragraph(f"The source-controlled training script uses GroupShuffleSplit(n_splits=1, test_size={xgb['test_size']}, random_state={xgb['random_seed']}) and XGBRegressor parameters {json.dumps(xgb['xgb_parameters'], sort_keys=True)}. The configured dataset path {xgb['dataset_path']} is {xgb['dataset_status']}; the separate raw metrics path is {xgb['raw_metrics_status']}. No formal model-selection protocol is evidenced. Citation: tools/research_dataset/train_xgboost_onnx_model.py; assets/models/xgboost_model_metadata.json.")
+    doc.add_paragraph(f"The source-controlled training script uses GroupShuffleSplit(n_splits=1, test_size={xgb['test_size']}, random_state={xgb['random_seed']}) and XGBRegressor parameters {json.dumps(xgb['xgb_parameters'], sort_keys=True)}. Dataset path {xgb['dataset_path']} has status {xgb['dataset_status']}; the distinct raw-metrics path {xgb['raw_metrics_path']} has status {xgb['raw_metrics_status']}. No formal model-selection protocol is evidenced. Citation: tools/research_dataset/train_xgboost_onnx_model.py; assets/models/xgboost_model_metadata.json; assets/models/model_artifact_manifest.json.")
     doc.add_heading("5. Daily logistic training boundary", level=1)
     doc.add_paragraph(facts["daily_model"]["trainingStatus"]["reason"])
     doc.add_paragraph("predictForRecords assigns the displayed daily level from the count of High/Very High before-records in its seven-record window: 0-1 Low, 2-3 Watch, 4-5 High, and 6-7 Critical. The JSON probability thresholds are loaded and a levelFor(probability) helper exists, but predictForRecords does not use those thresholds for its tier. Those thresholds are therefore template/helper metadata, not runtime tier logic. Evidence: lib/core/services/daily_injury_prediction_service.dart; assets/ml/daily_injury_logistic_model.json.")
@@ -563,14 +685,13 @@ def build_ai_report(output: Path, facts: dict) -> None:
         "Remote database/API is N/A with Rationale for the current assessment path; optional default-off Firebase telemetry is separate.",
     ])
     doc.add_heading("8.1 Optional outbound telemetry", level=2)
-    doc.add_paragraph("Assessment persistence remains local by default. Firebase telemetry is separately controlled by SOOKTA_TELEMETRY_ENABLED and defaults off. If enabled, outbound Analytics events/fields are: app_start(platform, build_mode); assessment_image_added(source, image_count); assessment_calculated(activity, job_type, primary_method, risk_level, score, image_count, uses_iso11228); assessment_saved(activity, before_risk, after_risk, before_score, after_score, suggestion_count); export_created(export_type, record_count). The same safe event key/value context is logged to Crashlytics. Evidence: lib/core/services/firebase_telemetry_service.dart.")
+    doc.add_paragraph("Assessment persistence remains local by default. Firebase telemetry is separately controlled by SOOKTA_TELEMETRY_ENABLED and defaults off. Explicit enabled paths are logAppOpen; app_start(platform, build_mode); assessment_image_added(source, image_count); assessment_calculated(activity, job_type, primary_method, risk_level, score, image_count, uses_iso11228); assessment_saved(activity, before_risk, after_risk, before_score, after_score, suggestion_count); export_created(export_type, record_count); and the generic call site pose_analysis_failed(platform, error_code). Explicit logEvent parameters are sanitized for Analytics and the same context is logged to Crashlytics. FirebaseAnalyticsObserver may additionally generate SDK-defined navigation/screen events whose exact event names/payload are not enumerated by repository source. Evidence: lib/core/services/firebase_telemetry_service.dart; lib/screens/main/evaluation_form_screen.dart.")
     doc.add_heading("9. References and evidence", level=1)
     _add_bullets(doc, [
         f"{source['id']}: {source['title']} | SHA-256 {source['sha256']} | Use: {source['trainingUse']}"
         for source in facts["reference_sources"]
     ])
     doc.add_paragraph(f"Copyright boundary: {facts['reference_copyright_note']}")
-    doc.add_page_break()
     doc.add_heading("10. Human-owned actions", level=1)
     _add_bullets(doc, human_actions())
     doc.add_heading("11. Review and signature", level=1); _add_signature_table(doc)
@@ -635,7 +756,7 @@ def build_data_manual(output: Path, facts: dict) -> None:
         "Delete actions must be verified across preference records, copied image files, local CSV exports, OS-shared copies, and any external research repository; source does not prove end-to-end erasure.",
     ])
     doc.add_heading("7.1 Optional Firebase telemetry", level=2)
-    doc.add_paragraph("Local assessment persistence is the default. SOOKTA_TELEMETRY_ENABLED defaults false. When an owner enables it, Firebase Analytics receives app_start(platform, build_mode), assessment_image_added(source, image_count), assessment_calculated(activity, job_type, primary_method, risk_level, score, image_count, uses_iso11228), assessment_saved(activity, before_risk, after_risk, before_score, after_score, suggestion_count), and export_created(export_type, record_count). Crashlytics receives the same sanitized event/key-value context. Owner approval, Firebase-project custody, disclosure, and retention remain Pending Owner Action. Evidence: lib/core/services/firebase_telemetry_service.dart.")
+    doc.add_paragraph("Local assessment persistence is the default. SOOKTA_TELEMETRY_ENABLED defaults false. When enabled, explicit paths include logAppOpen; app_start(platform, build_mode); assessment_image_added(source, image_count); assessment_calculated(activity, job_type, primary_method, risk_level, score, image_count, uses_iso11228); assessment_saved(activity, before_risk, after_risk, before_score, after_score, suggestion_count); export_created(export_type, record_count); and generic pose_analysis_failed(platform, error_code). Crashlytics receives the same sanitized context for explicit logEvent calls. FirebaseAnalyticsObserver can separately generate SDK-defined navigation/screen analytics; repository source does not enumerate those exact SDK payloads. Owner approval, Firebase-project custody, disclosure, and retention remain Pending Owner Action. Evidence: lib/core/services/firebase_telemetry_service.dart; lib/screens/main/evaluation_form_screen.dart.")
     doc.add_heading("8. Error and failure recovery", level=1)
     _add_bullets(doc, [
         "Restore failure clears in-memory restored state and continues hydrated; investigate rather than treating a reset screen as proof of deletion.",

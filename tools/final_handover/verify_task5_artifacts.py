@@ -75,6 +75,75 @@ def assert_synthetic_examples(values: list[str]) -> None:
     assert not any(token in joined for token in forbidden), joined
 
 
+def extract_authoritative_source_contracts(root: Path) -> dict:
+    """Independently derive critical contracts from authoritative source files."""
+    dart_fields: dict[tuple[str, str], str] = {}
+    serialized_fields: set[tuple[str, str]] = set()
+    for relative in ["lib/app/app_state.dart", "lib/core/models/assessment_session.dart", "lib/core/models/evaluation_models.dart"]:
+        text = (root / relative).read_text(encoding="utf-8")
+        matches = list(re.finditer(r"(?m)^class\s+(\w+)", text))
+        for index, match in enumerate(matches):
+            owner = match.group(1)
+            section = text[match.start():(matches[index + 1].start() if index + 1 < len(matches) else len(text))]
+            for dart_type, field in re.findall(r"(?m)^\s*final\s+([^;=]+?)\s+(\w+)\s*;", section):
+                dart_fields[(owner, field)] = dart_type.strip()
+            declared = {field for (declared_owner, field) in dart_fields if declared_owner == owner}
+            for field in set(re.findall(r"(?m)^\s*['\"](\w+)['\"]\s*:", section)) & declared:
+                serialized_fields.add((owner, field))
+        # AssessmentBreakdown serializes nested ErgoResult values through a typed helper.
+        for helper in re.finditer(r"_resultToJson\s*\(\s*ErgoResult\s+\w+\s*\)([\s\S]*?)(?=\n\s*(?:static\s+)?(?:Map|factory|class)\b)", text):
+            declared = {field for (declared_owner, field) in dart_fields if declared_owner == "ErgoResult"}
+            for field in set(re.findall(r"['\"](\w+)['\"]\s*:", helper.group(1))) & declared:
+                serialized_fields.add(("ErgoResult", field))
+    export_text = (root / "lib/core/services/assessment_export_service.dart").read_text(encoding="utf-8")
+    assert "highRiskCount >= 6" in export_text and "RiskLevel.veryHigh" in export_text
+    trend_levels = ["Low", "Medium", "High", "Very high"]
+    telemetry_text = (root / "lib/core/services/firebase_telemetry_service.dart").read_text(encoding="utf-8")
+    callsite_text = (root / "lib/screens/main/evaluation_form_screen.dart").read_text(encoding="utf-8")
+    telemetry_events: dict[str, list[str]] = {}
+    for event, expected in {
+        "app_start":["platform","build_mode"], "assessment_image_added":["source","image_count"],
+        "assessment_calculated":["activity","job_type","primary_method","risk_level","score","image_count","uses_iso11228"],
+        "assessment_saved":["activity","before_risk","after_risk","before_score","after_score","suggestion_count"],
+        "export_created":["export_type","record_count"],
+    }.items():
+        block = re.search(rf"logEvent\(\s*['\"]{event}['\"]\s*,\s*\{{([\s\S]*?)\}}\s*\)", telemetry_text)
+        assert block, event
+        actual = re.findall(r"(?m)^\s*['\"](\w+)['\"]\s*:", block.group(1))
+        assert actual == expected, (event, actual)
+        telemetry_events[event] = actual
+    generic = re.search(r"logEvent\(\s*['\"]pose_analysis_failed['\"]\s*,\s*\{([\s\S]*?)\}\s*\)", callsite_text)
+    assert generic
+    telemetry_events["pose_analysis_failed"] = re.findall(r"(?m)^\s*['\"](\w+)['\"]\s*:", generic.group(1))
+    assert telemetry_events["pose_analysis_failed"] == ["platform", "error_code"]
+    assert "logAppOpen()" in telemetry_text and "FirebaseAnalyticsObserver(" in telemetry_text
+    wrapper_methods = {
+        "assessment_image_added": "logImageAdded", "assessment_calculated": "logAssessmentCalculated",
+        "assessment_saved": "logAssessmentSaved", "export_created": "logExportCreated",
+    }
+    telemetry_call_sites = {"app_start": ["lib/core/services/firebase_telemetry_service.dart"]}
+    dart_sources = list((root / "lib").rglob("*.dart"))
+    for event, method in wrapper_methods.items():
+        telemetry_call_sites[event] = sorted(
+            path.relative_to(root).as_posix() for path in dart_sources
+            if path.name != "firebase_telemetry_service.dart" and f"FirebaseTelemetryService.{method}(" in path.read_text(encoding="utf-8")
+        )
+        assert telemetry_call_sites[event], event
+    generic_path = "lib/screens/main/evaluation_form_screen.dart"
+    observer_paths = sorted(
+        path.relative_to(root).as_posix() for path in dart_sources
+        if path.name != "firebase_telemetry_service.dart" and "FirebaseTelemetryService.navigatorObservers" in path.read_text(encoding="utf-8")
+    )
+    assert observer_paths
+    train_text = (root / "tools/research_dataset/train_xgboost_onnx_model.py").read_text(encoding="utf-8")
+    test_size = float(re.search(r"--test-size[\s\S]{0,160}?default=([0-9.]+)", train_text).group(1))
+    random_seed = int(re.search(r"--random-state[\s\S]{0,160}?default=(\d+)", train_text).group(1))
+    xgb = {"test_size":test_size,"random_seed":random_seed,"split_method":"GroupShuffleSplit"}
+    for key, expected in {"n_estimators":"96","max_depth":"3","learning_rate":"0.055","subsample":"0.88","colsample_bytree":"0.86","reg_lambda":"1.4","reg_alpha":"0.02","min_child_weight":"2","n_jobs":"1","tree_method":"\"hist\""}.items():
+        assert re.search(rf"{key}\s*=\s*{re.escape(expected)}", train_text), key
+    return {"dart_fields":dart_fields,"serialized_fields":serialized_fields,"trend_levels":trend_levels,"telemetry_events":telemetry_events,"telemetry_call_sites":telemetry_call_sites,"generic_call_site_paths":{"pose_analysis_failed":generic_path},"log_app_open":True,"analytics_observer":True,"analytics_observer_call_sites":observer_paths,"xgb":xgb}
+
+
 def verify_visual_manifest(staging: Path, manifest_path: Path, expected: dict[str, list[str]]) -> None:
     payload = json.loads(manifest_path.read_text(encoding="utf-8"))
     assert payload["status"] == "passed"
@@ -117,7 +186,8 @@ def verify_checksums(staging: Path, required: list[Path]) -> int:
     return len(rows)
 
 
-def verify_source_contracts(facts: dict) -> None:
+def verify_source_contracts(facts: dict, root: Path) -> dict:
+    independent = extract_authoritative_source_contracts(root)
     assert len(facts["recommendation_messages"]) == 26
     triggers = facts["recommendation_triggers"]
     assert len(triggers) == 24
@@ -140,11 +210,25 @@ def verify_source_contracts(facts: dict) -> None:
     for role in (roles["legacy_logistic_weights"], roles["deprecated_risk_alert"]): assert re.fullmatch(r"[0-9a-f]{64}", role["binary_sha256"])
     assert len(facts["export_schema_rows"]) == 84
     assert len(facts["persisted_schema_rows"]) > len({r["field"] for r in facts["persisted_schema_rows"]})
+    persisted_pairs = {(row["owner"], row["field"]) for row in facts["persisted_schema_rows"]}
+    assert independent["serialized_fields"].issubset(persisted_pairs)
     assert "sookta.backup.schema.<version>.<timestamp>" in facts["preference_keys"]
     assert all(r["description"] and r["type"] and r["validation"] and "source-defined" not in r["type"].lower() for r in facts["export_schema_rows"])
     telemetry = facts["firebase_telemetry"]
     assert telemetry["default_off"] and telemetry["crashlytics_context"]
     assert telemetry["events"]["assessment_calculated"] == ["activity","job_type","primary_method","risk_level","score","image_count","uses_iso11228"]
+    assert telemetry["events"] == independent["telemetry_events"]
+    assert telemetry["wrapper_call_sites"] == independent["telemetry_call_sites"]
+    assert telemetry["generic_call_site_paths"] == independent["generic_call_site_paths"]
+    assert telemetry["analytics_observer_call_sites"] == independent["analytics_observer_call_sites"]
+    assert telemetry["log_app_open"] and telemetry["analytics_observer_navigation"]
+    assert evidence["split_method"] == independent["xgb"]["split_method"]
+    assert evidence["test_size"] == independent["xgb"]["test_size"]
+    assert evidence["random_seed"] == independent["xgb"]["random_seed"]
+    trend = next(row for row in facts["export_schema_rows"] if row["field"] == "trend_level")
+    assert all(label in trend["allowed"] for label in independent["trend_levels"])
+    assert "Critical" not in trend["allowed"] + trend["derivation"]
+    return independent
 
 
 def verify(staging: Path) -> dict:
@@ -222,7 +306,36 @@ def verify(staging: Path) -> dict:
         assert not forbidden_identity.search(text), path
     checksum_entries = verify_checksums(staging, required)
     input_data = json.loads((staging / "working/task5/task5_build_input.json").read_text(encoding="utf-8"))
-    verify_source_contracts(input_data)
+    source_root = Path(input_data["source_root"])
+    independent = verify_source_contracts(input_data, source_root)
+    # Compare workbook cells against an independent Dart declaration scan.
+    data_check = load_workbook(required[8], read_only=True, data_only=False)
+    persisted_sheet = data_check["Persisted Keys Records"]
+    persisted_headers = [cell.value for cell in persisted_sheet[4]]
+    pidx = {name:index for index,name in enumerate(persisted_headers)}
+    persisted_values = list(persisted_sheet.iter_rows(min_row=5, values_only=True))
+    for owner, field, expected_type in [
+        ("EvaluationHistoryRecord","id","int"), ("EvaluationHistoryRecord","timeOnTaskSeconds","int?"),
+        ("EvaluationDraft","selectedImagePaths","List<String>"), ("RebaInputData","trunkTwist","bool"),
+        ("PoseRebaFrameAnalysis","imageIndex","int"), ("PoseRebaFrameAnalysis","timestampMs","int?"),
+        ("AssessmentBreakdown","isoMethod","AssessmentMethod?"), ("AssessmentBreakdown","isoResult","ErgoResult?"),
+        ("AssessmentBreakdown","xgboostProbability","double?"), ("ErgoResult","techScore","double"),
+    ]:
+        assert independent["dart_fields"][(owner,field)] == expected_type
+        matches = [row for row in persisted_values if row[0] == field and owner in str(row[pidx["Persisted location / key"]])]
+        assert len(matches) == 1, (owner,field,len(matches))
+        assert matches[0][pidx["Type"]] == expected_type
+        assert matches[0][pidx["Nullable"]] == ("Yes" if expected_type.endswith("?") else "No")
+    training_sheet = load_workbook(required[2], read_only=True, data_only=False)["Training Evaluation"]
+    training_headers = [cell.value for cell in training_sheet[4]]
+    tidx = {name:index for index,name in enumerate(training_headers)}
+    xgb_row = next(row for row in training_sheet.iter_rows(min_row=5, values_only=True) if row[0] == "xgboost_training")
+    assert xgb_row[tidx["Split method"]] == "GroupShuffleSplit"
+    assert xgb_row[tidx["Test size"]] == 0.22 and xgb_row[tidx["Seed"]] == 42
+    assert xgb_row[tidx["Dataset status"]] == "Pending Researcher Evidence"
+    assert xgb_row[tidx["Raw metrics status"]] == "Pending Owner Action"
+    for token in ["n_estimators", "tree_method", "reg_lambda", "min_child_weight"]: assert token in xgb_row[tidx["XGBRegressor parameters"]]
+    data_check.close()
     missing = [row for row in input_data["source_citations"] if row["status"] != "Resolved"]
     assert not missing, missing
     return {

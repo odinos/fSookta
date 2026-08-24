@@ -71,3 +71,15 @@ Task 5: implementation complete pending independent re-review (10 primary
 artifacts; 24 workbook sheets; 50 PDF pages; 74 inspected renders; 12 Python and
 10 Node targeted tests plus 56 Python/16 Node prior regression passed; verifier
 `passed_with_human_actions`; 50 cumulative checksums; Drive not accessed).
+Task 5: fix round 2/5 (5 reviewer findings plus minor issue addressed, 0 open —
+complete training-workbook evidence columns/parameters, source-derived Dart
+declaration and serializer contracts, exact export trend labels, MultiPose
+person-count output, explicit Firebase wrapper/generic/SDK paths, independent
+source verifier, and corrected deprecated-asset wording). Visual QA additionally
+found and repaired one orphan signature fragment and one blank page using
+RED→GREEN pagination regressions.
+Task 5: implementation complete pending independent re-review (10 primary
+artifacts; 24 workbook sheets; 50 PDF pages; 190 persisted schema rows; 84
+export rows; 74 inspected renders; 17 Python and 12 Node targeted tests; 61
+Python/18 Node cumulative regression passed; independent verifier
+`passed_with_human_actions`; 50 cumulative checksums; Drive not accessed).
