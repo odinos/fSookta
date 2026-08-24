@@ -93,6 +93,10 @@ classification with explicit container and owned-field rules. Draft/history/
 migration-backup containers are labeled for their composite participant,
 assessment, and financial payloads; timestamps such as `savedAt` remain
 operational metadata; mirrored participant snapshots remain participant data.
+Round 5 additionally classifies the demographic calculation input
+`ErgoInputData.gender` as participant/profile data and independently verifies
+that classification; an exact audit found no analogous demographic fallback
+remaining in the documented persisted contract.
 
 All examples in the schema workbook are visibly synthetic. No real participant
 record, credential, token, secret, or private/raw evidence was included in the
@@ -118,7 +122,7 @@ and English glyphs render correctly.
 The hash-bound visual-QA manifest is
 `/private/tmp/fsookta-final-handover/manifests/task5_visual_qa_manifest.json`,
 SHA-256
-`e8eeba321dd605282d5b3c0e5325fa122eff5eb078e278bd099022a08e80045e`.
+`e46d698d11ee59eac83ddcc4f0469372fee2b17158a560ec87556044eed8124e`.
 It binds all ten primary artifacts to 91 render files. Round 4 directly
 re-inspected the 9 affected workbook-sheet renders and 14 corresponding PDF
 pages; unchanged surfaces retain their prior passed status and current hashes.
@@ -138,7 +142,7 @@ Verification results:
   archive/XML secret and participant-data scans, editable/reference pairing,
   visual-manifest freshness, and cumulative checksum binding: passed.
 - Cumulative checksum manifest: 50 entries; SHA-256
-`c7f3a87f883d80dbd1a5f3a6576cd764f303bfd6731d828183484623de33d0d8`.
+`b5ade5a1e9415f77c4a1121f69576aa8a619a159eec44ba7e0f9d5031781cc06`.
 
 ## Reproducible implementation
 

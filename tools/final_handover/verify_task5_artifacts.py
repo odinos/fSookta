@@ -112,6 +112,7 @@ def _independent_field_privacy(owner: str, field: str) -> str:
         if field in draft_timestamp_metadata: return "Operational metadata"
         return "Sensitive assessment/research data"
     if owner in {"ErgoInputData", "RebaInputData"}:
+        if owner == "ErgoInputData" and field == "gender": return "Sensitive participant/profile data"
         return "Sensitive financial data" if field == "dailyIncome" else "Sensitive assessment/research data"
     if owner == "ErgoResult":
         return "Sensitive financial data" if field == "economicLoss" else "Sensitive assessment/research data"

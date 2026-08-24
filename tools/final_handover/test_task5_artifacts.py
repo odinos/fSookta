@@ -206,8 +206,13 @@ class SourceGroundingTests(unittest.TestCase):
         self.assertEqual(rows[("SharedPreferences", "sookta.backup.schema.<version>.<timestamp>")]["privacy"],
                          "Sensitive composite participant/profile + assessment/research + financial data")
         self.assertEqual(rows[("EvaluationDraft", "savedAt")]["privacy"], "Operational metadata")
+        self.assertEqual(rows[("ErgoInputData", "gender")]["privacy"], "Sensitive participant/profile data")
         for field in ["farmerLocation", "farmerName", "farmerProfileId", "farmerRole", "farmerAge", "farmerGender", "farmerWeight", "farmerHeight", "farmerBmi", "farmerBmiCategory"]:
             self.assertEqual(rows[("EvaluationHistoryRecord", field)]["privacy"], "Sensitive participant/profile data", field)
+        for field in ["profileId", "farmerId", "name", "role", "location", "age", "gender"]:
+            self.assertEqual(rows[("UserProfile", field)]["privacy"], "Sensitive participant/profile data", field)
+        for field in ["farmerProfileId", "farmerId", "farmerName"]:
+            self.assertEqual(rows[("EvaluationDraft", field)]["privacy"], "Sensitive participant/profile data", field)
 
     def test_independent_verifier_rejects_each_privacy_contract_mutation(self) -> None:
         facts = builder.inspect_source(SOURCE)
@@ -216,6 +221,7 @@ class SourceGroundingTests(unittest.TestCase):
             ("SharedPreferences", "sookta.evaluationDrafts", "Operational metadata"),
             ("SharedPreferences", "sookta.backup.schema.<version>.<timestamp>", "Operational metadata"),
             ("EvaluationDraft", "savedAt", "Sensitive financial data"),
+            ("ErgoInputData", "gender", "Sensitive assessment/research data"),
             ("EvaluationHistoryRecord", "farmerLocation", "Operational metadata"),
             ("EvaluationHistoryRecord", "farmerName", "Operational metadata"),
             ("EvaluationHistoryRecord", "farmerProfileId", "Operational metadata"),

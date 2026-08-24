@@ -138,6 +138,7 @@ def _privacy(field: str, owner: str = "") -> str:
         if field in operational_draft: return "Operational metadata"
         return "Sensitive assessment/research data"
     if owner in {"ErgoInputData", "RebaInputData"}:
+        if owner == "ErgoInputData" and field == "gender": return "Sensitive participant/profile data"
         return "Sensitive financial data" if field == "dailyIncome" else "Sensitive assessment/research data"
     if owner == "ErgoResult":
         return "Sensitive financial data" if field == "economicLoss" else "Sensitive assessment/research data"

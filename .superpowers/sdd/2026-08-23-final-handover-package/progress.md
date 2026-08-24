@@ -105,3 +105,11 @@ artifacts; 24 workbook sheets; 50 PDF pages; 190 persisted schema rows; 84
 export rows; 22 Python and 12 Node targeted tests; 66 Python/18 Node cumulative
 regression passed; independent verifier `passed_with_human_actions`; 50
 cumulative checksums; Drive not accessed).
+Task 5: fix round 5/5 (1 scoped privacy regression addressed, 0 open —
+`ErgoInputData.gender` is participant/profile data in both the source-grounded
+builder and independently reconstructed verifier contract; direct mutation and
+exact analogous-demographic audit coverage added). Regenerated the affected
+data workbook/PDF pair and directly inspected all 23 affected renders; the
+hash-bound manifest covers 91 current renders. Task 5 remains technically
+complete pending independent re-review and unchanged human-owned approvals,
+evidence, and signatures; Drive not accessed.
