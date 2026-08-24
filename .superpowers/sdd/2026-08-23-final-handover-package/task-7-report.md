@@ -4,7 +4,7 @@
 
 Generated all 18 Task 7 deliverables for SookTa `1.3.11+28` at authoritative
 commit `bf8867a2083357cb9d60915bf6c2233801f923d8`: nine editable files and nine
-matching PDFs. After fix round 2, all non-visual verifier gates pass; final status
+matching PDFs. After fix round 3, all non-visual verifier gates pass; final status
 remains pending the externally authored visual decision.
 
 The desktop Codex Security Standard start call was terminated without an
@@ -49,6 +49,14 @@ The source-backed fallback records five bounded observations:
 No credential or secret value was captured. The inspection manifest preserves
 evidence paths, limitations, status, and accountable human role for each row.
 
+A separate acyclic post-generation inspection scans all current package content:
+26 Office containers / 506 eligible members and 37 manifests, including all nine
+current Task 7 editable files and all four non-self Task 7 manifests. Its 70
+identifier-shaped disposition rows contain 279 occurrences; 134 remain pending
+researcher review. All four Firebase client-configuration markers are bound to
+their exact paths and remain pending owner review. These pattern matches neither
+establish participant identity nor demonstrate credential safety.
+
 ## Manuals, KT, and publication boundaries
 
 The manuals explain the source-backed application flow, local persistence,
@@ -77,7 +85,7 @@ removed orphaned table/signature fragments, excessive workbook PDF pagination,
 and an incorrect cached formula display. Changed surfaces are locally legible,
 unclipped, non-overlapping, and free of unexpected blank pages or broken glyphs.
 External PASS is not yet authored. The current expected-render manifest SHA-256
-is `7fce49b7a2fc11d4ab1f310dc52d0d3ef593ebc8f28b15bda18929e2c9663cdb`.
+is `b7eb6c6ddcc0d14592002a247336c6d6ad93fe28c311ec258956abb82a6026a4`.
 
 The cumulative staging checksum manifest will be regenerated only after the
 external visual decision and resulting visual manifest exist.

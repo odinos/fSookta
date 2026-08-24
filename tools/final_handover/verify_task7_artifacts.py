@@ -150,7 +150,7 @@ def independent_security_scan(root,src):
      if member.isfile():consume('source_archives',f'{archive_path.name}::{member.name}',archive.extractfile(member).read())
      else:scope['source_archives']['skipped_items']+=1
  for manifest in sorted((root/'manifests').glob('*.json')):
-  if manifest.name.startswith('task7_'):scope['manifests']['skipped_items']+=1;continue
+  if manifest.name.startswith('task7_'):continue
   consume('manifests',manifest.relative_to(root).as_posix(),manifest.read_bytes())
  for office in sorted((root/'artifacts').glob('*')):
   if office.suffix.lower() not in {'.docx','.xlsx','.pptx'}:continue
@@ -166,6 +166,75 @@ def independent_security_scan(root,src):
   else:category='unclassified_generic_assignment';owner=True
   triage.append({'path':relative,'occurrences':occurrences,'category':category,'owner_review_required':owner})
  return scope,secret,participants,triage
+def final_participant_disposition(domain,logical,pattern):
+ normalized=logical.split('::',1)[-1];suffix=Path(normalized).suffix.lower();binary={'.png','.jpg','.jpeg','.webp','.tflite','.onnx','.so','.bin','.a','.apk','.ipa'}
+ if domain=='office':return 'office_content_identifier_candidate','Current or prior Office content requires researcher review; no matched value retained','Open - Pending Researcher'
+ if domain=='manifests':return 'manifest_identifier_candidate','Manifest metadata/reference content requires researcher review; no matched value retained','Open - Pending Researcher'
+ if suffix in binary:return 'binary_byte_coincidence','Pattern occurs in binary bytes and is not interpreted as participant data','Reviewed - False Positive'
+ if normalized.startswith(('test/','integration_test/')):return 'nonproduction_test_fixture','Literal occurs in a versioned automated-test fixture','Reviewed - Test Fixture'
+ if normalized=='pubspec.lock':return 'dependency_metadata_numeric_token','Thirteen-digit shape occurs in resolved dependency metadata','Reviewed - Not Participant'
+ if normalized in {'lib/screens/main/contact_screen.dart','docs/user_manual_v1_1_1_android/screenshots/31_contact_screen_ui.xml'} and pattern in {'email_address','thai_phone_number'}:return 'public_project_contact','Published project contact surface, not a participant record','Reviewed - Public Contact'
+ if normalized=='assets/models/logistic_weights.json' and pattern=='thai_phone_number':return 'model_numeric_coefficients','Numeric coefficient serialization coincides with phone-number shape','Reviewed - Not Participant'
+ if normalized.endswith('Contents.json') and '/Assets.xcassets/' in normalized:return 'asset_filename_token','Asset filename metadata coincides with email-address syntax','Reviewed - Not Participant'
+ if normalized.endswith('.podspec') and pattern=='email_address':return 'public_dependency_maintainer_contact','Package maintainer metadata, not a participant record','Reviewed - Public Metadata'
+ if normalized.endswith('project.pbxproj') and pattern=='thai_national_id_shape':return 'xcode_build_identifier','Xcode object identifier coincides with thirteen-digit shape','Reviewed - Not Participant'
+ if 'launch_logcat_tail.txt' in normalized and pattern=='thai_national_id_shape':return 'generated_runtime_numeric_token','Runtime log numeric token; participant linkage is not established','Open - Pending Researcher'
+ if normalized=='lib/app/app_state.dart' and pattern=='participant_value_assignment':return 'application_default_or_migration_literal','Source literal is not a collected record, but researcher review remains fail-closed','Open - Pending Researcher'
+ return 'unresolved_identifier_candidate','Pattern shape alone cannot establish participant status; reviewer action retained','Open - Pending Researcher'
+def final_google_disposition(domain,logical):
+ normalized=logical.split('::',1)[-1]
+ if domain=='source' and normalized in {'lib/firebase_options.dart','ios/Runner/GoogleService-Info.plist','android/app/google-services.json'}:return 'official_firebase_client_configuration','Firebase client configuration identifier; project ownership, restriction and rotation review remains pending','Open - Pending Owner'
+ return 'unresolved_google_marker','Google-shaped marker requires owner validation; no matched value retained','Open - Pending Owner'
+def independent_final_content_scan(root,src):
+ secret={'private_key_marker':re.compile(rb'BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY'),'aws_access_key_marker':re.compile(rb'AKIA[0-9A-Z]{16}'),'github_token_marker':re.compile(rb'(?:ghp|github_pat)_[0-9A-Za-z_]{20,}'),'google_api_key_marker':re.compile(rb'AIza[0-9A-Za-z_-]{30,}')};participant={'email_address':re.compile(rb'(?i)\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b'),'thai_phone_number':re.compile(rb'(?<!\d)(?:\+66|0)[689]\d{8}(?!\d)'),'thai_national_id_shape':re.compile(rb'(?<!\d)\d{13}(?!\d)'),'participant_value_assignment':re.compile(rb'(?i)(?:participant|farmer|profile)[_-]?(?:id|name)\s*[:=]\s*[\"\'][^\"\']{2,}[\"\']')}
+ domains=('source','source_archives','office','manifests');scope={d:{'content_items_scanned':0,'bytes_scanned':0,'skipped_items':0} for d in domains};counts={d:{k:0 for k in secret} for d in domains};people=[];google=[]
+ def consume(domain,logical,data):
+  scope[domain]['content_items_scanned']+=1;scope[domain]['bytes_scanned']+=len(data)
+  for key,pattern in secret.items():
+   n=len(pattern.findall(data));counts[domain][key]+=n
+   if key=='google_api_key_marker' and n:
+    category,disposition,status=final_google_disposition(domain,logical);google.append({'domain':domain,'path':logical,'occurrences':n,'category':category,'disposition':disposition,'status':status})
+  for key,pattern in participant.items():
+   n=len(pattern.findall(data))
+   if n:
+    category,disposition,status=final_participant_disposition(domain,logical,key);people.append({'domain':domain,'path':logical,'pattern':key,'occurrences':n,'category':category,'disposition':disposition,'status':status})
+ excluded={'.git','build','Pods','.dart_tool'}
+ for path in src.rglob('*'):
+  if not path.is_file() or any(x in excluded for x in path.parts) or path.stat().st_size>2_000_000:
+   if path.is_file():scope['source']['skipped_items']+=1
+   continue
+  try:consume('source',path.relative_to(src).as_posix(),path.read_bytes())
+  except OSError:scope['source']['skipped_items']+=1
+ for archive_path in sorted((root/'archives').glob('*')):
+  if archive_path.name.endswith(('.tar.gz','.tgz','.tar')):
+   with tarfile.open(archive_path) as archive:
+    for member in archive.getmembers():
+     if member.isfile():consume('source_archives',f'{archive_path.name}::{member.name}',archive.extractfile(member).read())
+     else:scope['source_archives']['skipped_items']+=1
+ containers=[]
+ for office in sorted((root/'artifacts').iterdir()):
+  if office.suffix.lower() not in {'.docx','.xlsx','.pptx'}:continue
+  before_items=scope['office']['content_items_scanned'];before_bytes=scope['office']['bytes_scanned']
+  with zipfile.ZipFile(office) as archive:
+   for name in archive.namelist():
+    if name.endswith(('.xml','.rels','.txt','.csv')):consume('office',f'{office.name}::{name}',archive.read(name))
+    else:scope['office']['skipped_items']+=1
+  containers.append({'container':office.name,'sha256':sha(office),'content_items_scanned':scope['office']['content_items_scanned']-before_items,'bytes_scanned':scope['office']['bytes_scanned']-before_bytes})
+ task7=[];output=root/'manifests/task7_final_content_inspection.json'
+ for manifest in sorted((root/'manifests').glob('*.json')):
+  if manifest==output:scope['manifests']['skipped_items']+=1;continue
+  data=manifest.read_bytes();consume('manifests',manifest.relative_to(root).as_posix(),data)
+  if manifest.name.startswith('task7_'):task7.append({'path':manifest.name,'sha256':hashlib.sha256(data).hexdigest(),'bytes_scanned':len(data)})
+ people.sort(key=lambda row:(row['domain'],row['path'],row['pattern']));google.sort(key=lambda row:(row['domain'],row['path']))
+ return scope,counts,people,google,containers,task7
+def verify_final_content_security(root,src):
+ path=root/'manifests/task7_final_content_inspection.json';assert path.is_file();report=json.loads(path.read_text());scope,counts,people,google,containers,task7=independent_final_content_scan(root,src)
+ assert report['method']=='final_content_read_only_regex_and_disposition' and report['scan_scope_counts']==scope and report['high_confidence_secret_marker_counts']==counts
+ assert report['participant_candidate_dispositions']==people and report['google_api_key_marker_dispositions']==google and report['scanned_office_containers']==containers and report['scanned_task7_manifests']==task7
+ assert report['participant_candidate_total']==sum(x['occurrences'] for x in people) and report['participant_candidates_pending_review']==sum(x['occurrences'] for x in people if x['status'].startswith('Open - Pending'))
+ assert sum(x['occurrences'] for x in google)==4 and {x['path'] for x in google}=={'lib/firebase_options.dart','ios/Runner/GoogleService-Info.plist','android/app/google-services.json'} and all(x['status']=='Open - Pending Owner' for x in google)
+ assert {x['container'] for x in containers}>={n for n in EDITABLE} and {x['path'] for x in task7}=={p.name for p in (root/'manifests').glob('task7_*.json') if p!=path}
+ return {'final_office_containers_scanned':len(containers),'final_task7_manifests_scanned':len(task7),'participant_candidates_dispositioned':len(people),'participant_candidate_occurrences':report['participant_candidate_total'],'participant_candidates_pending_review':report['participant_candidates_pending_review'],'google_markers_dispositioned':4}
 def verify_security(root):
  p=json.loads((root/'manifests/task7_offline_security_inspection.json').read_text());src=source_root(root);scope,secret,participants,triage=independent_security_scan(root,src)
  assert p['method']=='offline_source_backed_fallback' and not p['sealed_codex_security_report'] and len(p['findings'])==5 and p['files_scanned']==619
@@ -175,7 +244,7 @@ def verify_security(root):
  pending=sum(x['occurrences'] for x in triage if x['owner_review_required']);assert pending==p['generic_secret_assignment_triage']['pending_owner_review_occurrences']==p['generic_secret_assignment_triage']['untriaged']==2
  assert sum(x['occurrences'] for x in triage if x['category']=='android_ui_boolean_attribute')==976 and sum(x['occurrences'] for x in triage if x['category']=='credential_placeholder_example')==2
  dump=json.dumps(p);assert not re.search(r'AIza[0-9A-Za-z_-]{30,}|BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY|AKIA[0-9A-Z]{16}',dump)
- return {'security_observations':5,'source_files_scanned':619,'generic_assignments_triaged':978,'generic_assignments_pending_owner':2,'archive_members_scanned':scope['source_archives']['content_items_scanned'],'office_members_scanned':scope['office']['content_items_scanned'],'manifests_scanned':scope['manifests']['content_items_scanned']}
+ result={'security_observations':5,'source_files_scanned':619,'generic_assignments_triaged':978,'generic_assignments_pending_owner':2,'archive_members_scanned':scope['source_archives']['content_items_scanned'],'office_members_scanned':scope['office']['content_items_scanned'],'manifests_scanned':scope['manifests']['content_items_scanned']};result.update(verify_final_content_security(root,src));return result
 def verify_visual(root):
  ep=root/'manifests/task7_expected_visual_renders.json';expected=json.loads(ep.read_text())
  external=root/'manual-decisions/task7_external_visual_decision.json'

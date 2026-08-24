@@ -256,6 +256,56 @@ class Task7VerifierMutationTests(unittest.TestCase):
         with self.assertRaises(AssertionError):
             verifier.verify_workbooks(fixture.root)
 
+    def test_current_task7_docx_participant_injection_is_rejected(self):
+        name = "10_End_User_Manual.docx"
+        fixture = Fixture(
+            {"artifacts": {name}},
+            ("artifacts", "archives", "authoritative-materializations", "evidence", "manifests"),
+        )
+        self.addCleanup(fixture.close)
+        path = fixture.root / "artifacts" / name
+        mutate_zip(path, "word/document.xml", b"</w:document>", b"<!-- participant@example.invalid --></w:document>")
+        with self.assertRaises(AssertionError):
+            verifier.verify_security(fixture.root)
+
+    def test_current_task7_xlsx_participant_injection_is_rejected(self):
+        name = "11_Publication_Tables.xlsx"
+        fixture = Fixture(
+            {"artifacts": {name}},
+            ("artifacts", "archives", "authoritative-materializations", "evidence", "manifests"),
+        )
+        self.addCleanup(fixture.close)
+        path = fixture.root / "artifacts" / name
+        mutate_zip(path, "xl/worksheets/sheet1.xml", b"</worksheet>", b"<!-- participant@example.invalid --></worksheet>")
+        with self.assertRaises(AssertionError):
+            verifier.verify_security(fixture.root)
+
+    def test_current_task7_pptx_participant_injection_is_rejected(self):
+        name = "10_Knowledge_Transfer_Deck.pptx"
+        fixture = Fixture(
+            {"artifacts": {name}},
+            ("artifacts", "archives", "authoritative-materializations", "evidence", "manifests"),
+        )
+        self.addCleanup(fixture.close)
+        path = fixture.root / "artifacts" / name
+        mutate_zip(path, "ppt/slides/slide1.xml", b"</p:sld>", b"<!-- participant@example.invalid --></p:sld>")
+        with self.assertRaises(AssertionError):
+            verifier.verify_security(fixture.root)
+
+    def test_nonself_task7_manifest_participant_injection_is_rejected(self):
+        name = "task7_expected_visual_renders.json"
+        fixture = Fixture(
+            {"manifests": {name}},
+            ("artifacts", "archives", "authoritative-materializations", "evidence", "manifests"),
+        )
+        self.addCleanup(fixture.close)
+        path = fixture.root / "manifests" / name
+        payload = json.loads(path.read_text())
+        payload["mutation_probe"] = "participant@example.invalid"
+        path.write_text(json.dumps(payload))
+        with self.assertRaises(AssertionError):
+            verifier.verify_security(fixture.root)
+
 
 if __name__ == "__main__":
     unittest.main()
