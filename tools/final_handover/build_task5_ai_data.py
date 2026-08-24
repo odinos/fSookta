@@ -98,17 +98,20 @@ def _recommendation_messages(text: str) -> list[dict]:
 def _privacy(field: str, owner: str = "") -> str:
     """Classify whole field tokens; do not let `language` match `age`."""
     key = field.lower()
-    sensitive_exact = {"name", "age", "gender", "weight", "height", "bmi", "farmerid", "profileid", "farmer_id", "user_id", "participant_code"}
+    sensitive_exact = {"name", "age", "gender", "weight", "height", "bmi", "location", "role", "farmerid", "profileid", "farmer_id", "user_id", "participant_code"}
     health_tokens = ("risk", "score", "reba", "iso", "msd", "medical", "expert", "symptom", "economic", "impact", "productivity", "lostwork", "lost_work", "pose", "joint")
     media_tokens = ("photo", "image", "avatar")
-    if key == "sookta.history":
-        return "Sensitive research/health-adjacent"
+    financial_tokens = ("income", "economic", "money", "cost", "loss", "saved")
+    if key in {"sookta.profile", "sookta.farmers", "sookta.activeprofileid"}:
+        return "Sensitive participant/profile data"
+    if key == "sookta.history": return "Sensitive assessment/research data"
+    if any(token in key for token in financial_tokens): return "Sensitive financial data"
     if key in sensitive_exact or any(token in key for token in media_tokens):
         return "Sensitive participant/profile data"
-    if any(token in key for token in health_tokens):
-        return "Sensitive research/health-adjacent"
-    if owner and any(token in owner.lower() for token in ("evaluation", "assessment", "research")):
-        return "Assessment/research data"
+    if any(token in key for token in health_tokens): return "Sensitive assessment/research data"
+    if owner == "UserProfile": return "Sensitive participant/profile data"
+    if owner in {"EvaluationHistoryRecord", "EvaluationDraft", "AssessmentBreakdown", "ErgoInputData", "ErgoResult", "MotionAnalysisSummary", "PoseRebaFrameAnalysis", "RebaInputData"}:
+        return "Sensitive assessment/research data"
     return "Operational metadata"
 
 
@@ -166,7 +169,7 @@ def _dart_allowed(field: str, dart_type: str) -> str:
     if base == "bool": return "true or false"
     if base == "int": return ">= 0; source constructor/fromJson fallback applies"
     if base == "double":
-        return "0..1" if any(token in key for token in ("ratio", "probability")) else ">= 0 unless source calculation permits signed value"
+        return "0..1" if key.endswith("ratio") or "probability" in key else ">= 0 unless source calculation permits signed value"
     if base == "DateTime": return "ISO-8601 text in persisted JSON"
     if base.startswith("List<"): return f"JSON array matching {base}"
     if base.startswith("Map<"): return f"JSON object matching {base} enum-name mapping"
@@ -186,6 +189,65 @@ def _owner_location(owner: str, field: str) -> str:
     if owner == "PoseRebaFrameAnalysis": return f"Nested AssessmentBreakdown.poseFrames[] -> {owner}.{field}"
     if owner == "MotionAnalysisSummary": return f"Nested AssessmentBreakdown.motionSummary -> {owner}.{field}"
     return f"Nested persisted model -> {owner}.{field}"
+
+
+def _persisted_semantics(owner: str, field: str, dart_type: str) -> dict[str, str]:
+    """Return source-backed semantic metadata for a serialized Dart field."""
+    readable = re.sub(r"(?<!^)(?=[A-Z])", " ", field).replace("_", " ").strip().lower()
+    data = {
+        "description": f"Persisted {readable} value owned by {owner}",
+        "unit": _dart_unit(field, dart_type),
+        "allowed": _dart_allowed(field, dart_type),
+        "privacy": _privacy(field, owner),
+    }
+    overrides: dict[tuple[str, str], tuple[str, str, str]] = {
+        ("ErgoInputData", "liftFrequency"): ("Lift repetition frequency in lifts/minute; all-history export multiplies by 60 for the per-hour column", "lifts/minute", ">= 0 lifts/minute"),
+        ("EvaluationDraft", "frequency"): ("Draft lift/task repetition frequency passed to ErgoInputData.liftFrequency", "lifts/minute", ">= 0 lifts/minute"),
+        ("ErgoInputData", "horizontalDist"): ("Horizontal hand-to-body lifting distance H", "cm", ">= 0 cm"),
+        ("ErgoInputData", "verticalHeight"): ("Vertical hand height V used by the lifting calculation", "cm", ">= 0 cm"),
+        ("EvaluationDraft", "horizontalDistanceText"): ("Draft numeric text for horizontal hand-to-body lifting distance H", "cm", "Numeric text in cm"),
+        ("EvaluationDraft", "verticalHeightText"): ("Draft numeric text for vertical hand height V", "cm", "Numeric text in cm"),
+        ("ErgoInputData", "initialForce"): ("Initial push/pull force", "N", ">= 0 N"),
+        ("ErgoInputData", "sustainForce"): ("Sustained push/pull force", "N", ">= 0 N"),
+        ("EvaluationDraft", "initialForce"): ("Draft initial push/pull force", "N", ">= 0 N"),
+        ("EvaluationDraft", "sustainForce"): ("Draft sustained push/pull force", "N", ">= 0 N"),
+        ("ErgoResult", "limitValue"): ("Context-dependent limit: lifting RWL in kg, push/pull initial-force limit in N, or encoded REBA limit", "kg, N, or encoded REBA limit (context-dependent)", ">= 0; interpret only with the calculation method/job type"),
+        ("UserProfile", "incomePerYear"): ("Annual income stored as numeric text and converted to daily income by dividing by 365", "THB/year", "Numeric text >= 0 THB/year or blank"),
+        ("UserProfile", "age"): ("Participant age stored as numeric text", "years", "Numeric text >= 0 years or blank"),
+        ("UserProfile", "height"): ("Participant height stored as numeric text", "cm", "Numeric text > 0 cm or blank"),
+        ("UserProfile", "weight"): ("Participant body weight stored as numeric text", "kg", "Numeric text > 0 kg or blank"),
+        ("EvaluationHistoryRecord", "farmerAge"): ("Profile age snapshot stored with the assessment", "years", "Numeric text >= 0 years or blank"),
+        ("EvaluationHistoryRecord", "farmerHeight"): ("Profile height snapshot stored with the assessment", "cm", "Numeric text > 0 cm or blank"),
+        ("EvaluationHistoryRecord", "farmerWeight"): ("Profile body-weight snapshot stored with the assessment", "kg", "Numeric text > 0 kg or blank"),
+        ("EvaluationHistoryRecord", "farmerBmi"): ("Body-mass index snapshot derived from height and weight", "kg/m2", "> 0 kg/m2 when present"),
+        ("EvaluationHistoryRecord", "aiRiskPercent"): ("Optional advisory AI risk percentage", "%", "Integer 0..100 when present"),
+        ("EvaluationHistoryRecord", "expertReba"): ("Optional expert-comparator REBA value", "REBA score points", ">= 0 when present"),
+        ("ErgoInputData", "dailyIncome"): ("Daily income used by economic-impact calculation", "THB/day", ">= 0 THB/day"),
+        ("RebaInputData", "dailyIncome"): ("Daily income used by economic-impact calculation", "THB/day", ">= 0 THB/day"),
+        ("EvaluationDraft", "durationHours"): ("Draft task duration", "hours", "> 0 hours in the evaluation flow"),
+        ("ErgoInputData", "durationHours"): ("Task duration", "hours", "> 0 hours in the evaluation flow"),
+        ("EvaluationDraft", "workDaysPerWeek"): ("Draft work days per week", "days/week", "> 0 days/week in the evaluation flow"),
+        ("ErgoInputData", "workDaysPerWeek"): ("Work days per week", "days/week", "> 0 days/week in the evaluation flow"),
+        ("EvaluationDraft", "pushPullDistance"): ("Draft push/pull travel distance", "m", ">= 0 m"),
+        ("EvaluationDraft", "transportDistanceText"): ("Draft numeric text for transport distance", "m", "Numeric text in m"),
+        ("ErgoInputData", "transportDistance"): ("Manual-handling transport or push/pull distance", "m", ">= 0 m"),
+        ("ErgoInputData", "toolWeightBandCode"): ("Encoded tool-weight band category", "category code", "Non-negative integer category code"),
+        ("ErgoResult", "userScoreColor"): ("ARGB color integer associated with the user risk score", "ARGB integer", "32-bit ARGB color value"),
+    }
+    if owner in {"MotionAnalysisSummary", "PoseRebaFrameAnalysis"} and field.lower().endswith("deg"):
+        data.update(description=f"Pose-derived {readable}", unit="degrees", allowed="Finite angle in degrees when present")
+    if owner == "MotionAnalysisSummary" and field.endswith("FrameCount"):
+        data.update(description=f"Count of sampled frames classified for {readable.removesuffix(' frame count')}", unit="frames", allowed=">= 0 integer frames")
+    if owner == "ErgoResult" and field == "limitValue":
+        data["privacy"] = "Sensitive assessment/research data"
+    if owner == "UserProfile" and field == "incomePerYear":
+        data["privacy"] = "Sensitive financial data"
+    if owner == "UserProfile" and field == "location":
+        data["privacy"] = "Sensitive participant/profile data"
+    override = overrides.get((owner, field))
+    if override:
+        data.update(description=override[0], unit=override[1], allowed=override[2])
+    return data
 
 
 def _extract_persisted_dart_contracts(root: Path, record_sources: list[str]) -> list[dict]:
@@ -250,19 +312,95 @@ def _persisted_rows(preference_keys: list[str], record_rows: list[dict]) -> list
     for item in record_rows:
         field, owner, source = item["field"], item["owner"], item["source"]
         dtype = item["dart_type"]
-        allowed, unit = _dart_allowed(field, dtype), _dart_unit(field, dtype)
+        semantics = _persisted_semantics(owner, field, dtype)
         nullable = "Yes" if dtype.endswith("?") else "No"
-        readable = re.sub(r"(?<!^)(?=[A-Z])", " ", field).replace("_", " ").strip().lower()
         rows.append({
-            "field": field, "owner": owner, "description": f"Persisted {readable} value owned by {owner}",
+            "field": field, "owner": owner, "description": semantics["description"],
             "type": dtype, "nullable": nullable,
-            "allowed": allowed, "unit": unit, "source": owner, "derivation": f"Serializer expression: {item['serializer_expression']}",
-            "missing": "null preserved by nullable declaration/serializer" if nullable == "Yes" else "Non-null declaration; constructor/fromJson fallback is authoritative", "privacy": _privacy(field, owner),
+            "allowed": semantics["allowed"], "unit": semantics["unit"], "source": owner, "derivation": f"Serializer expression: {item['serializer_expression']}",
+            "missing": "null preserved by nullable declaration/serializer" if nullable == "Yes" else "Non-null declaration; constructor/fromJson fallback is authoritative", "privacy": semantics["privacy"],
             "persisted_location": _owner_location(owner, field),
             "export_location": "Mapped only where assessment_export_service.dart declares a column", "synthetic_example": "synthetic_value",
             "validation": f"Dart `{dtype} {field}`; {'required constructor parameter' if item['required'] else 'constructor default/optional parameter'}; verify serializer expression and fromJson conversion", "version": VERSION, "evidence": source,
         })
     return rows
+
+
+def _export_semantic_contracts(headers: list[str]) -> dict[str, dict[str, str]]:
+    contracts: dict[str, dict[str, str]] = {}
+
+    def add(fields: list[str], dtype: str, nullable: str, allowed: str, unit: str,
+            missing: str, privacy: str) -> None:
+        for field in fields:
+            contracts[field] = {"type":dtype, "nullable":nullable, "allowed":allowed,
+                                "unit":unit, "missing":missing, "privacy":privacy}
+
+    operational = "Operational metadata"
+    participant = "Sensitive participant/profile data"
+    assessment = "Sensitive assessment/research data"
+    financial = "Sensitive financial/impact data"
+    add(["Export Generated At"], "ISO-8601 date-time text", "No", "DateTime.now().toIso8601String() including device offset when available", "N/A", "Never blank", operational)
+    add(["export_schema_version"], "text", "No", "Non-empty source-controlled export schema version", "N/A", "Never blank", operational)
+    add(["assessment_reference_sources", "assessment_scope_note", "calculation_standard_note"], "text", "No", "Source-controlled reference/scope text", "N/A", "Never blank", operational)
+    add(["Record ID", "transaction_id"], "integer", "No", ">= 0 history record identifier", "identifier", "Never blank; direct record.id", participant)
+    add(["App Version"], "text", "Yes", "Application version text or '-'", "N/A", "'-' when record.appVersion is null", operational)
+    add(["Farmer ID", "user_id"], "text", "No", "Resolved farmer/profile identifier; final fallback record-<id>", "identifier", "Never blank because _resolvedFarmerId supplies record-<id>", participant)
+    add(["Name", "Role", "Work Space"], "text", "Yes", "Profile text, record fallback, or '-'", "N/A", "'-' when both profile and record value are empty/unavailable", participant)
+    add(["Age"], "numeric text", "Yes", "Numeric age text or '-'", "years", "'-' when both profile and record value are empty/unavailable", participant)
+    add(["Gender"], "text", "Yes", "Source profile/record gender text or '-'", "N/A", "'-' when both profile and record value are empty/unavailable", participant)
+    add(["Weight (kg)"], "numeric text", "Yes", "Numeric weight text or '-'", "kg", "'-' when both profile and record value are empty/unavailable", participant)
+    add(["Height (cm)"], "numeric text", "Yes", "Numeric height text or '-'", "cm", "'-' when both profile and record value are empty/unavailable", participant)
+    add(["BMI"], "decimal-number text", "Yes", "> 0 formatted to one decimal place, or '-'", "kg/m2", "'-' when BMI cannot be derived", participant)
+    add(["BMI Category"], "text", "Yes", "Underweight; Normal weight; Above Asian BMI range; localized Thai values; '-' when unavailable", "N/A", "'-' when BMI category cannot be derived", participant)
+    add(["Date of data entry", "assessment_date"], "YYYY-MM-DD text", "No", "Calendar date formatted YYYY-MM-DD", "N/A", "Never blank; record.dateTime is required", assessment)
+    add(["assessment_time"], "HH:mm:ss text", "No", "00:00:00..23:59:59 local device time", "N/A", "Never blank; record.dateTime is required", assessment)
+    add(["Activity Stage"], "text", "Yes", "English activity stage label or '-'", "N/A", "'-' when record.activity is null", assessment)
+    add(["Specific Task", "task_type"], "text", "No", "Source activity name/text; task_type prefers enum name", "N/A", "Non-null source string; may be empty only if source activityName is empty", assessment)
+    add(["Posture Description"], "text", "Yes", "Method and REBA component-score description or '-'", "N/A", "'-' when assessmentBreakdown is null", assessment)
+    add(["REBA Score"], "integer", "Yes", "REBA user score 1..15 or '-'", "REBA score points", "'-' when assessmentBreakdown is null", assessment)
+    add(["ISO 11228 Risk Level", "ISO_risk_before", "ISO_risk_after"], "text", "Yes", "Low; Medium; High; Very high; localized Thai values; or '-'", "risk tier", "'-' when applicable ISO result is absent", assessment)
+    add(["Tool Used"], "text", "Yes", "Localized tool label or '-'", "N/A", "'-' when ergoInput is absent or tool labels are empty", assessment)
+    add(["Tool Weight (kg)"], "number", "Yes", ">= 0; tool weight with load-weight fallback", "kg", "'-' when ergoInput is absent", assessment)
+    add(["Tool Weight Code"], "integer", "Yes", "Positive encoded tool-weight band", "category code", "'-' when code is zero or ergoInput is absent", assessment)
+    add(["Manual Handling Weight (kg)", "load_before"], "number", "Yes", ">= 0 handled load", "kg", "'-' when ergoInput is absent", assessment)
+    add(["Manual Handling Distance (m)"], "number", "Yes", ">= 0 transport distance", "m", "'-' when ergoInput is absent", assessment)
+    add(["Frequency per hour", "frequency_before"], "number", "Yes", ">= 0; ErgoInputData.liftFrequency multiplied by 60 and formatted by _num", "lifts/hour", "'-' when ergoInput is absent", assessment)
+    add(["Duration (minutes)", "duration_before"], "number", "Yes", ">= 0; durationHours multiplied by 60 and formatted by _num", "minutes", "'-' when ergoInput is absent", assessment)
+    add(["Work days per week"], "number", "Yes", "> 0 in evaluation flow; formatted by _num", "days/week", "'-' when ergoInput is absent", assessment)
+    add(["MSD Symptom Location"], "text", "Yes", "Comma-separated non-low-risk body parts or '-'", "N/A", "'-' when no body part exceeds low risk", assessment)
+    add(["MSD Symptom Severity", "Before Risk", "After Risk", "REBA_risk_before", "REBA_risk_after",
+         "trend_level", "neck_risk", "shoulder_risk", "upper_limb_risk", "wrist_risk", "back_risk", "knee_risk"],
+        "text", "No", "Low; Medium; High; Very high; localized Thai values", "risk tier", "Never blank; source supplies a risk or low-risk fallback", assessment)
+    add(["Medical Cost (THB)", "Productivity Loss (THB)", "Before Impact (THB)", "After Impact (THB)", "Estimated Saved (THB)"],
+        "integer", "No", ">= 0 source economic-impact amount", "THB", "Never blank; source calculation returns an integer", financial)
+    add(["Lost Workdays"], "integer", "No", ">= 0 estimated lost workdays", "days", "Never blank; source calculation returns an integer", financial)
+    add(["Before Score", "After Score", "REBA_before"], "integer", "No", "Source user score; REBA path is 1..15", "score points", "Never blank; required record score or deterministic fallback", assessment)
+    add(["Economic Impact Formula"], "text", "No", "Human-readable formula including effective score reduction", "N/A", "Never blank", financial)
+    add(["User Feedback Notes"], "text", "Yes", "Selected suggestions joined with ' | ' or '-'", "N/A", "'-' when selectedSuggestions is empty", assessment)
+    add(["ISO_before", "ISO_after"], "integer", "Yes", "ISO user score when applicable or '-'", "score points", "'-' when applicable ISO result is absent", assessment)
+    add(["REBA_after"], "integer", "Yes", "REBA user score 1..15 or '-'", "REBA score points", "'-' when afterAssessmentBreakdown is absent", assessment)
+    add(["REBA_reduction"], "integer", "Yes", "Signed before-minus-after REBA score difference", "score points", "'-' when before or after REBA result is absent", assessment)
+    add(["REBA_reduction_percent"], "percentage text", "Yes", "Rounded integer percent text, including sign when reduction is negative", "%", "'-' when before score <= 0 or either score is absent", assessment)
+    add(["trend_REBA_average"], "number", "No", ">= 0 average before score formatted by _num", "score points", "Never blank; trend window contains the current record", assessment)
+    add(["trend_REBA_maximum"], "integer", "No", ">= 0 maximum before score", "score points", "Never blank; trend window contains the current record", assessment)
+    add(["trend_high_risk_count"], "integer", "No", ">= 0 count of high/very-high records", "records", "Never blank", assessment)
+    add(["trend_direction"], "text", "No", "increasing; decreasing; stable", "N/A", "Never blank", assessment)
+    add(["photo_id"], "text", "Yes", "Persisted photo ID, derived pose-frame ID, or '-'", "identifier", "'-' when no persisted ID or pose frame is available", participant)
+    add(["photo_timestamp"], "ISO-8601 date-time text", "Yes", "ISO-8601 timestamp or '-'", "N/A", "'-' when neither persisted nor derived photo timestamp is available", participant)
+    add(["time_on_task_seconds"], "integer", "Yes", ">= 0 elapsed time-on-task seconds", "seconds", "Blank string when record.timeOnTaskSeconds is null", assessment)
+    add(["completion_status"], "text", "Yes", "Research workflow completion-status text", "N/A", "Blank string when record.completionStatus is null", assessment)
+    add(["assistance_required"], "boolean text", "Yes", "true; false", "N/A", "Blank string when record.assistanceRequired is null", assessment)
+    add(["error_count"], "integer", "Yes", ">= 0 workflow error count", "errors", "Blank string when record.errorCount is null", assessment)
+    add(["expert_REBA"], "number", "Yes", "Expert comparator REBA value formatted by _num", "REBA score points", "Blank string when record.expertReba is null", assessment)
+    add(["expert_risk_level"], "text", "Yes", "Low; Medium; High; Very high; localized Thai values", "risk tier", "Blank string when record.expertRiskLevel is null", assessment)
+    add(["expert_assessment_date"], "ISO-8601 date-time text", "Yes", "DateTime.toIso8601String()", "N/A", "Blank string when record.expertAssessmentDate is null", assessment)
+    add(["expert_comments"], "text", "Yes", "Expert comments text", "N/A", "Blank string when record.expertComments is null", assessment)
+    contracts["trend_level"]["allowed"] = "Low; Medium; High; Very high (localized when Thai export is selected)"
+    missing = set(headers) - set(contracts)
+    extra = set(contracts) - set(headers)
+    if missing or extra:
+        raise ValueError(f"Export semantic contract mismatch: missing={sorted(missing)} extra={sorted(extra)}")
+    return contracts
 
 
 def _export_schema_rows(headers: list[str]) -> list[dict]:
@@ -271,16 +409,10 @@ def _export_schema_rows(headers: list[str]) -> list[dict]:
         "Record ID":"Application history record identifier", "App Version":"Application version saved with the assessment", "Farmer ID":"Research-facing farmer identifier", "Name":"Farmer display name", "Role":"Farmer role", "Work Space":"Recorded work-space/location text", "Age":"Farmer age", "Gender":"Farmer gender used by applicable calculations", "Weight (kg)":"Farmer body weight", "Height (cm)":"Farmer height", "BMI":"Body-mass index derived from weight and height", "BMI Category":"BMI category derived by the application", "Date of data entry":"Assessment record date and time", "Activity Stage":"Agricultural activity enum/display label", "Specific Task":"Specific task text", "Posture Description":"Observed posture description", "REBA Score":"Before-intervention deterministic REBA score", "ISO 11228 Risk Level":"Before-intervention ISO 11228 risk level when applicable", "Tool Used":"Selected tool name", "Tool Weight (kg)":"Tool weight", "Tool Weight Code":"Encoded tool-weight category", "Manual Handling Weight (kg)":"Manually handled load", "Manual Handling Distance (m)":"Manual-handling travel distance", "Frequency per hour":"Task/lift frequency per hour", "Duration (minutes)":"Task duration", "Work days per week":"Work frequency by days per week", "MSD Symptom Location":"Research MSD symptom location", "MSD Symptom Severity":"Research MSD symptom severity", "Medical Cost (THB)":"Direct medical cost captured for research", "Lost Workdays":"Lost workdays captured for research", "Productivity Loss (THB)":"Productivity loss captured for research", "Before Score":"Before-intervention user score", "After Score":"After-intervention user score", "Before Risk":"Before-intervention combined risk tier", "After Risk":"After-intervention combined risk tier", "Before Impact (THB)":"Estimated economic impact before recommendations", "After Impact (THB)":"Estimated economic impact after recommendations", "Estimated Saved (THB)":"Estimated impact reduction", "Economic Impact Formula":"Human-readable economic-impact formula/assumption", "User Feedback Notes":"User/research feedback notes",
         "transaction_id":"Stable transaction/history identifier", "user_id":"Profile/farmer identifier associated with the transaction", "assessment_date":"Assessment calendar date", "assessment_time":"Assessment local time", "task_type":"Activity/task type", "REBA_before":"Before-intervention REBA score", "REBA_risk_before":"Before-intervention REBA risk tier", "ISO_before":"Before-intervention ISO user score when applicable", "ISO_risk_before":"Before-intervention ISO risk tier when applicable", "load_before":"Before-intervention handled/tool load", "frequency_before":"Before-intervention frequency per hour", "duration_before":"Before-intervention duration", "REBA_after":"After-intervention REBA score", "REBA_risk_after":"After-intervention REBA risk tier", "ISO_after":"After-intervention ISO user score when applicable", "ISO_risk_after":"After-intervention ISO risk tier when applicable", "REBA_reduction":"Absolute REBA score reduction", "REBA_reduction_percent":"REBA reduction divided by before score", "trend_REBA_average":"Average before REBA score in the trend window", "trend_REBA_maximum":"Maximum before REBA score in the trend window", "trend_high_risk_count":"Count of high/very-high before records in the trend window", "trend_level":"Daily trend level derived from high-risk count", "trend_direction":"Direction of the recent REBA trend", "neck_risk":"Neck body-part risk tier", "shoulder_risk":"Shoulder/arm body-part risk tier", "upper_limb_risk":"Upper-limb body-part risk tier", "wrist_risk":"Wrist body-part risk tier", "back_risk":"Back/trunk body-part risk tier", "knee_risk":"Knee/leg body-part risk tier", "photo_id":"Research photo identifier", "photo_timestamp":"Photo capture/association timestamp", "time_on_task_seconds":"Research time-on-task duration", "completion_status":"Research workflow completion status", "assistance_required":"Whether assistance was required", "error_count":"Research workflow error count", "expert_REBA":"Expert comparator REBA score", "expert_risk_level":"Expert comparator risk tier", "expert_assessment_date":"Expert assessment timestamp", "expert_comments":"Expert comparator comments",
     }
-    score_fields = {"REBA Score","Before Score","After Score","REBA_before","REBA_after","expert_REBA","trend_REBA_average","trend_REBA_maximum","ISO_before","ISO_after"}
-    date_fields = {"Export Generated At","Date of data entry","assessment_date","assessment_time","photo_timestamp","expert_assessment_date"}
-    required = {"Export Generated At","export_schema_version","Record ID","transaction_id","REBA_before","REBA_risk_before"}
+    contracts = _export_semantic_contracts(headers)
     rows=[]
     for index, field in enumerate(headers, 1):
-        dtype, allowed, unit = _semantic_type(field)
-        if field in score_fields:
-            dtype, allowed, unit = "integer or decimal number", "REBA 1..15 where REBA; ISO/application score >= 0", "score points"
-        if field in date_fields:
-            dtype, allowed, unit = "ISO-8601 text", "ISO-8601 date/date-time text", "N/A"
+        contract = contracts[field]
         if index <= 5:
             source, persisted = "AssessmentExportService export metadata", "Generated at export; not persisted"
         elif 6 <= index <= 17:
@@ -298,9 +430,13 @@ def _export_schema_rows(headers: list[str]) -> list[dict]:
         elif field in {"After Impact (THB)","Estimated Saved (THB)"}: derivation = "EconomicImpactService comparison: reduction capped at 4 points, rate capped at 1.0, rounded and clamped 0..999999"
         elif field == "trend_level":
             derivation = "_trendLevel(highRiskCount): 0-1 Low; 2-3 Medium; 4-5 High; >=6 Very high; localized for Thai export"
-            allowed = "Low; Medium; High; Very high (localized when Thai export is selected)"
-        example = "'2026-08-24T09:00:00+07:00" if field in date_fields else (6 if field in score_fields else f"SYN-{index:03d}" if "ID" in field or field.endswith("_id") else "synthetic_value")
-        rows.append({"field":field,"description":descriptions[field],"type":dtype,"nullable":"No" if field in required else "Yes","allowed":allowed,"unit":unit,"source":source,"derivation":derivation,"missing":"Blank string for unavailable optional export value; '-' only where the source explicitly emits it","privacy":_privacy(field),"persisted_location":persisted,"export_location":f"{index}: {field}","synthetic_example":example,"validation":"Preserve exact column order, type/range, applicability and source blank behavior","version":VERSION,"evidence":"lib/core/services/assessment_export_service.dart"})
+        if field == "assessment_time": derivation = "_timeOnly(record.dateTime): zero-padded HH:mm:ss"
+        elif field == "time_on_task_seconds": derivation = "record.timeOnTaskSeconds ?? ''"
+        elif field == "BMI Category": derivation = "_bmiCategory(profile, record, thai) localized category label"
+        date_like = "date" in contract["type"].lower() or field == "assessment_time"
+        score_like = "score" in contract["unit"].lower()
+        example = "'2026-08-24T09:00:00+07:00" if date_like else ("'09:00:00" if field == "assessment_time" else 6 if score_like or contract["type"] in {"integer", "number"} else f"SYN-{index:03d}" if "ID" in field or field.endswith("_id") else "synthetic_value")
+        rows.append({"field":field,"description":descriptions[field],"type":contract["type"],"nullable":contract["nullable"],"allowed":contract["allowed"],"unit":contract["unit"],"source":source,"derivation":derivation,"missing":contract["missing"],"privacy":contract["privacy"],"persisted_location":persisted,"export_location":f"{index}: {field}","synthetic_example":example,"validation":"Preserve exact column order, semantic type, range, applicability and source-specific '-' versus blank behavior","version":VERSION,"evidence":"lib/core/services/assessment_export_service.dart"})
     return rows
 
 

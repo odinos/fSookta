@@ -59,7 +59,7 @@ export function formulaContracts() {
     {workbook:"algorithm", range:"Control Summary!B9", expectedFormula:"=COUNTIF('Human Actions'!D5:D100,\"Pending Owner Action\")+COUNTIF('Human Actions'!D5:D100,\"Pending Researcher Evidence\")"},
     {workbook:"data", range:"Control Summary!B5", expectedFormula:"=COUNTA('Persisted Keys Records'!A5:A500)"},
     {workbook:"data", range:"Control Summary!B6", expectedFormula:"=COUNTA('Export Schema Order'!A5:A200)"},
-    {workbook:"data", range:"Control Summary!B7", expectedFormula:"=COUNTIF('Export Schema Order'!J5:J200,\"Sensitive research/health-adjacent\")"},
+    {workbook:"data", range:"Control Summary!B7", expectedFormula:"=COUNTA('Export Schema Order'!J5:J200)-COUNTIF('Export Schema Order'!J5:J200,\"Operational metadata\")"},
     {workbook:"data", range:"Control Summary!B8", expectedFormula:"=COUNTIF('Human Actions'!D5:D100,\"Pending Owner Action\")+COUNTIF('Human Actions'!D5:D100,\"Pending Researcher Evidence\")"},
     {workbook:"data", range:"Control Summary!B9", expectedFormula:"='Migration Compatibility'!B5"},
   ];
@@ -220,7 +220,7 @@ async function buildData(facts) {
   const summary=sheets["Control Summary"]; matrix(summary,"Data Management Control Summary","Formula-driven schema/privacy/migration gates",["Metric","Value","Acceptance gate"],[
     ["Persisted keys / record fields",null,"Matches source serialization maps"],["All-history export columns",null,"Exact source order"],["Sensitive export fields",null,"Privacy review required"],["Pending owner/researcher actions",null,"Must remain visible"],["Current schema version",null,"Must equal source constant"],["Remote database","N/A with Rationale","No remote assessment schema in source"],["Overall status","Complete - Pending Signature","Owner/researcher approval/signature pending"]
   ],[42,24,72]);
-  summary.getRange("B5").formulas=[["=COUNTA('Persisted Keys Records'!A5:A500)"]]; summary.getRange("B6").formulas=[["=COUNTA('Export Schema Order'!A5:A200)"]]; summary.getRange("B7").formulas=[["=COUNTIF('Export Schema Order'!J5:J200,\"Sensitive research/health-adjacent\")"]]; summary.getRange("B8").formulas=[["=COUNTIF('Human Actions'!D5:D100,\"Pending Owner Action\")+COUNTIF('Human Actions'!D5:D100,\"Pending Researcher Evidence\")"]]; summary.getRange("B9").formulas=[["='Migration Compatibility'!B5"]];
+  summary.getRange("B5").formulas=[["=COUNTA('Persisted Keys Records'!A5:A500)"]]; summary.getRange("B6").formulas=[["=COUNTA('Export Schema Order'!A5:A200)"]]; summary.getRange("B7").formulas=[["=COUNTA('Export Schema Order'!J5:J200)-COUNTIF('Export Schema Order'!J5:J200,\"Operational metadata\")"]]; summary.getRange("B8").formulas=[["=COUNTIF('Human Actions'!D5:D100,\"Pending Owner Action\")+COUNTIF('Human Actions'!D5:D100,\"Pending Researcher Evidence\")"]]; summary.getRange("B9").formulas=[["='Migration Compatibility'!B5"]];
   return {wb,dictionary};
 }
 
@@ -235,7 +235,7 @@ async function build() {
     "algorithm:Control Summary!B9":humanRows(facts).filter(r=>["Pending Owner Action","Pending Researcher Evidence"].includes(r[3])).length,
     "data:Control Summary!B5":persistedRows(facts).length,
     "data:Control Summary!B6":facts.all_history_csv_headers.length,
-    "data:Control Summary!B7":dataBuilt.dictionary.filter(r=>r[9]==="Sensitive research/health-adjacent").length,
+    "data:Control Summary!B7":dataBuilt.dictionary.filter(r=>String(r[9]).startsWith("Sensitive")).length,
     "data:Control Summary!B8":humanRows(facts).filter(r=>["Pending Owner Action","Pending Researcher Evidence"].includes(r[3])).length,
     "data:Control Summary!B9":facts.data_schema_version,
   };

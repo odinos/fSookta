@@ -83,3 +83,14 @@ artifacts; 24 workbook sheets; 50 PDF pages; 190 persisted schema rows; 84
 export rows; 74 inspected renders; 17 Python and 12 Node targeted tests; 61
 Python/18 Node cumulative regression passed; independent verifier
 `passed_with_human_actions`; 50 cumulative checksums; Drive not accessed).
+Task 5: fix round 3/5 (3 reviewer findings addressed, 0 open — source-exact
+persisted units/semantics/privacy, exact export types/nullability/fallbacks,
+full 190-row persisted and 84-row export independent contract verification,
+complete workbook/report Firebase cell checks, and corrected sensitive-field
+control formula). Regenerated both workbook/PDF pairs and inspected all 57
+changed renders; the hash-bound manifest still covers all 74 final renders.
+Task 5: implementation complete pending independent re-review (10 primary
+artifacts; 24 workbook sheets; 50 PDF pages; 190 persisted schema rows; 84
+export rows; 74 inspected renders; 20 Python and 12 Node targeted tests; 64
+Python/18 Node cumulative regression passed; independent verifier
+`passed_with_human_actions`; 50 cumulative checksums; Drive not accessed).

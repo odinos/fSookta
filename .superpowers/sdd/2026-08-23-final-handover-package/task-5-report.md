@@ -75,6 +75,17 @@ the parallel sanitized Crashlytics event context. It separately discloses that
 `FirebaseAnalyticsObserver` may emit SDK-generated navigation/screen analytics
 whose exact names and payloads are not enumerated by repository source.
 
+Round 3 binds all 190 persisted rows and all 84 export rows to independently
+reconstructed source contracts. In particular, lift frequency is stored in
+lifts/minute and multiplied by 60 only for the per-hour export; lifting geometry
+is in centimetres; push/pull forces are in newtons; `ErgoResult.limitValue` is
+context-dependent (lifting RWL kg, push/pull force N, or encoded REBA limit);
+annual income is THB/year; and profile location/annual income remain sensitive.
+The export contract records BMI category as text, assessment time as HH:mm:ss,
+and nullable time-on-task as integer seconds with a blank export fallback. The
+formula-driven control summary now counts all 78 sensitive export fields rather
+than relying on a retired privacy-label string.
+
 All examples in the schema workbook are visibly synthetic. No real participant
 record, credential, token, secret, or private/raw evidence was included in the
 artifacts, manifests, QA summary, or committed implementation files.
@@ -99,14 +110,14 @@ and English glyphs render correctly.
 The hash-bound visual-QA manifest is
 `/private/tmp/fsookta-final-handover/manifests/task5_visual_qa_manifest.json`,
 SHA-256
-`4591fd7c6f38b1304d34182218784ca7c25983361490b523000a5989fe469b5f`.
+`82e0bbd96f078f29d82861a0b123d6176a154670e1af8ff999cdc673d5f83cb4`.
 It binds all ten primary artifacts to the 74 inspected render files.
 
 ## Verification and checksum evidence
 
 Verification results:
 
-- Task 5 Python suite: 17 passed.
+- Task 5 Python suite: 20 passed.
 - Task 5 Node workbook suite: 12 passed.
 - Python compilation and Node syntax checks: passed.
 - Independent verifier: `passed_with_human_actions`; 10 primary artifacts, 17
@@ -117,7 +128,7 @@ Verification results:
   archive/XML secret and participant-data scans, editable/reference pairing,
   visual-manifest freshness, and cumulative checksum binding: passed.
 - Cumulative checksum manifest: 50 entries; SHA-256
-  `4d32417c975f593c94f412e7820cd34965777f5e78fa78c710c988cbb041c6a5`.
+`7b48fbb89ff9b96acf5170343965c04968428c8586e3a8e19673c32df056a4d1`.
 
 ## Reproducible implementation
 
@@ -133,9 +144,10 @@ daily count-tier behavior, XGBoost split/parameters and missing paths,
 single-person gate authority, legacy/test-only asset hashes, Firebase fields,
 record-owner duplicate preservation, semantic completeness, 26 bilingual
 pairs, ISO-8601 text examples, independent Dart declaration/serializer
-extraction, exact telemetry call-site discovery, compact non-splitting
-signature rows, and the absence of manual page breaks that can create blank
-pages. The cumulative regression passed 61 Python and 18 Node tests; all
+extraction, exact telemetry call-site discovery, full-contract mutation
+rejection across all persisted/export rows, source-exact units/privacy/fallbacks,
+compact non-splitting signature rows, and the absence of manual page breaks
+that can create blank pages. The cumulative regression passed 64 Python and 18 Node tests; all
 targeted tests are green after the fixes.
 
 ## Human actions and concerns

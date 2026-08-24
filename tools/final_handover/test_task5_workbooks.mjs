@@ -105,6 +105,10 @@ test("formula contracts cover both workbook summaries", () => {
   assert.ok(contracts.length >= 10);
   assert.ok(contracts.some((row) => row.workbook === "algorithm"));
   assert.ok(contracts.some((row) => row.workbook === "data"));
+  assert.equal(
+    contracts.find((row) => row.range === "Control Summary!B7" && row.workbook === "data").expectedFormula,
+    "=COUNTA('Export Schema Order'!J5:J200)-COUNTIF('Export Schema Order'!J5:J200,\"Operational metadata\")",
+  );
 });
 
 test("publication PDF fits width but may paginate long sheets vertically", () => {

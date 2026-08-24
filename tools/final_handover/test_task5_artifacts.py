@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import tempfile
 import unittest
+import copy
 from pathlib import Path
 import sys
 
@@ -139,6 +140,65 @@ class SourceGroundingTests(unittest.TestCase):
         self.assertIn("AssessmentBreakdown.ergoInput", rows[("ErgoInputData", "durationHours")]["persisted_location"])
         self.assertIn("EvaluationHistoryRecord.assessmentBreakdown", rows[("AssessmentBreakdown", "isoResult")]["persisted_location"])
         self.assertNotIn(("AssessmentBreakdown", "techScore"), rows)
+
+    def test_persisted_semantics_units_and_privacy_are_source_exact(self) -> None:
+        facts = builder.inspect_source(SOURCE)
+        rows = {(row.get("owner"), row["field"]): row for row in facts["persisted_schema_rows"]}
+        expected = {
+            ("ErgoInputData", "liftFrequency"):("lifts/minute", ">= 0 lifts/minute"),
+            ("ErgoInputData", "horizontalDist"):("cm", ">= 0 cm"),
+            ("ErgoInputData", "verticalHeight"):("cm", ">= 0 cm"),
+            ("ErgoInputData", "initialForce"):("N", ">= 0 N"),
+            ("ErgoInputData", "sustainForce"):("N", ">= 0 N"),
+            ("EvaluationDraft", "horizontalDistanceText"):("cm", "Numeric text in cm"),
+            ("EvaluationDraft", "verticalHeightText"):("cm", "Numeric text in cm"),
+            ("EvaluationDraft", "initialForce"):("N", ">= 0 N"),
+            ("EvaluationDraft", "sustainForce"):("N", ">= 0 N"),
+            ("UserProfile", "incomePerYear"):("THB/year", "Numeric text >= 0 THB/year or blank"),
+            ("UserProfile", "age"):("years", "Numeric text >= 0 years or blank"),
+            ("UserProfile", "height"):("cm", "Numeric text > 0 cm or blank"),
+            ("UserProfile", "weight"):("kg", "Numeric text > 0 kg or blank"),
+            ("EvaluationHistoryRecord", "farmerAge"):("years", "Numeric text >= 0 years or blank"),
+            ("EvaluationHistoryRecord", "farmerHeight"):("cm", "Numeric text > 0 cm or blank"),
+            ("EvaluationHistoryRecord", "farmerWeight"):("kg", "Numeric text > 0 kg or blank"),
+            ("EvaluationHistoryRecord", "farmerBmi"):("kg/m2", "> 0 kg/m2 when present"),
+            ("EvaluationHistoryRecord", "aiRiskPercent"):("%", "Integer 0..100 when present"),
+            ("EvaluationHistoryRecord", "expertReba"):("REBA score points", ">= 0 when present"),
+        }
+        for key, contract in expected.items():
+            self.assertEqual((rows[key]["unit"], rows[key]["allowed"]), contract, key)
+        self.assertIn("multiplies by 60", rows[("ErgoInputData", "liftFrequency")]["description"])
+        self.assertEqual(rows[("ErgoResult", "limitValue")]["unit"], "kg, N, or encoded REBA limit (context-dependent)")
+        self.assertIn("lifting RWL", rows[("ErgoResult", "limitValue")]["description"])
+        self.assertEqual(rows[("UserProfile", "incomePerYear")]["privacy"], "Sensitive financial data")
+        self.assertEqual(rows[("UserProfile", "location")]["privacy"], "Sensitive participant/profile data")
+        self.assertNotEqual(rows[("EvaluationDraft", "durationHours")]["allowed"], "0..1")
+
+    def test_export_dictionary_exact_semantics_and_fallbacks(self) -> None:
+        facts = builder.inspect_source(SOURCE)
+        rows = {row["field"]: row for row in facts["export_schema_rows"]}
+        self.assertEqual((rows["BMI Category"]["type"], rows["BMI Category"]["allowed"]),
+                         ("text", "Underweight; Normal weight; Above Asian BMI range; localized Thai values; '-' when unavailable"))
+        self.assertEqual((rows["assessment_time"]["type"], rows["assessment_time"]["allowed"]),
+                         ("HH:mm:ss text", "00:00:00..23:59:59 local device time"))
+        self.assertEqual((rows["time_on_task_seconds"]["type"], rows["time_on_task_seconds"]["nullable"], rows["time_on_task_seconds"]["unit"]),
+                         ("integer", "Yes", "seconds"))
+        self.assertEqual(rows["time_on_task_seconds"]["missing"], "Blank string when record.timeOnTaskSeconds is null")
+        self.assertEqual(rows["ISO 11228 Risk Level"]["type"], "text")
+        self.assertEqual(rows["ISO_risk_before"]["type"], "text")
+        self.assertEqual(rows["Economic Impact Formula"]["type"], "text")
+        self.assertEqual(rows["REBA_reduction_percent"]["type"], "percentage text")
+
+    def test_independent_verifier_rejects_any_full_dictionary_contract_drift(self) -> None:
+        facts = builder.inspect_source(SOURCE)
+        mutated = copy.deepcopy(facts)
+        next(row for row in mutated["persisted_schema_rows"] if row["owner"] == "MotionAnalysisSummary" and row["field"] == "sampleRateFps")["unit"] = "Hz"
+        with self.assertRaises(AssertionError):
+            verifier.verify_source_contracts(mutated, SOURCE)
+        mutated = copy.deepcopy(facts)
+        next(row for row in mutated["export_schema_rows"] if row["field"] == "Age")["type"] = "integer"
+        with self.assertRaises(AssertionError):
+            verifier.verify_source_contracts(mutated, SOURCE)
 
     def test_export_trend_and_multipose_and_firebase_call_sites_are_exact(self) -> None:
         facts = builder.inspect_source(SOURCE)

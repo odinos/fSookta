@@ -18,6 +18,20 @@ from build_task5_ai_data import (
     DATA_WORKBOOK_SHEETS, VERSION,
 )
 
+EXPECTED_EXPORT_HEADERS = [
+    "Export Generated At","export_schema_version","assessment_reference_sources","assessment_scope_note","calculation_standard_note",
+    "Record ID","App Version","Farmer ID","Name","Role","Work Space","Age","Gender","Weight (kg)","Height (cm)","BMI","BMI Category",
+    "Date of data entry","Activity Stage","Specific Task","Posture Description","REBA Score","ISO 11228 Risk Level","Tool Used","Tool Weight (kg)",
+    "Tool Weight Code","Manual Handling Weight (kg)","Manual Handling Distance (m)","Frequency per hour","Duration (minutes)","Work days per week",
+    "MSD Symptom Location","MSD Symptom Severity","Medical Cost (THB)","Lost Workdays","Productivity Loss (THB)","Before Score","After Score",
+    "Before Risk","After Risk","Before Impact (THB)","After Impact (THB)","Estimated Saved (THB)","Economic Impact Formula","User Feedback Notes",
+    "transaction_id","user_id","assessment_date","assessment_time","task_type","REBA_before","REBA_risk_before","ISO_before","ISO_risk_before",
+    "load_before","frequency_before","duration_before","REBA_after","REBA_risk_after","ISO_after","ISO_risk_after","REBA_reduction",
+    "REBA_reduction_percent","trend_REBA_average","trend_REBA_maximum","trend_high_risk_count","trend_level","trend_direction","neck_risk",
+    "shoulder_risk","upper_limb_risk","wrist_risk","back_risk","knee_risk","photo_id","photo_timestamp","time_on_task_seconds","completion_status",
+    "assistance_required","error_count","expert_REBA","expert_risk_level","expert_assessment_date","expert_comments",
+]
+
 
 def digest(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
@@ -73,6 +87,152 @@ def assert_synthetic_examples(values: list[str]) -> None:
     joined = "\n".join(values)
     forbidden = ["FSK-944631", "ddd"]
     assert not any(token in joined for token in forbidden), joined
+
+
+def _independent_persisted_semantics(owner: str, field: str, dart_type: str) -> dict[str, str]:
+    key = field.lower(); base = dart_type.rstrip("?")
+    if key.endswith("ms"): unit = "milliseconds"
+    elif key.endswith("seconds"): unit = "seconds"
+    elif key.endswith("hours"): unit = "hours"
+    elif key.endswith("minutes"): unit = "minutes"
+    elif key.endswith("daysperweek"): unit = "days/week"
+    elif "frequency" in key: unit = "events/hour"
+    elif key.endswith("fps"): unit = "frames/second"
+    elif key.endswith("deg"): unit = "degrees"
+    elif "probability" in key: unit = "probability 0..1"
+    elif key.endswith("ratio"): unit = "ratio 0..1"
+    elif "weight" in key: unit = "kg"
+    elif "distance" in key: unit = "m or source-labeled distance"
+    elif "income" in key: unit = "THB/day or source profile period"
+    elif any(token in key for token in ("economic", "money", "cost", "loss")): unit = "THB"
+    elif "score" in key or key in {"techscore", "limitvalue"}: unit = "score/ratio"
+    else: unit = "N/A"
+    if base == "bool": allowed = "true or false"
+    elif base == "int": allowed = ">= 0; source constructor/fromJson fallback applies"
+    elif base == "double": allowed = "0..1" if key.endswith("ratio") or "probability" in key else ">= 0 unless source calculation permits signed value"
+    elif base == "DateTime": allowed = "ISO-8601 text in persisted JSON"
+    elif base.startswith("List<"): allowed = f"JSON array matching {base}"
+    elif base.startswith("Map<"): allowed = f"JSON object matching {base} enum-name mapping"
+    elif base in {"RiskLevel", "AiAlertLevel", "SooktaActivity", "JobType", "AssessmentMethod", "MotionPattern"}: allowed = f"{base}.name enum text"
+    elif base in {"AssessmentBreakdown", "RebaInputData", "ErgoInputData", "ErgoResult", "MotionAnalysisSummary"}: allowed = f"Nested {base} JSON object"
+    else: allowed = "Text/identifier accepted by the owning constructor/fromJson"
+    financial = any(token in key for token in ("income", "economic", "money", "cost", "loss", "saved"))
+    participant = key in {"name", "age", "gender", "weight", "height", "bmi", "location", "role", "farmerid", "profileid", "farmer_id", "user_id", "participant_code"} or any(token in key for token in ("photo", "image", "avatar"))
+    health = any(token in key for token in ("risk", "score", "reba", "iso", "msd", "medical", "expert", "symptom", "economic", "impact", "productivity", "lostwork", "lost_work", "pose", "joint"))
+    if financial: privacy = "Sensitive financial data"
+    elif participant or owner == "UserProfile": privacy = "Sensitive participant/profile data"
+    elif health or owner in {"EvaluationHistoryRecord", "EvaluationDraft", "AssessmentBreakdown", "ErgoInputData", "ErgoResult", "MotionAnalysisSummary", "PoseRebaFrameAnalysis", "RebaInputData"}: privacy = "Sensitive assessment/research data"
+    else: privacy = "Operational metadata"
+    overrides = {
+        ("ErgoInputData", "liftFrequency"):("lifts/minute", ">= 0 lifts/minute"),
+        ("EvaluationDraft", "frequency"):("lifts/minute", ">= 0 lifts/minute"),
+        ("ErgoInputData", "horizontalDist"):("cm", ">= 0 cm"),
+        ("ErgoInputData", "verticalHeight"):("cm", ">= 0 cm"),
+        ("EvaluationDraft", "horizontalDistanceText"):("cm", "Numeric text in cm"),
+        ("EvaluationDraft", "verticalHeightText"):("cm", "Numeric text in cm"),
+        ("ErgoInputData", "initialForce"):("N", ">= 0 N"), ("ErgoInputData", "sustainForce"):("N", ">= 0 N"),
+        ("EvaluationDraft", "initialForce"):("N", ">= 0 N"), ("EvaluationDraft", "sustainForce"):("N", ">= 0 N"),
+        ("ErgoResult", "limitValue"):("kg, N, or encoded REBA limit (context-dependent)", ">= 0; interpret only with the calculation method/job type"),
+        ("UserProfile", "incomePerYear"):("THB/year", "Numeric text >= 0 THB/year or blank"),
+        ("UserProfile", "age"):("years", "Numeric text >= 0 years or blank"),
+        ("UserProfile", "height"):("cm", "Numeric text > 0 cm or blank"),
+        ("UserProfile", "weight"):("kg", "Numeric text > 0 kg or blank"),
+        ("EvaluationHistoryRecord", "farmerAge"):("years", "Numeric text >= 0 years or blank"),
+        ("EvaluationHistoryRecord", "farmerHeight"):("cm", "Numeric text > 0 cm or blank"),
+        ("EvaluationHistoryRecord", "farmerWeight"):("kg", "Numeric text > 0 kg or blank"),
+        ("EvaluationHistoryRecord", "farmerBmi"):("kg/m2", "> 0 kg/m2 when present"),
+        ("EvaluationHistoryRecord", "aiRiskPercent"):("%", "Integer 0..100 when present"),
+        ("EvaluationHistoryRecord", "expertReba"):("REBA score points", ">= 0 when present"),
+        ("ErgoInputData", "dailyIncome"):("THB/day", ">= 0 THB/day"), ("RebaInputData", "dailyIncome"):("THB/day", ">= 0 THB/day"),
+        ("EvaluationDraft", "durationHours"):("hours", "> 0 hours in the evaluation flow"), ("ErgoInputData", "durationHours"):("hours", "> 0 hours in the evaluation flow"),
+        ("EvaluationDraft", "workDaysPerWeek"):("days/week", "> 0 days/week in the evaluation flow"), ("ErgoInputData", "workDaysPerWeek"):("days/week", "> 0 days/week in the evaluation flow"),
+        ("EvaluationDraft", "pushPullDistance"):("m", ">= 0 m"), ("EvaluationDraft", "transportDistanceText"):("m", "Numeric text in m"),
+        ("ErgoInputData", "transportDistance"):("m", ">= 0 m"), ("ErgoInputData", "toolWeightBandCode"):("category code", "Non-negative integer category code"),
+        ("ErgoResult", "userScoreColor"):("ARGB integer", "32-bit ARGB color value"),
+    }
+    if owner in {"MotionAnalysisSummary", "PoseRebaFrameAnalysis"} and key.endswith("deg"): allowed = "Finite angle in degrees when present"
+    if owner == "MotionAnalysisSummary" and field.endswith("FrameCount"): unit, allowed = "frames", ">= 0 integer frames"
+    if (owner, field) in overrides: unit, allowed = overrides[(owner, field)]
+    if owner == "ErgoResult" and field == "limitValue": privacy = "Sensitive assessment/research data"
+    if owner == "UserProfile" and field == "incomePerYear": privacy = "Sensitive financial data"
+    return {"type":dart_type, "nullable":"Yes" if dart_type.endswith("?") else "No", "unit":unit, "allowed":allowed, "privacy":privacy}
+
+
+def _independent_owner_location(owner: str, field: str) -> str:
+    if owner == "EvaluationHistoryRecord": return f"SharedPreferences sookta.history[] -> {owner}.{field}"
+    if owner == "EvaluationDraft": return f"SharedPreferences sookta.evaluationDrafts[] / legacy draft -> {owner}.{field}"
+    if owner == "UserProfile": return f"SharedPreferences sookta.farmers[] / sookta.profile -> {owner}.{field}"
+    if owner == "ErgoResult": return f"Nested AssessmentBreakdown rebaResult/isoResult -> {owner}.{field}"
+    if owner == "AssessmentBreakdown": return f"SharedPreferences sookta.history[] -> EvaluationHistoryRecord.assessmentBreakdown/afterAssessmentBreakdown -> {owner}.{field}"
+    if owner == "RebaInputData": return f"Nested EvaluationDraft.rebaInput or AssessmentBreakdown.rebaInput -> {owner}.{field}"
+    if owner == "ErgoInputData": return f"Nested EvaluationDraft.ergoInput or AssessmentBreakdown.ergoInput -> {owner}.{field}"
+    if owner == "PoseRebaFrameAnalysis": return f"Nested AssessmentBreakdown.poseFrames[] -> {owner}.{field}"
+    if owner == "MotionAnalysisSummary": return f"Nested AssessmentBreakdown.motionSummary -> {owner}.{field}"
+    return f"Nested persisted model -> {owner}.{field}"
+
+
+def _independent_export_contracts(headers: list[str]) -> dict[str, dict[str, str]]:
+    result: dict[str, dict[str, str]] = {}
+    operational = "Operational metadata"; participant = "Sensitive participant/profile data"
+    assessment = "Sensitive assessment/research data"; financial = "Sensitive financial/impact data"
+    def add(fields, dtype, nullable, allowed, unit, missing, privacy):
+        for field in fields: result[field] = {"type":dtype,"nullable":nullable,"allowed":allowed,"unit":unit,"missing":missing,"privacy":privacy}
+    add(["Export Generated At"],"ISO-8601 date-time text","No","DateTime.now().toIso8601String() including device offset when available","N/A","Never blank",operational)
+    add(["export_schema_version"],"text","No","Non-empty source-controlled export schema version","N/A","Never blank",operational)
+    add(["assessment_reference_sources","assessment_scope_note","calculation_standard_note"],"text","No","Source-controlled reference/scope text","N/A","Never blank",operational)
+    add(["Record ID","transaction_id"],"integer","No",">= 0 history record identifier","identifier","Never blank; direct record.id",participant)
+    add(["App Version"],"text","Yes","Application version text or '-'","N/A","'-' when record.appVersion is null",operational)
+    add(["Farmer ID","user_id"],"text","No","Resolved farmer/profile identifier; final fallback record-<id>","identifier","Never blank because _resolvedFarmerId supplies record-<id>",participant)
+    add(["Name","Role","Work Space"],"text","Yes","Profile text, record fallback, or '-'","N/A","'-' when both profile and record value are empty/unavailable",participant)
+    add(["Age"],"numeric text","Yes","Numeric age text or '-'","years","'-' when both profile and record value are empty/unavailable",participant)
+    add(["Gender"],"text","Yes","Source profile/record gender text or '-'","N/A","'-' when both profile and record value are empty/unavailable",participant)
+    add(["Weight (kg)"],"numeric text","Yes","Numeric weight text or '-'","kg","'-' when both profile and record value are empty/unavailable",participant)
+    add(["Height (cm)"],"numeric text","Yes","Numeric height text or '-'","cm","'-' when both profile and record value are empty/unavailable",participant)
+    add(["BMI"],"decimal-number text","Yes","> 0 formatted to one decimal place, or '-'","kg/m2","'-' when BMI cannot be derived",participant)
+    add(["BMI Category"],"text","Yes","Underweight; Normal weight; Above Asian BMI range; localized Thai values; '-' when unavailable","N/A","'-' when BMI category cannot be derived",participant)
+    add(["Date of data entry","assessment_date"],"YYYY-MM-DD text","No","Calendar date formatted YYYY-MM-DD","N/A","Never blank; record.dateTime is required",assessment)
+    add(["assessment_time"],"HH:mm:ss text","No","00:00:00..23:59:59 local device time","N/A","Never blank; record.dateTime is required",assessment)
+    add(["Activity Stage"],"text","Yes","English activity stage label or '-'","N/A","'-' when record.activity is null",assessment)
+    add(["Specific Task","task_type"],"text","No","Source activity name/text; task_type prefers enum name","N/A","Non-null source string; may be empty only if source activityName is empty",assessment)
+    add(["Posture Description"],"text","Yes","Method and REBA component-score description or '-'","N/A","'-' when assessmentBreakdown is null",assessment)
+    add(["REBA Score"],"integer","Yes","REBA user score 1..15 or '-'","REBA score points","'-' when assessmentBreakdown is null",assessment)
+    add(["ISO 11228 Risk Level","ISO_risk_before","ISO_risk_after"],"text","Yes","Low; Medium; High; Very high; localized Thai values; or '-'","risk tier","'-' when applicable ISO result is absent",assessment)
+    add(["Tool Used"],"text","Yes","Localized tool label or '-'","N/A","'-' when ergoInput is absent or tool labels are empty",assessment)
+    add(["Tool Weight (kg)"],"number","Yes",">= 0; tool weight with load-weight fallback","kg","'-' when ergoInput is absent",assessment)
+    add(["Tool Weight Code"],"integer","Yes","Positive encoded tool-weight band","category code","'-' when code is zero or ergoInput is absent",assessment)
+    add(["Manual Handling Weight (kg)","load_before"],"number","Yes",">= 0 handled load","kg","'-' when ergoInput is absent",assessment)
+    add(["Manual Handling Distance (m)"],"number","Yes",">= 0 transport distance","m","'-' when ergoInput is absent",assessment)
+    add(["Frequency per hour","frequency_before"],"number","Yes",">= 0; ErgoInputData.liftFrequency multiplied by 60 and formatted by _num","lifts/hour","'-' when ergoInput is absent",assessment)
+    add(["Duration (minutes)","duration_before"],"number","Yes",">= 0; durationHours multiplied by 60 and formatted by _num","minutes","'-' when ergoInput is absent",assessment)
+    add(["Work days per week"],"number","Yes","> 0 in evaluation flow; formatted by _num","days/week","'-' when ergoInput is absent",assessment)
+    add(["MSD Symptom Location"],"text","Yes","Comma-separated non-low-risk body parts or '-'","N/A","'-' when no body part exceeds low risk",assessment)
+    add(["MSD Symptom Severity","Before Risk","After Risk","REBA_risk_before","REBA_risk_after","trend_level","neck_risk","shoulder_risk","upper_limb_risk","wrist_risk","back_risk","knee_risk"],"text","No","Low; Medium; High; Very high; localized Thai values","risk tier","Never blank; source supplies a risk or low-risk fallback",assessment)
+    add(["Medical Cost (THB)","Productivity Loss (THB)","Before Impact (THB)","After Impact (THB)","Estimated Saved (THB)"],"integer","No",">= 0 source economic-impact amount","THB","Never blank; source calculation returns an integer",financial)
+    add(["Lost Workdays"],"integer","No",">= 0 estimated lost workdays","days","Never blank; source calculation returns an integer",financial)
+    add(["Before Score","After Score","REBA_before"],"integer","No","Source user score; REBA path is 1..15","score points","Never blank; required record score or deterministic fallback",assessment)
+    add(["Economic Impact Formula"],"text","No","Human-readable formula including effective score reduction","N/A","Never blank",financial)
+    add(["User Feedback Notes"],"text","Yes","Selected suggestions joined with ' | ' or '-'","N/A","'-' when selectedSuggestions is empty",assessment)
+    add(["ISO_before","ISO_after"],"integer","Yes","ISO user score when applicable or '-'","score points","'-' when applicable ISO result is absent",assessment)
+    add(["REBA_after"],"integer","Yes","REBA user score 1..15 or '-'","REBA score points","'-' when afterAssessmentBreakdown is absent",assessment)
+    add(["REBA_reduction"],"integer","Yes","Signed before-minus-after REBA score difference","score points","'-' when before or after REBA result is absent",assessment)
+    add(["REBA_reduction_percent"],"percentage text","Yes","Rounded integer percent text, including sign when reduction is negative","%","'-' when before score <= 0 or either score is absent",assessment)
+    add(["trend_REBA_average"],"number","No",">= 0 average before score formatted by _num","score points","Never blank; trend window contains the current record",assessment)
+    add(["trend_REBA_maximum"],"integer","No",">= 0 maximum before score","score points","Never blank; trend window contains the current record",assessment)
+    add(["trend_high_risk_count"],"integer","No",">= 0 count of high/very-high records","records","Never blank",assessment)
+    add(["trend_direction"],"text","No","increasing; decreasing; stable","N/A","Never blank",assessment)
+    add(["photo_id"],"text","Yes","Persisted photo ID, derived pose-frame ID, or '-'","identifier","'-' when no persisted ID or pose frame is available",participant)
+    add(["photo_timestamp"],"ISO-8601 date-time text","Yes","ISO-8601 timestamp or '-'","N/A","'-' when neither persisted nor derived photo timestamp is available",participant)
+    add(["time_on_task_seconds"],"integer","Yes",">= 0 elapsed time-on-task seconds","seconds","Blank string when record.timeOnTaskSeconds is null",assessment)
+    add(["completion_status"],"text","Yes","Research workflow completion-status text","N/A","Blank string when record.completionStatus is null",assessment)
+    add(["assistance_required"],"boolean text","Yes","true; false","N/A","Blank string when record.assistanceRequired is null",assessment)
+    add(["error_count"],"integer","Yes",">= 0 workflow error count","errors","Blank string when record.errorCount is null",assessment)
+    add(["expert_REBA"],"number","Yes","Expert comparator REBA value formatted by _num","REBA score points","Blank string when record.expertReba is null",assessment)
+    add(["expert_risk_level"],"text","Yes","Low; Medium; High; Very high; localized Thai values","risk tier","Blank string when record.expertRiskLevel is null",assessment)
+    add(["expert_assessment_date"],"ISO-8601 date-time text","Yes","DateTime.toIso8601String()","N/A","Blank string when record.expertAssessmentDate is null",assessment)
+    add(["expert_comments"],"text","Yes","Expert comments text","N/A","Blank string when record.expertComments is null",assessment)
+    result["trend_level"]["allowed"] = "Low; Medium; High; Very high (localized when Thai export is selected)"
+    assert set(result) == set(headers), (set(headers)-set(result), set(result)-set(headers))
+    return result
 
 
 def extract_authoritative_source_contracts(root: Path) -> dict:
@@ -141,7 +301,60 @@ def extract_authoritative_source_contracts(root: Path) -> dict:
     xgb = {"test_size":test_size,"random_seed":random_seed,"split_method":"GroupShuffleSplit"}
     for key, expected in {"n_estimators":"96","max_depth":"3","learning_rate":"0.055","subsample":"0.88","colsample_bytree":"0.86","reg_lambda":"1.4","reg_alpha":"0.02","min_child_weight":"2","n_jobs":"1","tree_method":"\"hist\""}.items():
         assert re.search(rf"{key}\s*=\s*{re.escape(expected)}", train_text), key
-    return {"dart_fields":dart_fields,"serialized_fields":serialized_fields,"trend_levels":trend_levels,"telemetry_events":telemetry_events,"telemetry_call_sites":telemetry_call_sites,"generic_call_site_paths":{"pose_analysis_failed":generic_path},"log_app_open":True,"analytics_observer":True,"analytics_observer_call_sites":observer_paths,"xgb":xgb}
+    # Bind the export contract to source order and source conversions. These
+    # checks do not import or call the artifact builder's schema helpers.
+    header_block = export_text[
+        export_text.index("static String buildAllHistoryCsv"):
+        export_text.index("for (final record in records)")
+    ]
+    cursor = 0
+    for header in EXPECTED_EXPORT_HEADERS:
+        cursor = header_block.index(f"'{header}'", cursor) + len(header) + 2
+    for token in [
+        "ergoInput.liftFrequency * 60", "_timeOnly(record.dateTime)",
+        "record.timeOnTaskSeconds ?? ''", "_bmiCategory(profile, record, thai)",
+    ]:
+        assert token in export_text, token
+
+    persisted_contracts = {}
+    for owner, field in serialized_fields:
+        dart_type = dart_fields[(owner, field)]
+        persisted_contracts[(owner, field)] = {
+            **_independent_persisted_semantics(owner, field, dart_type),
+            "persisted_location": _independent_owner_location(owner, field),
+        }
+    preference_types = {
+        "sookta.activeProfileId":"String", "sookta.dataSchemaVersion":"int",
+        "sookta.evaluationDraft":"EvaluationDraft", "sookta.evaluationDrafts":"List<EvaluationDraft>",
+        "sookta.farmers":"List<FarmerProfile>", "sookta.history":"List<EvaluationHistoryRecord>",
+        "sookta.language":"String", "sookta.latestBackup":"String", "sookta.nextHistoryId":"int",
+        "sookta.profile":"FarmerProfile", "sookta.setupCompleted":"bool",
+        "sookta.backup.schema.<version>.<timestamp>":"JSON object",
+    }
+    preference_contracts = {}
+    for key, dtype in preference_types.items():
+        if key in {"sookta.profile", "sookta.farmers", "sookta.activeProfileId"}:
+            privacy = "Sensitive participant/profile data"
+        elif key == "sookta.history":
+            privacy = "Sensitive assessment/research data"
+        else:
+            privacy = "Operational metadata"
+        preference_contracts[key] = {
+            "type": dtype, "nullable": "No" if dtype in {"bool", "int"} else "Yes",
+            "unit": "N/A", "privacy": privacy,
+            "persisted_location": f"SharedPreferences: {key}",
+        }
+    return {
+        "dart_fields":dart_fields, "serialized_fields":serialized_fields,
+        "persisted_contracts":persisted_contracts,
+        "preference_contracts":preference_contracts,
+        "export_contracts":_independent_export_contracts(EXPECTED_EXPORT_HEADERS),
+        "trend_levels":trend_levels, "telemetry_events":telemetry_events,
+        "telemetry_call_sites":telemetry_call_sites,
+        "generic_call_site_paths":{"pose_analysis_failed":generic_path},
+        "log_app_open":True, "analytics_observer":True,
+        "analytics_observer_call_sites":observer_paths, "xgb":xgb,
+    }
 
 
 def verify_visual_manifest(staging: Path, manifest_path: Path, expected: dict[str, list[str]]) -> None:
@@ -208,12 +421,34 @@ def verify_source_contracts(facts: dict, root: Path) -> dict:
     roles = {r["role_id"]:r for r in facts["model_algorithm_inventory"]}
     assert len(roles) == 10 and roles["movenet_multipose"]["authority"] == "Single-person eligibility gate"
     for role in (roles["legacy_logistic_weights"], roles["deprecated_risk_alert"]): assert re.fullmatch(r"[0-9a-f]{64}", role["binary_sha256"])
-    assert len(facts["export_schema_rows"]) == 84
-    assert len(facts["persisted_schema_rows"]) > len({r["field"] for r in facts["persisted_schema_rows"]})
-    persisted_pairs = {(row["owner"], row["field"]) for row in facts["persisted_schema_rows"]}
-    assert independent["serialized_fields"].issubset(persisted_pairs)
-    assert "sookta.backup.schema.<version>.<timestamp>" in facts["preference_keys"]
-    assert all(r["description"] and r["type"] and r["validation"] and "source-defined" not in r["type"].lower() for r in facts["export_schema_rows"])
+    # Fail closed on the full source-derived persisted contract, including
+    # duplicate field names owned by different Dart value objects.
+    persisted_rows = facts["persisted_schema_rows"]
+    record_rows = {(row["owner"], row["field"]):row for row in persisted_rows if row["owner"] != "SharedPreferences"}
+    assert len(record_rows) == len(persisted_rows) - len(independent["preference_contracts"])
+    assert set(record_rows) == set(independent["persisted_contracts"])
+    for identity, expected_contract in independent["persisted_contracts"].items():
+        actual = record_rows[identity]
+        for column in ["type", "nullable", "unit", "allowed", "privacy", "persisted_location"]:
+            assert actual[column] == expected_contract[column], (identity, column, actual[column], expected_contract[column])
+        assert actual["description"] and actual["validation"] and actual["derivation"]
+    preference_rows = {row["field"]:row for row in persisted_rows if row["owner"] == "SharedPreferences"}
+    assert set(preference_rows) == set(independent["preference_contracts"])
+    assert set(facts["preference_keys"]) == set(independent["preference_contracts"])
+    for key, expected_contract in independent["preference_contracts"].items():
+        actual = preference_rows[key]
+        for column in ["type", "nullable", "unit", "privacy", "persisted_location"]:
+            assert actual[column] == expected_contract[column], (key, column, actual[column], expected_contract[column])
+
+    export_rows = facts["export_schema_rows"]
+    assert facts["all_history_csv_headers"] == EXPECTED_EXPORT_HEADERS
+    assert [row["field"] for row in export_rows] == EXPECTED_EXPORT_HEADERS
+    assert len(export_rows) == len({row["field"] for row in export_rows}) == 84
+    for row in export_rows:
+        expected_contract = independent["export_contracts"][row["field"]]
+        for column in ["type", "nullable", "allowed", "unit", "missing", "privacy"]:
+            assert row[column] == expected_contract[column], (row["field"], column, row[column], expected_contract[column])
+        assert row["description"] and row["validation"] and row["derivation"]
     telemetry = facts["firebase_telemetry"]
     assert telemetry["default_off"] and telemetry["crashlytics_context"]
     assert telemetry["events"]["assessment_calculated"] == ["activity","job_type","primary_method","risk_level","score","image_count","uses_iso11228"]
@@ -225,7 +460,7 @@ def verify_source_contracts(facts: dict, root: Path) -> dict:
     assert evidence["split_method"] == independent["xgb"]["split_method"]
     assert evidence["test_size"] == independent["xgb"]["test_size"]
     assert evidence["random_seed"] == independent["xgb"]["random_seed"]
-    trend = next(row for row in facts["export_schema_rows"] if row["field"] == "trend_level")
+    trend = next(row for row in export_rows if row["field"] == "trend_level")
     assert all(label in trend["allowed"] for label in independent["trend_levels"])
     assert "Critical" not in trend["allowed"] + trend["derivation"]
     return independent
@@ -308,25 +543,63 @@ def verify(staging: Path) -> dict:
     input_data = json.loads((staging / "working/task5/task5_build_input.json").read_text(encoding="utf-8"))
     source_root = Path(input_data["source_root"])
     independent = verify_source_contracts(input_data, source_root)
-    # Compare workbook cells against an independent Dart declaration scan.
+    # Compare every workbook row against independently reconstructed source
+    # contracts. This rejects missing, extra, duplicated, or semantically
+    # incorrect rows rather than sampling a few representative fields.
     data_check = load_workbook(required[8], read_only=True, data_only=False)
     persisted_sheet = data_check["Persisted Keys Records"]
     persisted_headers = [cell.value for cell in persisted_sheet[4]]
     pidx = {name:index for index,name in enumerate(persisted_headers)}
     persisted_values = list(persisted_sheet.iter_rows(min_row=5, values_only=True))
-    for owner, field, expected_type in [
-        ("EvaluationHistoryRecord","id","int"), ("EvaluationHistoryRecord","timeOnTaskSeconds","int?"),
-        ("EvaluationDraft","selectedImagePaths","List<String>"), ("RebaInputData","trunkTwist","bool"),
-        ("PoseRebaFrameAnalysis","imageIndex","int"), ("PoseRebaFrameAnalysis","timestampMs","int?"),
-        ("AssessmentBreakdown","isoMethod","AssessmentMethod?"), ("AssessmentBreakdown","isoResult","ErgoResult?"),
-        ("AssessmentBreakdown","xgboostProbability","double?"), ("ErgoResult","techScore","double"),
-    ]:
-        assert independent["dart_fields"][(owner,field)] == expected_type
-        matches = [row for row in persisted_values if row[0] == field and owner in str(row[pidx["Persisted location / key"]])]
-        assert len(matches) == 1, (owner,field,len(matches))
-        assert matches[0][pidx["Type"]] == expected_type
-        assert matches[0][pidx["Nullable"]] == ("Yes" if expected_type.endswith("?") else "No")
-    training_sheet = load_workbook(required[2], read_only=True, data_only=False)["Training Evaluation"]
+    actual_persisted = {
+        (row[pidx["Field / variable"]], row[pidx["Persisted location / key"]]): row
+        for row in persisted_values
+    }
+    expected_persisted = {}
+    for (owner, field), contract in independent["persisted_contracts"].items():
+        expected_persisted[(field, contract["persisted_location"])] = contract
+    for field, contract in independent["preference_contracts"].items():
+        expected_persisted[(field, contract["persisted_location"])] = contract
+    assert len(actual_persisted) == len(persisted_values) == len(expected_persisted) == 190
+    assert set(actual_persisted) == set(expected_persisted)
+    for identity, contract in expected_persisted.items():
+        row = actual_persisted[identity]
+        for column in ["Type", "Nullable", "Unit", "Privacy class"]:
+            key = {"Type":"type", "Nullable":"nullable", "Unit":"unit", "Privacy class":"privacy"}[column]
+            assert row[pidx[column]] == contract[key], (identity, column, row[pidx[column]], contract[key])
+        if "allowed" in contract:
+            assert row[pidx["Allowed values / range"]] == contract["allowed"], identity
+        for column in ["Description", "Derivation / formula", "Validation / fallback"]:
+            assert str(row[pidx[column]] or "").strip(), (identity, column)
+
+    export_sheet = data_check["Export Schema Order"]
+    export_headers = [cell.value for cell in export_sheet[4]]
+    eidx = {name:index for index,name in enumerate(export_headers)}
+    export_values = list(export_sheet.iter_rows(min_row=5, values_only=True))
+    assert [row[eidx["Field / variable"]] for row in export_values] == EXPECTED_EXPORT_HEADERS
+    assert len(export_values) == len({row[eidx["Field / variable"]] for row in export_values}) == 84
+    for row in export_values:
+        field = row[eidx["Field / variable"]]
+        contract = independent["export_contracts"][field]
+        for column, key in [("Type","type"),("Nullable","nullable"),("Allowed values / range","allowed"),("Unit","unit"),("Missing code","missing"),("Privacy class","privacy")]:
+            assert row[eidx[column]] == contract[key], (field, column, row[eidx[column]], contract[key])
+        for column in ["Description", "Derivation / formula", "Validation / fallback"]:
+            assert str(row[eidx[column]] or "").strip(), (field, column)
+
+    privacy_text = "\n".join(str(value) for row in data_check["Privacy Retention"].iter_rows(values_only=True) for value in row if value is not None)
+    report_text = "\n".join([ai, manual])
+    telemetry_tokens = ["logAppOpen", "FirebaseAnalyticsObserver", "SDK-generated", "Crashlytics"]
+    for event, fields in independent["telemetry_events"].items():
+        telemetry_tokens.extend([event, *fields])
+    for token in telemetry_tokens:
+        assert token in privacy_text, ("Privacy Retention", token)
+        if token == "SDK-generated":
+            assert token in report_text or "SDK-defined" in report_text, ("reports", token)
+        else:
+            assert token in report_text, ("reports", token)
+
+    training_workbook = load_workbook(required[2], read_only=True, data_only=False)
+    training_sheet = training_workbook["Training Evaluation"]
     training_headers = [cell.value for cell in training_sheet[4]]
     tidx = {name:index for index,name in enumerate(training_headers)}
     xgb_row = next(row for row in training_sheet.iter_rows(min_row=5, values_only=True) if row[0] == "xgboost_training")
@@ -335,7 +608,7 @@ def verify(staging: Path) -> dict:
     assert xgb_row[tidx["Dataset status"]] == "Pending Researcher Evidence"
     assert xgb_row[tidx["Raw metrics status"]] == "Pending Owner Action"
     for token in ["n_estimators", "tree_method", "reg_lambda", "min_child_weight"]: assert token in xgb_row[tidx["XGBRegressor parameters"]]
-    data_check.close()
+    training_workbook.close(); data_check.close()
     missing = [row for row in input_data["source_citations"] if row["status"] != "Resolved"]
     assert not missing, missing
     return {
