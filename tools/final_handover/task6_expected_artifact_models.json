@@ -1,0 +1,73 @@
+{
+  "schema_version": 1,
+  "artifacts": {
+    "06_Development_Audit_Trail.pdf": "ab4703ed0b565480ac9d21eefb62aec19769332b1a5dc8b0ae72ec19b7573e00",
+    "06_Development_Audit_Trail.xlsx": "88d04e938e383bcb6769796a6e15cb23a0e4cc06d60fad6a9308fb1de8a86107",
+    "07_Final_Algorithm_Verification_Report.docx": "9a2c55606b54678f9ccfb7b3acd45f79877f240cbc36a88016b6c94c2a1d3b54",
+    "07_Final_Algorithm_Verification_Report.pdf": "e444859257f744902866899537a49a72a78effc81357bc8fd657a973d6d95041",
+    "07_Master_Test_and_Verification_Package.pdf": "6f70043fde6d8164ca7f647713726406b63669d6a4b35edce5b018666cc92f08",
+    "07_Master_Test_and_Verification_Package.xlsx": "b79f1923c4f1eb0b4f79e6b7d55c73c42e46311fd348c34c1c76b541fc0557fe",
+    "08_UAT_Field_Test_and_Usability_Package.pdf": "606124071880c6b384a61d9fa43cc23d16795d2d22e0d88c0db29370938b71d5",
+    "08_UAT_Field_Test_and_Usability_Package.xlsx": "cc47c6caf12e99d19a8b2010592d34003a9262123a953b5c40082b8699747b28",
+    "08_UAT_and_Field_Test_Technical_Report.docx": "966c5d8c1356cf9640339443196f0eea4f6bd85b930faa56dd6b426302192b13",
+    "08_UAT_and_Field_Test_Technical_Report.pdf": "54510d9dc55fe8b3399389784df2e2006ff489cfb3da12fe85a97bc866af5b6b"
+  },
+  "workbooks": {
+    "06_Development_Audit_Trail.xlsx": {
+      "sheet_order": ["Control Summary", "Timeline Milestones", "Requirement Traceability", "Version History", "Feedback Modifications", "Before After Evidence", "Decisions Tradeoffs", "Challenges Solutions", "Effort Summary", "Evidence Index", "Human Actions"],
+      "sheet_model_sha256": {
+        "Before After Evidence": "8b5597aaa6f4644f92d7e75a6cd2adfce2992772b519c7c6c004177366d96ec5",
+        "Challenges Solutions": "1c1127ef63d9580e394b71af14c0bbce772aaacffe5fb19a525d54794f2e5e80",
+        "Control Summary": "98fb4618b6038bbbd9ad12d6da16b48a3ccacdec778c83b78be1663ae99604b4",
+        "Decisions Tradeoffs": "9eb201e9ef6e016940ec915fd313a544d4c848c13db4567b1dea2b949ce36ae6",
+        "Effort Summary": "f735dd8c0db8a874ced27ba39da1ff0924a8216822b1c82c60341e726ea486ff",
+        "Evidence Index": "712d6823f5396e039470d18eee494e3ac74a39b108e9e2d5faf47d860d6842ff",
+        "Feedback Modifications": "7995b14b9e1adbb4b5abd5fa502ceb86418b4e074774305d070915d1de9319d2",
+        "Human Actions": "ffa43720f4fc0f4337b593a615a632225415996f16893abb07a0e7f60985b8ab",
+        "Requirement Traceability": "a45d5a896ab443ec18d885b0729fffdf06ed403f55d6cd817a8364a8a132cdd3",
+        "Timeline Milestones": "dbcbaab1a1649f531a99f32b560c1a057b55e234be686d6b0b591bc57c1c3a0f",
+        "Version History": "575e307d108531343e52d435452b9e232e1f4ac444c2e891ddc12a998b8ea5b1"
+      }
+    },
+    "07_Master_Test_and_Verification_Package.xlsx": {
+      "sheet_order": ["Control Summary", "Test Plan", "Requirement Test Trace", "Functional Cases", "Invalid Missing Inputs", "Network Error Applicability", "Algorithm Reference", "Threshold Boundaries", "Automated Suite", "Integration Regression", "Device Compatibility", "Performance", "Bugs Corrections Retest", "Evidence Index", "Limitations", "Human Actions"],
+      "sheet_model_sha256": {
+        "Algorithm Reference": "2ed0fb86a736f4f741c2e92616d77b07bccf0dc22ffd331d4ef50ee8919dbe00",
+        "Automated Suite": "38cf6fcd324512f7ff95531d2ab41acb2ac33c63b759a5364302e06093ad39b5",
+        "Bugs Corrections Retest": "d8c6de3d426bf34ba2d0cdd23e4b5024f6d3b3e235781dbe076493b582d00ffe",
+        "Control Summary": "72bef6bdc8ca29244a60b91b511a317b61de31d9d043387514778f6942abf1c9",
+        "Device Compatibility": "ca12ded55de41a84504b31568850c260b804198c93c65b63f84bb6aee3377c36",
+        "Evidence Index": "1a1372a2c126abccec625d731eb43667bcff044303048dc68f7bd4224d2a1b5c",
+        "Functional Cases": "7aa43d2e6b14bdb88270049dfa44b9cbe6e5951c5154ce902f711024e1b96234",
+        "Human Actions": "5d090c4b4f1c2ea678156c44d4e2fb6c38f430992f6c24c22fb568195f1b14c4",
+        "Integration Regression": "18eebaa6dc5adfbe6df88e35c5370c344038c924ecbfa5240170cbf6424838a5",
+        "Invalid Missing Inputs": "cb891327fec1f24882d68dbcadc88f41c4f32a273870ee01c56fcb2da0bbe899",
+        "Limitations": "23c8909bf57c373b415c98b2715eada3cb0a07a2270379646539ce931f4d1b41",
+        "Network Error Applicability": "c98bcc6ea093f1eb34da8e1805b29127a37f42a7a74cc1f097d19c0188936268",
+        "Performance": "06e219649332f297524aab3de07552b9400eca5e84a1e18d3a049f876b8bf186",
+        "Requirement Test Trace": "0ab8d481130def6fa05df03a915a52bb802eb3c3f84a71b76837df8722322fb7",
+        "Test Plan": "e8e46ef0b261e840750fb7afff6484dd1dcff57547cb174ced3df161970c6f4a",
+        "Threshold Boundaries": "85a2deceeb02f1e517db0d1e3b9bf9c962aae73fa9516e5985c430c9ff748328"
+      }
+    },
+    "08_UAT_Field_Test_and_Usability_Package.xlsx": {
+      "sheet_order": ["Control Summary", "Protocol", "Scenarios Tasks", "Participant Form", "Farmer Profile", "Device Build Matrix", "Observations Results", "Issues Retest", "Historical Evidence", "Version Comparison", "SUS Response Form", "Evidence Index", "Acceptance Signoff", "Limitations Human Actions"],
+      "sheet_model_sha256": {
+        "Acceptance Signoff": "4f4b31dde96d1d65492940bb6901b3ca648b6fb492e8746b41c4d4e769c596ba",
+        "Control Summary": "cbb1264570c0dbc7f85c11e9bf2e58a4703557956471ae4999fc724cec6ea72b",
+        "Device Build Matrix": "9bc5383d51d701d19382024a1654050714740172e51c82c8adbcd4a2507928a2",
+        "Evidence Index": "41b74a0226a1f4a8fcddaf9a5b52cd95d491520026271b79d8a151e0e234c358",
+        "Farmer Profile": "e5656862acc38e62adb47ef989605ecd88a9db189d03a6205e652e410cf55850",
+        "Historical Evidence": "8ce5047687acfafa2dfd969006a74ef350c6ba2fd795e4658e1287a2c30f8fff",
+        "Issues Retest": "7fff4f3bca3aba5ef102e7137c5308ef324946e128710819e5a39c0b6d400229",
+        "Limitations Human Actions": "437766b28496730069e9c861cd35a693c396e4b91d9115dc486c1f37bcbdc688",
+        "Observations Results": "306b35d356f33cacad9b9057fb2f311561e4c53417364af652d957cbe3214e25",
+        "Participant Form": "07212313bd7eec32bb1bb5ba5297578ccd46f0b05d9363745348f92ae79b2942",
+        "Protocol": "ba2874f42eeb5fd3384a90dd00dbcac3a070e68b595ba4d05e6d7a9bdf352f72",
+        "SUS Response Form": "ec8090b7c83f9900397784aad611af99830982f8c36906a3caa0d608969023b7",
+        "Scenarios Tasks": "785a045f717e53099c86648021d09dd85ad4c94142bca2bddb33ad4df1c3fd72",
+        "Version Comparison": "1b32cdbe87df8a0444af826d697c7a58c29af6ed02583c1232ac759e1aade0ed"
+      }
+    }
+  }
+}

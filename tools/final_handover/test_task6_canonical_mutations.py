@@ -7,8 +7,12 @@ from pathlib import Path
 
 from docx import Document
 from openpyxl import load_workbook
+from pypdf import PdfReader, PdfWriter
 
-import verify_task6_artifacts as verifier
+try:
+ from . import verify_task6_artifacts as verifier
+except ImportError:
+ import verify_task6_artifacts as verifier
 
 ROOT=Path('/private/tmp/fsookta-final-handover')
 ARTIFACTS=['06_Development_Audit_Trail.xlsx','06_Development_Audit_Trail.pdf','07_Master_Test_and_Verification_Package.xlsx','07_Master_Test_and_Verification_Package.pdf','08_UAT_Field_Test_and_Usability_Package.xlsx','08_UAT_Field_Test_and_Usability_Package.pdf','07_Final_Algorithm_Verification_Report.docx','07_Final_Algorithm_Verification_Report.pdf','08_UAT_and_Field_Test_Technical_Report.docx','08_UAT_and_Field_Test_Technical_Report.pdf']
@@ -54,5 +58,23 @@ class CanonicalArtifactMutationTests(unittest.TestCase):
   def mutate(root):
    p=root/'manifests/task6_expected_visual_renders.json'; x=json.loads(p.read_text()); x['renders'][0]['sha256']='0'*64; p.write_text(json.dumps(x))
   self.reject(mutate)
+ def test_rejects_unmodeled_control_summary_cell_mutation(self):
+  self.reject(lambda r:self.mutate_book(r,'06_Development_Audit_Trail.xlsx','Control Summary','B5',999))
+ def test_rejects_appended_unverified_docx_content(self):
+  def mutate(root):
+   p=root/'artifacts/08_UAT_and_Field_Test_Technical_Report.docx'; d=Document(p); d.add_paragraph('MUTATED UNVERIFIED CONTENT'); d.save(p)
+  self.reject(mutate)
+ def test_rejects_same_page_count_pdf_rewrite(self):
+  def mutate(root):
+   p=root/'artifacts/07_Final_Algorithm_Verification_Report.pdf'; reader=PdfReader(p); writer=PdfWriter()
+   for page in reader.pages: writer.add_page(page)
+   with p.open('wb') as stream: writer.write(stream)
+   self.assertEqual(len(reader.pages),len(PdfReader(p).pages))
+  self.reject(mutate)
+ def test_rejects_zero_or_mutated_subject_git_history(self):
+  def change(root,field,value):
+   p=root/'working/task6/task6_corrected_payload.json'; data=json.loads(p.read_text()); data['git_history'][9][field]=value; p.write_text(json.dumps(data))
+  self.reject(lambda r:change(r,'commit','0'*40))
+  self.reject(lambda r:change(r,'subject','MUTATED SUBJECT'))
 
 if __name__=='__main__': unittest.main()

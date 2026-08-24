@@ -4,11 +4,13 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
+import subprocess
 import sys
 from collections import Counter
 from pathlib import Path
-from datetime import datetime, timezone
+from datetime import date, datetime, time, timezone
 
 from docx import Document
 from openpyxl import load_workbook
@@ -19,8 +21,29 @@ RX=re.compile(r'^\d\d:\d\d \+(\d+)(?: -\d+)?: (.*)$')
 PASS_HEADERS=['Case ID','Requirement ID','Test name','Category','Precondition / input','Expected','Actual','Status','Baseline / version','Tester category','Timestamp / date','Exact method / command','Raw evidence path','SHA-256','Limitations','Source path']
 PASS_KEYS=('case_id','requirement_id','name','category','precondition_input','expected','actual','status','baseline','tester_category','timestamp','method','raw_path','sha256','limitations','source_path')
 STATUS={'Pending Owner Action':137,'Exception Approval Required':12,'Pending Researcher Evidence':6}
+EXPECTED_MODELS=json.loads(Path(__file__).with_name('task6_expected_artifact_models.json').read_text())
 
 def sha(p): return hashlib.sha256(Path(p).read_bytes()).hexdigest()
+def normalized(value):
+ if isinstance(value,(datetime,date,time)): return value.isoformat()
+ if isinstance(value,bytes): return value.hex()
+ if value is None or isinstance(value,(str,int,float,bool)): return value
+ return str(value)
+def sheet_model(sheet):
+ cells=[]
+ for _,cell in sorted(sheet._cells.items()):
+  cells.append({'coordinate':cell.coordinate,'value':normalized(cell.value),'data_type':cell.data_type,'number_format':cell.number_format,'style_id':cell.style_id,'hyperlink':cell.hyperlink.target if cell.hyperlink else None,'comment':cell.comment.text if cell.comment else None})
+ validations=[]
+ for item in sheet.data_validations.dataValidation:
+  validations.append({key:normalized(getattr(item,key)) for key in ('sqref','type','operator','formula1','formula2','allowBlank','errorTitle','error','promptTitle','prompt','showErrorMessage','showInputMessage')})
+ rows={str(index):{'height':row.height,'hidden':row.hidden,'outlineLevel':row.outlineLevel} for index,row in sorted(sheet.row_dimensions.items())}
+ columns={index:{'width':column.width,'hidden':column.hidden,'outlineLevel':column.outlineLevel} for index,column in sorted(sheet.column_dimensions.items())}
+ return {'title':sheet.title,'max_row':sheet.max_row,'max_column':sheet.max_column,'cells':cells,'merged_ranges':sorted(str(item) for item in sheet.merged_cells.ranges),'validations':validations,'row_dimensions':rows,'column_dimensions':columns,'freeze_panes':str(sheet.freeze_panes) if sheet.freeze_panes else None,'auto_filter':str(sheet.auto_filter.ref) if sheet.auto_filter.ref else None,'print_area':str(sheet.print_area) if sheet.print_area else None,'page_setup':{'orientation':sheet.page_setup.orientation,'paperSize':sheet.page_setup.paperSize,'fitToWidth':sheet.page_setup.fitToWidth,'fitToHeight':sheet.page_setup.fitToHeight}}
+def model_sha(model): return hashlib.sha256(json.dumps(model,ensure_ascii=False,sort_keys=True,separators=(',',':')).encode()).hexdigest()
+def verify_committed_artifact_expectations(root):
+ assert EXPECTED_MODELS['schema_version']==1 and len(EXPECTED_MODELS['artifacts'])==10
+ for name,expected in EXPECTED_MODELS['artifacts'].items():
+  path=root/'artifacts'/name; assert path.is_file() and sha(path)==expected, f'unexpected artifact bytes: {name}'
 def category(path,name):
  v=(path+' '+name).lower()
  for label,words in [('Algorithm / reference',('algorithm','reba','iso11228','pose','xgboost','logistic')),('Invalid / boundary',('invalid','required','malformed','missing','zero-height','error')),('UI / regression',('capture','screen','layout','responsive','widget','navigation')),('Data / persistence',('persist','draft','export','history','storage'))]:
@@ -78,8 +101,33 @@ def verify_payload(root):
  h3,h7=p['historical_uat'][2],p['historical_uat'][6]; assert (h3['date'],h3['round_revision'],h3['version'])==('2026-06-06','r2','1.1.2+10'); assert h7['version']=='not stated'
  return p
 
+def actual_git_history():
+ repo=Path(os.environ.get('FSOOKTA_AUTHORITATIVE_GIT_REPO',str(Path(__file__).resolve().parents[2])))
+ assert repo.is_dir()
+ def git(*args,binary=False):
+  result=subprocess.run(['git','-C',str(repo),*args],check=True,capture_output=True,text=not binary)
+  return result.stdout
+ assert git('cat-file','-t',COMMIT).strip()=='commit'
+ raw=git('log','--format=ENTRY%x00%H%x00%aI%x00%s%x00','--name-only','-z',COMMIT,binary=True)
+ refs={}
+ for line in git('show-ref').splitlines():
+  oid,ref=line.split(' ',1)
+  if ref.startswith('refs/heads/'): short=ref.removeprefix('refs/heads/')
+  elif ref.startswith('refs/remotes/'): short=ref.removeprefix('refs/remotes/')
+  else: continue
+  refs.setdefault(oid,set()).add(short)
+ history=[]
+ for block in raw.split(b'ENTRY\x00')[1:]:
+  fields=block.split(b'\x00'); commit=fields[0].decode(); authored=fields[1].decode(); subject=fields[2].decode(); paths=[value.decode().strip() for value in fields[4:] if value.decode().strip()]
+  history.append({'commit':commit,'date':authored,'subject':subject,'refs':refs.get(commit,set()),'changed_paths':'; '.join(paths) if paths else 'Merge/no path list'})
+ assert len(history)==137 and history[0]['commit']==COMMIT
+ return history
 def verify_git_history(root,p):
- history=p['git_history']; assert len(history)==137 and len({x['commit'] for x in history})==137 and all(re.fullmatch(r'[0-9a-f]{40}',x['commit']) for x in history)
+ history=p['git_history']; actual=actual_git_history(); assert len(history)==137 and len({x['commit'] for x in history})==137 and all(re.fullmatch(r'[0-9a-f]{40}',x['commit']) for x in history)
+ assert len(actual)==len(history)
+ for staged,authoritative in zip(history,actual,strict=True):
+  assert staged['commit']==authoritative['commit'] and staged['date']==authoritative['date'] and staged['subject']==authoritative['subject'] and staged['changed_paths']==authoritative['changed_paths']
+  assert {x.strip() for x in staged['refs'].split(',') if x.strip()}==authoritative['refs']
  pos={x['commit']:i for i,x in enumerate(history)}; sr=source_root(root)
  for d in p['defects']:
   assert d['before_commit'] in pos and d['after_commit'] in pos and pos[d['before_commit']]>pos[d['after_commit']]
@@ -90,6 +138,9 @@ def verify_git_history(root,p):
 def verify_workbooks(root,p):
  A=root/'artifacts'; audit=load_workbook(A/'06_Development_Audit_Trail.xlsx',data_only=False); master=load_workbook(A/'07_Master_Test_and_Verification_Package.xlsx',data_only=False); uat=load_workbook(A/'08_UAT_Field_Test_and_Usability_Package.xlsx',data_only=False)
  assert (len(audit.sheetnames),len(master.sheetnames),len(uat.sheetnames))==(11,16,14)
+ for filename,workbook in [('06_Development_Audit_Trail.xlsx',audit),('07_Master_Test_and_Verification_Package.xlsx',master),('08_UAT_Field_Test_and_Usability_Package.xlsx',uat)]:
+  expected=EXPECTED_MODELS['workbooks'][filename]; assert workbook.sheetnames==expected['sheet_order']
+  actual_models={sheet.title:model_sha(sheet_model(sheet)) for sheet in workbook.worksheets}; assert actual_models==expected['sheet_model_sha256'], f'complete sheet model mismatch: {filename}'
  auto=[x for x in p['result_rows'] if x['case_id'].startswith('AUTO-')]; alg=[x for x in auto if x['category']=='Algorithm / reference']; boundary=[x for x in auto if x['category']=='Invalid / boundary']; functional=[x for x in auto if x['category']=='Functional / regression']
  assert_join(master['Automated Suite'],auto); assert_join(master['Integration Regression'],auto); assert_join(master['Algorithm Reference'],alg); assert_join(master['Threshold Boundaries'],boundary); assert_join(master['Invalid Missing Inputs'],boundary); assert_join(master['Functional Cases'],functional); assert_join(master['Network Error Applicability'],[next(x for x in p['result_rows'] if x['case_id']=='FIREBASE-PLAN-001')]); assert_join(master['Test Plan'],[x for x in p['result_rows'] if not x['case_id'].startswith('AUTO-')]); assert_join(master['Evidence Index'],[x for x in p['result_rows'] if x['status']=='PASS'])
  req=table_rows(audit['Requirement Traceability'],8); src=json.loads((root/'evidence_map.json').read_text())['records']; assert len(req)==155 and Counter(x[1] for x in req)==STATUS
@@ -100,6 +151,10 @@ def verify_workbooks(root,p):
  defects=table_rows(master['Bugs Corrections Retest'],13); dk=('defect_id','version','description','before_commit','after_commit','source_path');
  for row,d in zip(defects,p['defects'],strict=True): assert row[:6]==tuple(d[k] for k in dk) and row[6]==d['before_git_object']['changed_paths'] and row[7]==d['after_git_object']['changed_paths'] and row[10:13]==(d['evidence_path'],d['sha256'],d['status'])
  before=table_rows(audit['Before After Evidence'],10); bk=('change_id','before_commit','after_commit','source_path','before','after','before_changed_paths','after_changed_paths','evidence_path','sha256'); assert before==[tuple(x[k] for k in bk) for x in p['before_after']]
+ version_rows=table_rows(audit['Version History'],4); assert len(version_rows)==137
+ for row,actual in zip(version_rows,actual_git_history(),strict=True):
+  excel_date=(datetime.fromisoformat(actual['date']).astimezone(timezone.utc).replace(tzinfo=None)-datetime(1899,12,30)).total_seconds()/86400
+  assert row==(actual['commit'],excel_date,None,actual['subject'])
  return {'workbooks':3,'sheets':41}
 
 def doc_text(path):
@@ -117,5 +172,5 @@ def verify_visual(root):
  for x in expected['renders']: assert (root/x['path']).is_file() and sha(root/x['path'])==x['sha256']
  return {'renders':expected['count']}
 def verify(root):
- p=verify_payload(root); verify_git_history(root,p); out={'status':'PASS','tests':135,'algorithm':55,'boundary':7,'requirements':155,'pass_results':136}; out.update(verify_workbooks(root,p)); out.update(verify_reports_pdfs(root,p)); out.update(verify_visual(root)); return out
+ verify_committed_artifact_expectations(root); p=verify_payload(root); verify_git_history(root,p); out={'status':'PASS','tests':135,'algorithm':55,'boundary':7,'requirements':155,'pass_results':136}; out.update(verify_workbooks(root,p)); out.update(verify_reports_pdfs(root,p)); out.update(verify_visual(root)); return out
 if __name__=='__main__': print(json.dumps(verify(Path(sys.argv[1] if len(sys.argv)>1 else '/private/tmp/fsookta-final-handover')),indent=2,sort_keys=True))
