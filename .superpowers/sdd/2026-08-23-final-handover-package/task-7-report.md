@@ -4,12 +4,15 @@
 
 Generated all 18 Task 7 deliverables for SookTa `1.3.11+28` at authoritative
 commit `bf8867a2083357cb9d60915bf6c2233801f923d8`: nine editable files and nine
-matching PDFs. The independent verifier status is `passed_with_human_actions`.
+matching PDFs. After fix round 2, all non-visual verifier gates pass; final status
+remains pending the externally authored visual decision.
 
 The desktop Codex Security Standard start call was terminated without an
 authoritative scan context. No scan identifier or sealed security conclusion is
 asserted. The replacement inspection is explicitly an offline, read-only,
-source-backed fallback covering 619 bounded files. It does not certify
+source-backed fallback covering 619 eligible source files plus actual content
+from 365 source-archive members, 295 prior-package Office XML/content members,
+and 33 non-Task7 manifests. It does not certify
 compliance, vulnerability absence, encryption, secure deletion, incident
 readiness, dependency clearance, penetration testing, or production security.
 
@@ -22,10 +25,10 @@ The package in `/private/tmp/fsookta-final-handover/artifacts/` contains:
 - a 14-slide knowledge-transfer deck and draft meeting minutes;
 - a research-publication package and publication tables.
 
-The six DOCX documents contain 19 rendered pages. The two workbooks contain 24
+The six DOCX documents contain 20 rendered pages. The two workbooks contain 24
 sheets (15 security/access-control sheets and nine publication sheets). The
 deck contains 14 slides with a `[Sources]` note block on every slide. The nine
-PDF counterparts contain 57 pages.
+PDF counterparts contain 58 pages.
 
 ## Security observations
 
@@ -67,16 +70,17 @@ contract controls the security summary and resolves to `OPEN ACTIONS`; the
 formula-error scan found zero errors. Print areas, landscape orientation, and
 one-page-wide fitting were verified on all 24 sheets.
 
-Visual QA inspected 114 primary surfaces: 19 DOCX pages, 24 workbook sheets, 14
-slides, and 57 PDF pages, supported by 34 contact sheets. RED-to-GREEN fixes
+The current provisional visual inventory contains 116 primary surfaces: 20 DOCX
+pages, 24 workbook sheets, 14 slides, and 58 PDF pages, supported by 34 contact
+sheets. RED-to-GREEN fixes
 removed orphaned table/signature fragments, excessive workbook PDF pagination,
-and an incorrect cached formula display. Final inspected surfaces are legible,
+and an incorrect cached formula display. Changed surfaces are locally legible,
 unclipped, non-overlapping, and free of unexpected blank pages or broken glyphs.
-The hash-bound visual manifest SHA-256 is
-`05a87f5b9c0be8fb88a418706818c2685e90377c3a2d9579ce1860b0724ef987`.
+External PASS is not yet authored. The current expected-render manifest SHA-256
+is `7fce49b7a2fc11d4ab1f310dc52d0d3ef593ebc8f28b15bda18929e2c9663cdb`.
 
-The cumulative staging checksum manifest verifies 91/91 entries. Its SHA-256
-is `cc18bd22b421b1c45c73c28c98d0912bd0832cd1d4bc94ec623c993ee6194917`.
+The cumulative staging checksum manifest will be regenerated only after the
+external visual decision and resulting visual manifest exist.
 
 ## Human-owned actions
 

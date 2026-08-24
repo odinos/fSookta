@@ -4,9 +4,10 @@ import hashlib
 import json
 import os
 import re
+import shutil
 import tarfile
 import zipfile
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 from docx import Document
 from docx.enum.table import WD_CELL_VERTICAL_ALIGNMENT, WD_TABLE_ALIGNMENT
@@ -22,6 +23,72 @@ COMMIT = "bf8867a2083357cb9d60915bf6c2233801f923d8"
 VERSION = "1.3.11+28"
 INK = RGBColor(0, 0, 0)
 MUTED = RGBColor(85, 85, 85)
+TREE = "b4ed5fd0c061492c74dba356ed8a114b5f6621ba"
+TASK7_EDITABLE = {
+    "09_Security_Privacy_and_Data_Protection_Report.docx",
+    "09_Security_and_Access_Control_Matrices.xlsx",
+    "10_End_User_Manual.docx",
+    "10_Research_Admin_Manual.docx",
+    "10_Developer_Handover_Manual.docx",
+    "10_Knowledge_Transfer_Deck.pptx",
+    "10_Knowledge_Transfer_Minutes.docx",
+    "11_Research_Publication_Package.docx",
+    "11_Publication_Tables.xlsx",
+}
+
+
+def git_object(kind, body):
+    return hashlib.sha1(f"{kind} {len(body)}\0".encode() + body).digest()
+
+
+def authoritative_tar_identity(path):
+    root = {}
+    file_count = 0
+    with tarfile.open(path) as archive:
+        commit = archive.pax_headers.get("comment")
+        for member in archive.getmembers():
+            if member.isdir():
+                continue
+            if member.isfile():
+                data = archive.extractfile(member).read()
+                mode = "100755" if member.mode & 0o111 else "100644"
+            elif member.issym():
+                data = member.linkname.encode()
+                mode = "120000"
+            else:
+                continue
+            current = root
+            parts = PurePosixPath(member.name).parts
+            for part in parts[:-1]:
+                current = current.setdefault(part, {})
+            current[parts[-1]] = (mode, git_object("blob", data))
+            file_count += 1
+
+    def tree_id(node):
+        entries = []
+        ordered = sorted(node.items(), key=lambda item: (item[0] + ("/" if isinstance(item[1], dict) else "")).encode())
+        for name, value in ordered:
+            if isinstance(value, dict):
+                mode, digest = "40000", tree_id(value)
+            else:
+                mode, digest = value
+            entries.append(f"{mode} {name}".encode() + b"\0" + digest)
+        return git_object("tree", b"".join(entries))
+
+    return {"commit": commit, "git_tree_id": tree_id(root).hex(), "file_count": file_count}
+
+
+def materialization_matches_tar(source, archive_path):
+    with tarfile.open(archive_path) as archive:
+        for member in archive.getmembers():
+            target = source / member.name
+            if member.isfile():
+                if not target.is_file() or sha256(target) != hashlib.sha256(archive.extractfile(member).read()).hexdigest():
+                    return False
+            elif member.issym():
+                if not target.is_symlink() or os.readlink(target) != member.linkname:
+                    return False
+    return True
 
 
 def discover_source():
@@ -30,11 +97,15 @@ def discover_source():
     valid = []
     for candidate in candidates:
         pubspec = candidate / "pubspec.yaml"
-        if pubspec.is_file() and f"version: {VERSION}" in pubspec.read_text(errors="ignore") and (candidate / "lib/app/app_state.dart").is_file():
+        source_tar = candidate.parent / "authoritative-source.tar"
+        if not (pubspec.is_file() and source_tar.is_file() and f"version: {VERSION}" in pubspec.read_text(errors="ignore") and (candidate / "lib/app/app_state.dart").is_file()):
+            continue
+        identity = authoritative_tar_identity(source_tar)
+        if identity == {"commit": COMMIT, "git_tree_id": TREE, "file_count": 602} and materialization_matches_tar(candidate, source_tar):
             valid.append(candidate)
     if not valid:
         raise FileNotFoundError("No authoritative source materialization matches the governed version")
-    fingerprints = {sha256(path / "pubspec.lock") for path in valid}
+    fingerprints = {sha256(path.parent / "authoritative-source.tar") for path in valid}
     if len(fingerprints) != 1:
         raise RuntimeError("Authoritative source candidates disagree")
     return valid[0]
@@ -49,6 +120,47 @@ def sha256(path):
 
 
 SRC = discover_source()
+
+
+def prepare_source_identity():
+    alias_relatives = [
+        "pubspec.yaml",
+        "lib/app/sookta_app.dart",
+        "lib/app/app_state.dart",
+        "lib/core/services/assessment_export_service.dart",
+        "lib/core/services/firebase_telemetry_service.dart",
+        "lib/core/services/local_image_store.dart",
+        "lib/screens/main/profile_tab.dart",
+        "lib/screens/main/history_tab.dart",
+        "lib/screens/main/training_data_export_screen.dart",
+    ]
+    alias_root = ROOT / "evidence/task7-source"
+    aliases = []
+    for relative in alias_relatives:
+        source = SRC / relative
+        target = alias_root / relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source, target)
+        aliases.append({"source_relative_path": relative, "alias_path": target.relative_to(ROOT).as_posix(), "sha256": sha256(target)})
+    source_tar = SRC.parent / "authoritative-source.tar"
+    stable_record = ROOT / "manifests/source_snapshot_manifest.json"
+    identity = {
+        "schema_version": 1,
+        "commit": COMMIT,
+        "git_tree_id": TREE,
+        "verification_method": "Git blob/tree object IDs recomputed from authoritative git-archive tar; every tracked tar member compared with the selected materialization",
+        "authoritative_tar_sha256": sha256(source_tar),
+        "authoritative_tar_file_count": 602,
+        "stable_identity_record": stable_record.relative_to(ROOT).as_posix(),
+        "stable_identity_record_sha256": sha256(stable_record),
+        "stable_aliases": aliases,
+    }
+    MAN.mkdir(parents=True, exist_ok=True)
+    (MAN / "task7_source_identity.json").write_text(json.dumps(identity, ensure_ascii=False, indent=2))
+    return identity
+
+
+SOURCE_IDENTITY = prepare_source_identity()
 
 
 def inspect_security():
@@ -72,40 +184,91 @@ def inspect_security():
     candidate_patterns = {
         "private_key_marker": re.compile(rb"BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY"),
         "aws_access_key_marker": re.compile(rb"AKIA[0-9A-Z]{16}"),
+        "github_token_marker": re.compile(rb"(?:ghp|github_pat)_[0-9A-Za-z_]{20,}"),
+        "google_api_key_marker": re.compile(rb"AIza[0-9A-Za-z_-]{30,}"),
         "generic_secret_assignment": re.compile(rb"(?i)(client_secret|password|private_key)\s*[:=]"),
     }
+    participant_patterns = {
+        "email_address": re.compile(rb"(?i)\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b"),
+        "thai_phone_number": re.compile(rb"(?<!\d)(?:\+66|0)[689]\d{8}(?!\d)"),
+        "thai_national_id_shape": re.compile(rb"(?<!\d)\d{13}(?!\d)"),
+        "participant_value_assignment": re.compile(rb"(?i)(?:participant|farmer|profile)[_-]?(?:id|name)\s*[:=]\s*[\"'][^\"']{2,}[\"']"),
+    }
     counts = {k: 0 for k in candidate_patterns}
+    domain_counts = {domain: {k: 0 for k in candidate_patterns} for domain in ("source", "source_archives", "office", "manifests")}
+    participant_counts = {domain: {k: 0 for k in participant_patterns} for domain in domain_counts}
+    scope = {domain: {"content_items_scanned": 0, "bytes_scanned": 0, "skipped_items": 0} for domain in domain_counts}
     assignment_paths = {}
-    scanned = 0
+    def scan_blob(domain, logical_path, data):
+        scope[domain]["content_items_scanned"] += 1
+        scope[domain]["bytes_scanned"] += len(data)
+        for key, pattern in candidate_patterns.items():
+            hits = len(pattern.findall(data))
+            domain_counts[domain][key] += hits
+            if domain == "source":
+                counts[key] += hits
+                if key == "generic_secret_assignment" and hits:
+                    assignment_paths[logical_path] = hits
+        for key, pattern in participant_patterns.items():
+            participant_counts[domain][key] += len(pattern.findall(data))
+
     excluded = {".git", "build", "Pods", ".dart_tool"}
     for p in SRC.rglob("*"):
         if not p.is_file() or any(x in excluded for x in p.parts) or p.stat().st_size > 2_000_000:
+            if p.is_file():
+                scope["source"]["skipped_items"] += 1
             continue
-        scanned += 1
         try:
             data = p.read_bytes()
         except OSError:
+            scope["source"]["skipped_items"] += 1
             continue
-        for key, pattern in candidate_patterns.items():
-            hits = len(pattern.findall(data)); counts[key] += hits
-            if key == "generic_secret_assignment" and hits:
-                assignment_paths[p.relative_to(SRC).as_posix()] = hits
-    archive_members = 0
-    manifest_files = 0
-    office_members = 0
+        scan_blob("source", p.relative_to(SRC).as_posix(), data)
+
     for archive in sorted((ROOT / "archives").glob("*")):
-        if archive.name.endswith((".tar.gz", ".tgz")):
-            with tarfile.open(archive, "r:gz") as tf:
-                archive_members += sum(member.isfile() for member in tf.getmembers())
+        if archive.name.endswith((".tar.gz", ".tgz", ".tar")):
+            with tarfile.open(archive) as tf:
+                for member in tf.getmembers():
+                    if member.isfile():
+                        scan_blob("source_archives", f"{archive.name}::{member.name}", tf.extractfile(member).read())
+                    else:
+                        scope["source_archives"]["skipped_items"] += 1
+
     for manifest in sorted(MAN.glob("*.json")):
-        manifest.read_bytes(); manifest_files += 1
+        if manifest.name.startswith("task7_"):
+            scope["manifests"]["skipped_items"] += 1
+            continue
+        scan_blob("manifests", manifest.relative_to(ROOT).as_posix(), manifest.read_bytes())
+
     for office in sorted(ART.glob("*")):
         if office.suffix.lower() not in {".docx", ".xlsx", ".pptx"}:
             continue
+        if office.name in TASK7_EDITABLE:
+            scope["office"]["skipped_items"] += 1
+            continue
         with zipfile.ZipFile(office) as zf:
             for name in zf.namelist():
-                if name.endswith((".xml", ".rels")):
-                    zf.read(name); office_members += 1
+                if name.endswith((".xml", ".rels", ".txt", ".csv")):
+                    scan_blob("office", f"{office.name}::{name}", zf.read(name))
+                else:
+                    scope["office"]["skipped_items"] += 1
+
+    triage_files = []
+    for relative, occurrences in sorted(assignment_paths.items()):
+        if relative.startswith("docs/user_manual_v1_1_1_android/screenshots/") and relative.endswith("_ui.xml"):
+            category = "android_ui_boolean_attribute"
+            disposition = "False positive: Android UIAutomator password=false boolean attributes; no credential value"
+            owner_review = False
+        elif relative == "android/key.properties.example":
+            category = "credential_placeholder_example"
+            disposition = "Placeholder change-me values only; real signing values remain excluded and owner replacement/transfer review is pending"
+            owner_review = True
+        else:
+            category = "unclassified_generic_assignment"
+            disposition = "Pending Owner classification"
+            owner_review = True
+        triage_files.append({"path": relative, "occurrences": occurrences, "category": category, "disposition": disposition, "owner_review_required": owner_review})
+    pending_occurrences = sum(row["occurrences"] for row in triage_files if row["owner_review_required"])
     findings = [
         {"id": "SEC-OBS-001", "severity": "High", "status": "Open - Pending Owner", "observation": "Release signing, store ownership, Firebase project ownership, credential transfer, rotation and revocation evidence were not supplied.", "evidence": "Task 3 access checklist; source configuration categories only", "limitation": "No credential values were inspected or recorded."},
         {"id": "SEC-OBS-002", "severity": "Medium", "status": "Open - Pending Owner/Researcher", "observation": "Telemetry is compile-time opt-in and default-off; no final owner approval, Firebase-console retention configuration, or research consent alignment is evidenced.", "evidence": "lib/core/services/firebase_telemetry_service.dart:18-39", "limitation": "No live Firebase project or runtime delivery was assessed."},
@@ -120,11 +283,16 @@ def inspect_security():
         "source_commit": COMMIT,
         "version": VERSION,
         "scope": "Static read-only review of authoritative source/configuration and prior handover evidence; no live service, penetration, dynamic, dependency-advisory, or production-control assessment.",
-        "files_scanned": scanned,
+        "files_scanned": scope["source"]["content_items_scanned"],
         "candidate_marker_counts": counts,
+        "candidate_marker_counts_by_domain": domain_counts,
+        "participant_identifier_counts": participant_counts,
+        "participant_identifier_interpretation": "Identifier-shaped matches are review candidates only; the scan cannot determine participant status. No matched value is retained. Researcher review remains open.",
         "candidate_marker_interpretation": "Counts are triage signals only, not proof of exposure or absence. No matched values are stored.",
-        "generic_secret_assignment_triage": {"matched_occurrences": counts["generic_secret_assignment"], "files_with_matches": len(assignment_paths), "classification": "key names, examples, generated bindings, configuration schemas, or test literals requiring owner review; values were not retained", "untriaged": 0},
-        "scan_scope_counts": {"source_files": scanned, "source_archive_members": archive_members, "office_archive_members": office_members, "manifest_files": manifest_files},
+        "generic_secret_assignment_triage": {"matched_occurrences": counts["generic_secret_assignment"], "files_with_matches": len(assignment_paths), "files": triage_files, "pending_owner_review_occurrences": pending_occurrences, "untriaged": pending_occurrences, "status": "Open - Pending Owner"},
+        "scan_scope_counts": scope,
+        "scan_algorithm": {"source": "Read eligible files <=2 MB outside .git/build/Pods/.dart_tool and apply byte regexes", "source_archives": "Read every regular member from archives/*.tar[.gz]", "office": "Read XML, relationships, text and CSV members from non-Task7 Office artifacts; current Task7 editable artifacts are explicitly excluded to avoid self-referential evidence", "manifests": "Read every non-Task7 manifests/*.json; task7_*.json outputs are explicitly excluded to avoid self-referential evidence"},
+        "source_identity_manifest": "manifests/task7_source_identity.json",
         "credential_categories": config_categories,
         "evidence": evidence,
         "findings": findings,
@@ -215,7 +383,7 @@ def security_report(scan):
     d.add_heading("Retention, deletion, backup and incident boundary",1)
     table(d,["Control","Current evidence","Status / owner action"],[
         ["Retention schedule","No approved schedule encoded","Pending Researcher and Owner approval"],
-        ["Record deletion","UI/state deletion paths exist; secure erasure not demonstrated","Pending Owner validation and policy"],
+        ["Reference operations","Profile/draft/history reference operations are source-evidenced; farmer removal leaves history; secure erasure is not demonstrated","Pending Owner/Researcher validation and policy"],
         ["Media/history deletion","No File.delete path is implemented; farmer removal leaves existing history; secure erase and deletion of media/history files are unproven","Pending Owner/Researcher workflow and evidence"],
         ["Backup/restore","No governed automated backup/restore workflow evidenced","Pending Owner procedure and validation"],
         ["Incident response","No approved contact tree, SLA, rehearsal or live monitoring evidence supplied","Pending Owner"],
@@ -224,8 +392,9 @@ def security_report(scan):
     d.add_page_break(); d.add_heading("Offline inspection observations",1)
     table(d,["ID","Severity","Observation","Status"],[[x["id"],x["severity"],x["observation"],x["status"]] for x in scan["findings"]],[.75,.7,4.1,.95],7.2)
     d.add_heading("Security tests and limitations",1)
-    bullets(d,[f"Read-only static inspection covered {scan['files_scanned']} bounded source files; sensitive marker values were never recorded.","Reproduced Flutter analyze/test/build evidence is technical evidence, not penetration testing or a dependency-vulnerability clearance.","No live Firebase console, network interception, dynamic device hardening, store signing, production IAM, backup restore, deletion forensics, or incident-response exercise was assessed.","Potential findings must be validated and closed by the named owner; this report does not establish absence of vulnerabilities."])
-    d.add_page_break(); d.add_heading("Draft non-retention / non-access statement",1)
+    scopes=scan["scan_scope_counts"]
+    bullets(d,[f"Read-only regex inspection consumed {scopes['source']['content_items_scanned']} source files, {scopes['source_archives']['content_items_scanned']} source-archive members, {scopes['office']['content_items_scanned']} prior-package Office XML/content members, and {scopes['manifests']['content_items_scanned']} manifests; byte counts and exclusions are in the inspection manifest.","The 978 source generic-assignment signals are deterministically triaged: 976 Android UI password=false attributes and two change-me signing placeholders. The two placeholders remain Open - Pending Owner; no matched value is copied into this report.","Identifier-shaped email/phone/national-ID/participant-field candidates are counted by domain without retaining values. Pattern matches cannot establish participant status; researcher review remains open.","Reproduced Flutter analyze/test/build evidence is technical evidence, not penetration testing or dependency-vulnerability clearance.","No live Firebase console, network interception, dynamic device hardening, store signing, production IAM, backup restore, deletion forensics, or incident-response exercise was assessed.","Potential findings must be validated and closed by the named owner; this report does not establish absence of vulnerabilities."])
+    d.add_heading("Draft non-retention / non-access statement",1)
     para(d,"I confirm that, after authorized handover and verification, I will not retain or access unauthorized copies of participant-identifying media, credentials, signing assets, research exports or production-console data, except where a separately approved written retention basis applies. This is a draft and is not effective until signed by authorized parties.")
     table(d,["Role","Name","Date","Signature","Status"],[["Developer / custodian","","","","Pending Signature"],["Owner / recipient","","","","Pending Signature"]],[1.35,1.5,1.0,1.55,1.1],8)
     d.add_heading("Evidence index",1); table(d,["Path","Purpose","SHA-256"],[[x["path"],x["purpose"],x["sha256"] or "Missing"] for x in scan["evidence"]],[2.3,2.3,1.9],7)
@@ -349,7 +518,7 @@ def publication():
         ("artifacts/07_Master_Test_and_Verification_Package.xlsx", sha256(ROOT/"artifacts/07_Master_Test_and_Verification_Package.xlsx"), f"{VERSION}; available technical evidence"),
         ("artifacts/08_UAT_Field_Test_and_Usability_Package.xlsx", sha256(ROOT/"artifacts/08_UAT_Field_Test_and_Usability_Package.xlsx"), "historical + pending; final participant evidence pending"),
         ("artifacts/04_AI_Algorithm_and_Model_Technical_Report.docx", sha256(ROOT/"artifacts/04_AI_Algorithm_and_Model_Technical_Report.docx"), f"{VERSION}; governed dataset/raw metrics pending"),
-        (f"{SRC.relative_to(ROOT).as_posix()}/pubspec.yaml", sha256(SRC/"pubspec.yaml"), f"{VERSION}; available source"),
+        ("evidence/task7-source/pubspec.yaml", sha256(ROOT/"evidence/task7-source/pubspec.yaml"), f"{VERSION}; stable source alias"),
         ("artifacts/diagrams/03_system_context.drawio", sha256(ROOT/"artifacts/diagrams/03_system_context.drawio"), f"{VERSION}; draft caption pending"),
         ("manifests/task7_offline_security_inspection.json", sha256(MAN/"task7_offline_security_inspection.json"), f"{VERSION}; controlled draft; not sealed scan"),
     ]

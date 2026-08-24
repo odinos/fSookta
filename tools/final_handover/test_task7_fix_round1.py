@@ -58,13 +58,13 @@ class Task7FixRound1Tests(unittest.TestCase):
         for sheet_name in ("Chapter 4 Tables", "Paper 2 Methods", "Paper 2 Results", "Variable Definitions", "Citation Mapping", "Figure Registry", "Evidence Index"):
             ws = wb[sheet_name]
             headers = [ws.cell(4, col).value for col in range(1, ws.max_column + 1)]
-            for required in ("Exact source path", "SHA-256", "Version / status"):
+            for required in ("Exact source path", "SHA-256", "Evidence version / provenance"):
                 self.assertIn(required, headers, sheet_name)
             indexes = {name: headers.index(name) + 1 for name in headers}
             for row in range(5, ws.max_row + 1):
                 source = ws.cell(row, indexes["Exact source path"]).value
                 checksum = ws.cell(row, indexes["SHA-256"]).value
-                status = ws.cell(row, indexes["Version / status"]).value
+                status = ws.cell(row, indexes["Evidence version / provenance"]).value
                 self.assertTrue(source and "*" not in source and ";" not in source, (sheet_name, row, source))
                 self.assertTrue((ROOT / source).is_file(), (sheet_name, row, source))
                 self.assertRegex(checksum or "", r"^[0-9a-f]{64}$")
@@ -103,9 +103,10 @@ class Task7FixRound1Tests(unittest.TestCase):
         report = json.loads((ROOT / "manifests/task7_offline_security_inspection.json").read_text())
         self.assertIn("scan_scope_counts", report)
         self.assertIn("generic_secret_assignment_triage", report)
-        self.assertEqual(report["generic_secret_assignment_triage"]["untriaged"], 0)
-        self.assertGreater(report["scan_scope_counts"]["office_archive_members"], 0)
-        self.assertGreater(report["scan_scope_counts"]["manifest_files"], 0)
+        self.assertEqual(report["generic_secret_assignment_triage"]["untriaged"], 2)
+        self.assertEqual(report["generic_secret_assignment_triage"]["pending_owner_review_occurrences"], 2)
+        self.assertGreater(report["scan_scope_counts"]["office"]["content_items_scanned"], 0)
+        self.assertGreater(report["scan_scope_counts"]["manifests"]["content_items_scanned"], 0)
 
     def test_office_metadata_is_neutral(self):
         for name in ("09_Security_Privacy_and_Data_Protection_Report.docx", "10_Knowledge_Transfer_Deck.pptx"):

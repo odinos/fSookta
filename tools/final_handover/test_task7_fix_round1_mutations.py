@@ -5,6 +5,7 @@ import json
 import os
 import shutil
 import sys
+import tarfile
 import tempfile
 import unittest
 import zipfile
@@ -73,7 +74,7 @@ class Task7VerifierMutationTests(unittest.TestCase):
     def test_manual_navigation_claim_mutation_is_rejected(self):
         fixture = Fixture(
             {"artifacts": {"10_End_User_Manual.docx"}},
-            ("artifacts", "authoritative-materializations", "evidence"),
+            ("artifacts", "authoritative-materializations", "evidence", "manifests"),
         )
         self.addCleanup(fixture.close)
         path = fixture.root / "artifacts/10_End_User_Manual.docx"
@@ -155,6 +156,105 @@ class Task7VerifierMutationTests(unittest.TestCase):
         path.write_text(json.dumps(payload))
         with self.assertRaises(AssertionError):
             verifier.verify_security(fixture.root)
+
+    def test_source_alias_substitution_is_rejected(self):
+        fixture = Fixture(
+            {"evidence": {"task7-source/pubspec.yaml"}},
+            ("authoritative-materializations", "evidence", "manifests"),
+        )
+        self.addCleanup(fixture.close)
+        path = fixture.root / "evidence/task7-source/pubspec.yaml"
+        path.write_text(path.read_text() + "\n# substituted source with unchanged version\n")
+        with self.assertRaises(AssertionError):
+            verifier.source_root(fixture.root)
+
+    def test_archive_secret_and_participant_injection_is_rejected(self):
+        name = "SookTa-1.3.11+28-source-snapshot.tar.gz"
+        fixture = Fixture(
+            {"archives": {name}},
+            ("artifacts", "archives", "authoritative-materializations", "evidence", "manifests"),
+        )
+        self.addCleanup(fixture.close)
+        path = fixture.root / "archives" / name
+        replacement = path.with_suffix(".mutation.tar.gz")
+        with tarfile.open(path, "r:gz") as source, tarfile.open(replacement, "w:gz") as target:
+            for member in source.getmembers():
+                target.addfile(member, source.extractfile(member) if member.isfile() else None)
+            payload = b"AKIA0000000000000000 participant@example.invalid"
+            member = tarfile.TarInfo("mutation-probe.txt")
+            member.size = len(payload)
+            import io
+            target.addfile(member, io.BytesIO(payload))
+        os.replace(replacement, path)
+        with self.assertRaises(AssertionError):
+            verifier.verify_security(fixture.root)
+
+    def test_office_secret_and_participant_injection_is_rejected(self):
+        name = "08_UAT_Field_Test_and_Usability_Package.xlsx"
+        fixture = Fixture(
+            {"artifacts": {name}},
+            ("artifacts", "archives", "authoritative-materializations", "evidence", "manifests"),
+        )
+        self.addCleanup(fixture.close)
+        path = fixture.root / "artifacts" / name
+        mutate_zip(path, "xl/worksheets/sheet1.xml", b"</worksheet>", b"<!-- AKIA0000000000000000 participant@example.invalid --></worksheet>")
+        with self.assertRaises(AssertionError):
+            verifier.verify_security(fixture.root)
+
+    def test_manifest_secret_and_participant_injection_is_rejected(self):
+        name = "task6_verification_summary.json"
+        fixture = Fixture(
+            {"manifests": {name}},
+            ("artifacts", "archives", "authoritative-materializations", "evidence", "manifests"),
+        )
+        self.addCleanup(fixture.close)
+        path = fixture.root / "manifests" / name
+        payload = json.loads(path.read_text())
+        payload["mutation_probe"] = "AKIA0000000000000000 participant@example.invalid"
+        path.write_text(json.dumps(payload))
+        with self.assertRaises(AssertionError):
+            verifier.verify_security(fixture.root)
+
+    def test_uncontrolled_status_mutation_is_rejected(self):
+        fixture = Fixture(
+            {"artifacts": {"11_Publication_Tables.xlsx"}},
+            ("artifacts", "authoritative-materializations", "evidence", "manifests"),
+        )
+        self.addCleanup(fixture.close)
+        path = fixture.root / "artifacts/11_Publication_Tables.xlsx"
+        workbook = load_workbook(path)
+        workbook["Paper 2 Methods"]["D5"] = "Available"
+        workbook.save(path)
+        with self.assertRaises(AssertionError):
+            verifier.verify_workbooks(fixture.root)
+
+    def test_xlsx_generator_metadata_mutation_is_rejected(self):
+        fixture = Fixture(
+            {"artifacts": {"11_Publication_Tables.xlsx"}},
+            ("artifacts", "authoritative-materializations", "evidence", "manifests"),
+        )
+        self.addCleanup(fixture.close)
+        path = fixture.root / "artifacts/11_Publication_Tables.xlsx"
+        mutate_zip(path, "docProps/core.xml", b"SookTa Project", b"openpyxl")
+        with self.assertRaises(AssertionError):
+            verifier.verify_workbooks(fixture.root)
+
+    def test_semantically_wrong_but_valid_evidence_path_is_rejected(self):
+        fixture = Fixture(
+            {"artifacts": {"11_Publication_Tables.xlsx"}},
+            ("artifacts", "authoritative-materializations", "evidence", "manifests"),
+        )
+        self.addCleanup(fixture.close)
+        path = fixture.root / "artifacts/11_Publication_Tables.xlsx"
+        workbook = load_workbook(path)
+        sheet = workbook["Paper 2 Methods"]
+        row = next(r for r in range(5, sheet.max_row + 1) if sheet.cell(r, 1).value == "Static analysis")
+        wrong = "evidence/flutter_test_1.3.11+28.log"
+        sheet.cell(row, 5).value = wrong
+        sheet.cell(row, 6).value = verifier.sha(fixture.root / wrong)
+        workbook.save(path)
+        with self.assertRaises(AssertionError):
+            verifier.verify_workbooks(fixture.root)
 
 
 if __name__ == "__main__":

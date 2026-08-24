@@ -6,8 +6,8 @@ from xml.etree import ElementTree as ET
 
 ROOT=Path(os.environ.get('SOOKTA_HANDOVER_ROOT','/private/tmp/fsookta-final-handover'))
 ART=ROOT/'artifacts'
-NAMES=['09_Security_Privacy_and_Data_Protection_Report.docx','10_End_User_Manual.docx','10_Research_Admin_Manual.docx','10_Developer_Handover_Manual.docx','10_Knowledge_Transfer_Deck.pptx','10_Knowledge_Transfer_Minutes.docx','11_Research_Publication_Package.docx']
-DC='{http://purl.org/dc/elements/1.1/}';CP='{http://schemas.openxmlformats.org/package/2006/metadata/core-properties}';AP='{http://schemas.openxmlformats.org/officeDocument/2006/extended-properties}'
+NAMES=['09_Security_Privacy_and_Data_Protection_Report.docx','09_Security_and_Access_Control_Matrices.xlsx','10_End_User_Manual.docx','10_Research_Admin_Manual.docx','10_Developer_Handover_Manual.docx','10_Knowledge_Transfer_Deck.pptx','10_Knowledge_Transfer_Minutes.docx','11_Research_Publication_Package.docx','11_Publication_Tables.xlsx']
+DC='{http://purl.org/dc/elements/1.1/}';DCT='{http://purl.org/dc/terms/}';CP='{http://schemas.openxmlformats.org/package/2006/metadata/core-properties}';AP='{http://schemas.openxmlformats.org/officeDocument/2006/extended-properties}'
 def patch_xml(name,data):
  root=ET.fromstring(data)
  if name=='docProps/core.xml':
@@ -15,6 +15,9 @@ def patch_xml(name,data):
    node=root.find(tag)
    if node is None: node=ET.SubElement(root,tag)
    node.text=value
+  for tag in (DCT+'created',DCT+'modified'):
+   node=root.find(tag)
+   if node is not None:node.text='2026-08-24T00:00:00Z'
  elif name=='docProps/app.xml':
   node=root.find(AP+'Application')
   if node is None: node=ET.SubElement(root,AP+'Application')

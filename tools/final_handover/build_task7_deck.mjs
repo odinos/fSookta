@@ -3,7 +3,7 @@ import { Presentation, PresentationFile } from '@oai/artifact-tool';
 const ROOT=process.env.FSOOKTA_HANDOVER_ROOT||'/private/tmp/fsookta-final-handover', OUT=path.join(ROOT,'artifacts','10_Knowledge_Transfer_Deck.pptx'), RENDER=path.join(ROOT,'renders','task7','deck');
 const P=Presentation.create({slideSize:{width:1280,height:720}}), C={ink:'#000000',panel:'#EDEDED',rule:'#B8BCC4',blue:'#3D8DFF',white:'#FFFFFF'};
 async function hash(r){return crypto.createHash('sha256').update(await fs.readFile(path.join(ROOT,r))).digest('hex')}
-const mats=(await fs.readdir(path.join(ROOT,'authoritative-materializations'))).filter(x=>x.startsWith('source-')).sort();if(!mats.length)throw new Error('authoritative source materialization not found');const SOURCE=`authoritative-materializations/${mats[0]}/source`;
+const SOURCE='evidence/task7-source';
 async function cited(r,s='1.3.11+28'){return `${r} | ${await hash(r)} | ${s}`}
 const sources={repo:await cited(`${SOURCE}/pubspec.yaml`),arch:await cited(`${SOURCE}/lib/app/sookta_app.dart`),data:await cited(`${SOURCE}/lib/app/app_state.dart`),export:await cited(`${SOURCE}/lib/core/services/assessment_export_service.dart`),ai:await cited('artifacts/04_AI_Algorithm_and_Model_Technical_Report.docx','controlled draft'),test:await cited('evidence/flutter_test_1.3.11+28.log'),uat:await cited('artifacts/08_UAT_Field_Test_and_Usability_Package.xlsx','historical'),sec:await cited('manifests/task7_offline_security_inspection.json','controlled draft'),minutes:await cited('artifacts/10_Knowledge_Transfer_Minutes.docx','controlled draft')};
 function box(s,n,x,y,w,h,f=C.panel,l=C.rule){return s.shapes.add({geometry:'rect',name:n,position:{left:x,top:y,width:w,height:h},fill:f,line:{style:'solid',fill:l,width:1}})}
