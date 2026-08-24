@@ -94,3 +94,82 @@ artifacts; 24 workbook sheets; 50 PDF pages; 190 persisted schema rows; 84
 export rows; 74 inspected renders; 20 Python and 12 Node targeted tests; 64
 Python/18 Node cumulative regression passed; independent verifier
 `passed_with_human_actions`; 50 cumulative checksums; Drive not accessed).
+Task 5: fix round 4/5 (2 reviewer findings plus report overclaim addressed,
+1 analogous demographic regression open — explicit source-grounded privacy
+contracts for preference containers and persisted fields, independently
+reconstructed backup/draft/history privacy expectations, mutation coverage,
+and narrowed technical privacy wording; commits c956d51..fe77698).
+Task 5: fix round 5/5 (1 regression addressed, 0 open —
+`ErgoInputData.gender` restored to sensitive participant/profile data in the
+builder and independent verifier, with direct mutation and 21-row analogous
+demographic audit coverage; commits fe77698..0a08435).
+Task 5: complete (commits ed764f8..0a08435, review clean; 10 primary artifacts,
+24 workbook sheets, 50 PDF pages, 190 persisted rows, 84 export rows, 22 Python
+and 12 Node targeted tests, 66 Python/18 Node cumulative tests, 10 formula
+contracts with 0 errors, 91 hash-bound render files, and 50/50 checksums;
+human owner/researcher approvals, governed dataset/raw metrics, and signatures
+remain explicitly pending; Drive not accessed).
+Task 5: fix round 4/5 (4 reviewer findings addressed, 0 open — explicit
+source-grounded privacy contracts for preference containers, backup payloads,
+draft timestamps, and mirrored participant fields; independent verifier
+privacy reconstruction; mutation coverage; and bounded report wording).
+Regenerated the affected data workbook/PDF pair and directly inspected all 23
+affected renders; the hash-bound manifest covers 91 current renders.
+Task 5: implementation complete pending independent re-review (10 primary
+artifacts; 24 workbook sheets; 50 PDF pages; 190 persisted schema rows; 84
+export rows; 22 Python and 12 Node targeted tests; 66 Python/18 Node cumulative
+regression passed; independent verifier `passed_with_human_actions`; 50
+cumulative checksums; Drive not accessed).
+Task 6: implementation complete pending independent re-review (10 primary
+artifacts; 41 workbook sheets; 70 workbook-PDF and 12 document-PDF pages; 137
+Git commits; 155 requirement rows; 135 final automated results; 64
+algorithm/reference results; 7 historical UAT records; 9 Python and 8 Node
+targeted tests; 10 formula contracts with 0 errors; 123 hash-bound inspected
+renders; independent verifier `passed_with_human_actions`; 63/63 cumulative
+checksums; final participant/device/SUS/performance/acceptance evidence remains
+explicitly pending; Drive not accessed).
+Task 5: fix round 5/5 (1 scoped privacy regression addressed, 0 open —
+`ErgoInputData.gender` is participant/profile data in both the source-grounded
+builder and independently reconstructed verifier contract; direct mutation and
+exact analogous-demographic audit coverage added). Regenerated the affected
+data workbook/PDF pair and directly inspected all 23 affected renders; the
+hash-bound manifest covers 91 current renders. Task 5 remains technically
+complete pending independent re-review and unchanged human-owned approvals,
+evidence, and signatures; Drive not accessed.
+Task 6: fix round 1/5 (7 reviewer findings addressed with a corrective layer,
+4 canonical/repeatability findings remained open — reporter event alignment,
+155-record evidence-map preservation, historical UAT dimensions, SUS controls,
+full PASS tuples, concrete defect/before-after history, and external visual
+decision; commits 7a1d396..9efacc0).
+Task 6: fix round 2/5 (4 findings addressed, verifier breadth remained open —
+canonical single-source regeneration replaced the overlay, all dependent test
+sheets were joined to exact 135/55/7 truth sets, H003/H007 metadata corrected,
+136 PASS tuples completed, generic Firebase PASS removed, and canonical
+mutation/visual workflow installed; commits 9efacc0..df048f6).
+Task 6: fix round 3/5 (verifier breadth addressed, 0 artifact findings open —
+complete 41-sheet models, exact external hashes for 2 DOCX/5 PDF, authoritative
+137-row Git reconstruction and joins, artifact-copy mutations, and package-safe
+test import; commits df048f6..abaa339).
+Task 6: fix round 4/5 (controller-discovered legacy-suite regression addressed,
+0 open — full 42-test discovery compatibility, import-safe builders with zero
+artifact side effects, split H003 date/round assertion, and exact SUS formula
+assertion; commits abaa339..5222029).
+Task 6: complete (commits 0a08435..5222029, review clean; 10 primary artifacts,
+41 workbook sheets, 76 PDF pages, exact 135 automated tests, 55 algorithm and 7
+boundary cases, 155 requirement records, 136 governed PASS evidence tuples, 7
+historical UAT records, Python 42/42 and Node 8/8, 117 hash-bound inspected
+renders, and 70/70 cumulative checksums; final device/performance/participant/
+SUS/acceptance evidence and signatures remain explicitly pending; Drive not
+accessed).
+Task 7 ruling: the terminated desktop Codex Security Standard start had no
+authoritative scan context; no scan ID or sealed result is invented. A disclosed
+offline, read-only, source-backed inspection is used instead and cannot support
+compliance, vulnerability-absence, encryption, secure-deletion, incident-
+readiness, penetration-test, or production-security claims.
+Task 7: implementation complete pending independent re-review (18 artifacts;
+9 editable/9 PDF; 6 DOCX documents/19 pages; 2 workbooks/24 sheets; 1 deck/14
+slides; 57 PDF pages; 114 hash-bound inspected visual surfaces; one exact
+formula with zero errors; 619 source files inspected; 5 bounded security
+observations; verifier `passed_with_human_actions`; ownership, policy, device,
+research, KT, acceptance, and signature evidence remains explicitly pending;
+Drive not accessed).

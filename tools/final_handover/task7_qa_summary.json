@@ -1,0 +1,22 @@
+{
+  "task": 7,
+  "status": "passed_with_human_actions",
+  "source_commit": "bf8867a2083357cb9d60915bf6c2233801f923d8",
+  "artifacts": {"editable": 9, "pdf": 9, "total": 18},
+  "documents": 6,
+  "workbooks": 2,
+  "sheets": 24,
+  "slides": 14,
+  "pdf_pages": 57,
+  "visual_surfaces": 114,
+  "contact_sheets": 34,
+  "formula_contracts": 1,
+  "formula_errors": 0,
+  "security_inspection": {
+    "method": "offline_source_backed_fallback",
+    "source_files_scanned": 619,
+    "observations": 5,
+    "sealed_codex_security_report": false
+  },
+  "drive_accessed": false
+}
