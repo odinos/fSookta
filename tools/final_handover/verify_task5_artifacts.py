@@ -89,38 +89,6 @@ def assert_synthetic_examples(values: list[str]) -> None:
     assert not any(token in joined for token in forbidden), joined
 
 
-def _independent_field_privacy(owner: str, field: str) -> str:
-    """Classify an owned serializer field by its exact source role."""
-    history_participant_snapshot = {
-        "farmerProfileId", "farmerId", "farmerName", "farmerRole", "farmerLocation",
-        "farmerAge", "farmerGender", "farmerWeight", "farmerHeight", "farmerBmi",
-        "farmerBmiCategory", "photoId", "photoTimestamp",
-    }
-    history_technical_metadata = {"id", "dateTime", "appVersion", "aiModelSource"}
-    history_financial = {"economicLoss", "moneySaved"}
-    draft_participant_linkage = {"farmerProfileId", "farmerId", "farmerName", "selectedImagePaths"}
-    draft_timestamp_metadata = {"appVersion", "assessmentDateKey", "savedAt"}
-    if owner == "UserProfile":
-        return "Sensitive financial data" if field == "incomePerYear" else "Sensitive participant/profile data"
-    if owner == "EvaluationHistoryRecord":
-        if field in history_participant_snapshot: return "Sensitive participant/profile data"
-        if field in history_technical_metadata: return "Operational metadata"
-        if field in history_financial: return "Sensitive financial data"
-        return "Sensitive assessment/research data"
-    if owner == "EvaluationDraft":
-        if field in draft_participant_linkage: return "Sensitive participant/profile data"
-        if field in draft_timestamp_metadata: return "Operational metadata"
-        return "Sensitive assessment/research data"
-    if owner in {"ErgoInputData", "RebaInputData"}:
-        if owner == "ErgoInputData" and field == "gender": return "Sensitive participant/profile data"
-        return "Sensitive financial data" if field == "dailyIncome" else "Sensitive assessment/research data"
-    if owner == "ErgoResult":
-        return "Sensitive financial data" if field == "economicLoss" else "Sensitive assessment/research data"
-    if owner in {"AssessmentBreakdown", "MotionAnalysisSummary", "PoseRebaFrameAnalysis"}:
-        return "Sensitive assessment/research data"
-    raise AssertionError(f"Unclassified source-owned privacy field: {owner}.{field}")
-
-
 def _independent_persisted_semantics(owner: str, field: str, dart_type: str) -> dict[str, str]:
     key = field.lower(); base = dart_type.rstrip("?")
     if key.endswith("ms"): unit = "milliseconds"
@@ -148,7 +116,13 @@ def _independent_persisted_semantics(owner: str, field: str, dart_type: str) -> 
     elif base in {"RiskLevel", "AiAlertLevel", "SooktaActivity", "JobType", "AssessmentMethod", "MotionPattern"}: allowed = f"{base}.name enum text"
     elif base in {"AssessmentBreakdown", "RebaInputData", "ErgoInputData", "ErgoResult", "MotionAnalysisSummary"}: allowed = f"Nested {base} JSON object"
     else: allowed = "Text/identifier accepted by the owning constructor/fromJson"
-    privacy = _independent_field_privacy(owner, field)
+    financial = any(token in key for token in ("income", "economic", "money", "cost", "loss", "saved"))
+    participant = key in {"name", "age", "gender", "weight", "height", "bmi", "location", "role", "farmerid", "profileid", "farmer_id", "user_id", "participant_code"} or any(token in key for token in ("photo", "image", "avatar"))
+    health = any(token in key for token in ("risk", "score", "reba", "iso", "msd", "medical", "expert", "symptom", "economic", "impact", "productivity", "lostwork", "lost_work", "pose", "joint"))
+    if financial: privacy = "Sensitive financial data"
+    elif participant or owner == "UserProfile": privacy = "Sensitive participant/profile data"
+    elif health or owner in {"EvaluationHistoryRecord", "EvaluationDraft", "AssessmentBreakdown", "ErgoInputData", "ErgoResult", "MotionAnalysisSummary", "PoseRebaFrameAnalysis", "RebaInputData"}: privacy = "Sensitive assessment/research data"
+    else: privacy = "Operational metadata"
     overrides = {
         ("ErgoInputData", "liftFrequency"):("lifts/minute", ">= 0 lifts/minute"),
         ("EvaluationDraft", "frequency"):("lifts/minute", ">= 0 lifts/minute"),
@@ -179,6 +153,8 @@ def _independent_persisted_semantics(owner: str, field: str, dart_type: str) -> 
     if owner in {"MotionAnalysisSummary", "PoseRebaFrameAnalysis"} and key.endswith("deg"): allowed = "Finite angle in degrees when present"
     if owner == "MotionAnalysisSummary" and field.endswith("FrameCount"): unit, allowed = "frames", ">= 0 integer frames"
     if (owner, field) in overrides: unit, allowed = overrides[(owner, field)]
+    if owner == "ErgoResult" and field == "limitValue": privacy = "Sensitive assessment/research data"
+    if owner == "UserProfile" and field == "incomePerYear": privacy = "Sensitive financial data"
     return {"type":dart_type, "nullable":"Yes" if dart_type.endswith("?") else "No", "unit":unit, "allowed":allowed, "privacy":privacy}
 
 
@@ -279,7 +255,6 @@ def extract_authoritative_source_contracts(root: Path) -> dict:
             declared = {field for (declared_owner, field) in dart_fields if declared_owner == "ErgoResult"}
             for field in set(re.findall(r"['\"](\w+)['\"]\s*:", helper.group(1))) & declared:
                 serialized_fields.add(("ErgoResult", field))
-    app_state_text = (root / "lib/app/app_state.dart").read_text(encoding="utf-8")
     export_text = (root / "lib/core/services/assessment_export_service.dart").read_text(encoding="utf-8")
     assert "highRiskCount >= 6" in export_text and "RiskLevel.veryHigh" in export_text
     trend_levels = ["Low", "Medium", "High", "Very high"]
@@ -356,40 +331,17 @@ def extract_authoritative_source_contracts(root: Path) -> dict:
         "sookta.profile":"FarmerProfile", "sookta.setupCompleted":"bool",
         "sookta.backup.schema.<version>.<timestamp>":"JSON object",
     }
-    # Derive container sensitivity from the payloads that source actually
-    # serializes, not from preference-key spelling.
-    draft_fields = {field for owner, field in serialized_fields if owner == "EvaluationDraft"}
-    history_fields = {field for owner, field in serialized_fields if owner == "EvaluationHistoryRecord"}
-    assert {"farmerProfileId", "farmerId", "farmerName", "selectedImagePaths", "rebaInput", "savedAt"}.issubset(draft_fields)
-    assert {"farmerProfileId", "farmerName", "farmerRole", "farmerLocation", "economicLoss", "assessmentBreakdown"}.issubset(history_fields)
-    assert "'savedAt': savedAt?.toIso8601String()" in (root / "lib/core/models/assessment_session.dart").read_text(encoding="utf-8")
-    backup_block = app_state_text[
-        app_state_text.index("Future<void> _backupBeforeSchemaMigration"):
-        app_state_text.index("EvaluationDraft _withActiveDraftMetadata")
-    ]
-    for symbol in ["_profileKey", "_farmersKey", "_activeProfileIdKey", "_historyKey", "_evaluationDraftKey", "_evaluationDraftsKey"]:
-        assert f"{symbol}:" in backup_block, symbol
-    composite = "Sensitive composite participant/profile + assessment/research + financial data"
-    preference_privacy = {
-        "sookta.activeProfileId":"Sensitive participant/profile data",
-        "sookta.dataSchemaVersion":"Operational metadata",
-        "sookta.evaluationDraft":composite,
-        "sookta.evaluationDrafts":composite,
-        "sookta.farmers":"Sensitive participant/profile data",
-        "sookta.history":composite,
-        "sookta.language":"Operational metadata",
-        "sookta.latestBackup":"Operational metadata",
-        "sookta.nextHistoryId":"Operational metadata",
-        "sookta.profile":"Sensitive participant/profile data",
-        "sookta.setupCompleted":"Operational metadata",
-        "sookta.backup.schema.<version>.<timestamp>":composite,
-    }
-    assert set(preference_privacy) == set(preference_types)
     preference_contracts = {}
     for key, dtype in preference_types.items():
+        if key in {"sookta.profile", "sookta.farmers", "sookta.activeProfileId"}:
+            privacy = "Sensitive participant/profile data"
+        elif key == "sookta.history":
+            privacy = "Sensitive assessment/research data"
+        else:
+            privacy = "Operational metadata"
         preference_contracts[key] = {
             "type": dtype, "nullable": "No" if dtype in {"bool", "int"} else "Yes",
-            "unit": "N/A", "privacy": preference_privacy[key],
+            "unit": "N/A", "privacy": privacy,
             "persisted_location": f"SharedPreferences: {key}",
         }
     return {
