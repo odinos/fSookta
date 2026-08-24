@@ -63,6 +63,22 @@ class SourceGroundingTests(unittest.TestCase):
 
 
 class ContentContractTests(unittest.TestCase):
+    def test_technology_identifier_rows_exclude_header(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / "stack.xlsx"
+            workbook = Workbook()
+            sheet = workbook.active
+            sheet.title = "Technology Stack"
+            sheet.append(["Component", "Version / identifier"])
+            sheet.append(["camera", "0.11.4 (resolved)"])
+            sheet.append(["image_picker", "1.2.2 (resolved)"])
+            workbook.save(path)
+            rows = verifier.technology_identifier_rows(path)
+        self.assertEqual(rows, {
+            "camera": "0.11.4 (resolved)",
+            "image_picker": "1.2.2 (resolved)",
+        })
+
     def test_verifier_rejects_constraint_or_wrong_package_versions(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             path = Path(temp) / "stack.xlsx"

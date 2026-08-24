@@ -78,7 +78,7 @@ Verification results:
 - Task 3 Node workbook regression suite: 2 passed.
 - Independent Task 4 verifier: `passed_with_human_actions`; 28 report headings,
   8 diagram pairs, 22 primary artifacts, 17 PDF pages, 4 workbook sheets, 5
-  formula contracts, 19 exact technology/model identifiers, 72 citation
+  formula contracts, 18 exact technology/model identifiers, 72 citation
   records, and zero formula errors.
 - DOCX preset/title sanitization, PDF page counts, Draw.io XML editability,
   PNG dimensions/DPI, status vocabulary, archive/XML privacy scan, visual
@@ -160,7 +160,7 @@ real verifier failure on an artifact-tool sparse worksheet row. GREEN evidence
 is 43/43 combined Python tests, 4/4 Task 4 Node tests, 2/2 Task 3 Node
 regressions, Python compilation, and both Node syntax checks. The independent
 verifier passed with human actions: 28 headings, 8 diagram pairs, 22 primary
-artifacts, 17 PDF pages, 4 workbook sheets, 19 technology/model identifiers,
+artifacts, 17 PDF pages, 4 workbook sheets, 18 technology/model identifiers,
 72 citation records, 5 formula contracts, zero formula errors, and 37 checksum
 entries. `shasum -a 256 -c manifests/SHA256SUMS.txt` passed 37/37.
 
@@ -169,3 +169,24 @@ Changed-render inspection covered all eight final diagram PNGs, report pages
 hash-bound manifest covers all 29 unique Task 4 renders. No upload to Google
 Drive occurred during this task or fix round. Human-action classifications
 listed above remain unchanged.
+
+## Independent review fix round 2
+
+Review round 2 confirmed every original finding was resolved and identified
+one verifier-only regression: the Technology Stack header (`Component`) was
+included in the returned row map, so the QA summary reported 19 identifiers
+although the workbook contains 18 data records. A focused TDD regression first
+failed because no header-excluding reader existed; the verifier now reads only
+component data rows and the test proves a header plus two data rows returns
+exactly two identifiers.
+
+The refreshed QA summary reports 18 technology/model identifiers. The
+independent verifier again passed with human actions: 28 headings, 8 diagram
+pairs, 22 primary artifacts, 17 PDF pages, 4 workbook sheets, 72 citation
+records, 5 formula contracts, zero formula errors, and 37 checksum entries.
+The complete Python regression suite passed 44/44 and Python compilation
+passed; `shasum -a 256 -c manifests/SHA256SUMS.txt` passed 37/37.
+No generated artifact, render, visual manifest, or checksum-bound file changed,
+so artifact regeneration and additional visual inspection were not applicable;
+the prior 29-render hash-bound inspection remains current. Drive was not
+accessed and all human-action classifications remain unchanged.

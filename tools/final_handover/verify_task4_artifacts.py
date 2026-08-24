@@ -72,15 +72,19 @@ def verify_status_values(values):
     assert normalized and all(value in ALLOWED_STATUSES for value in normalized),normalized
     return normalized
 
-def verify_technology_identifiers(path: Path):
+def technology_identifier_rows(path: Path):
     workbook=load_workbook(path,read_only=True,data_only=False)
     sheet=workbook["Technology Stack"]
     rows={
         str(row[0]).strip():str(row[1]).strip()
         for row in sheet.iter_rows(values_only=True)
-        if len(row)>=2 and row[0] and row[1]
+        if len(row)>=2 and row[0] and row[1] and str(row[0]).strip()!="Component"
     }
     workbook.close()
+    return rows
+
+def verify_technology_identifiers(path: Path):
+    rows=technology_identifier_rows(path)
     for component,identifier in EXPECTED_TECHNOLOGY_IDENTIFIERS.items():
         assert rows.get(component)==identifier,(component,rows.get(component),identifier)
     thunder=rows.get("MoveNet Thunder",""); multipose=rows.get("MoveNet MultiPose Lightning","")
