@@ -94,3 +94,14 @@ artifacts; 24 workbook sheets; 50 PDF pages; 190 persisted schema rows; 84
 export rows; 74 inspected renders; 20 Python and 12 Node targeted tests; 64
 Python/18 Node cumulative regression passed; independent verifier
 `passed_with_human_actions`; 50 cumulative checksums; Drive not accessed).
+Task 5: fix round 4/5 (4 reviewer findings addressed, 0 open — explicit
+source-grounded privacy contracts for preference containers, backup payloads,
+draft timestamps, and mirrored participant fields; independent verifier
+privacy reconstruction; mutation coverage; and bounded report wording).
+Regenerated the affected data workbook/PDF pair and directly inspected all 23
+affected renders; the hash-bound manifest covers 91 current renders.
+Task 5: implementation complete pending independent re-review (10 primary
+artifacts; 24 workbook sheets; 50 PDF pages; 190 persisted schema rows; 84
+export rows; 22 Python and 12 Node targeted tests; 66 Python/18 Node cumulative
+regression passed; independent verifier `passed_with_human_actions`; 50
+cumulative checksums; Drive not accessed).

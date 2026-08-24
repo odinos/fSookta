@@ -195,6 +195,38 @@ class SourceGroundingTests(unittest.TestCase):
         next(row for row in mutated["persisted_schema_rows"] if row["owner"] == "MotionAnalysisSummary" and row["field"] == "sampleRateFps")["unit"] = "Hz"
         with self.assertRaises(AssertionError):
             verifier.verify_source_contracts(mutated, SOURCE)
+
+    def test_privacy_contract_is_explicit_for_containers_and_owned_fields(self) -> None:
+        facts = builder.inspect_source(SOURCE)
+        rows = {(row["owner"], row["field"]): row for row in facts["persisted_schema_rows"]}
+        self.assertEqual(rows[("SharedPreferences", "sookta.evaluationDraft")]["privacy"],
+                         "Sensitive composite participant/profile + assessment/research + financial data")
+        self.assertEqual(rows[("SharedPreferences", "sookta.evaluationDrafts")]["privacy"],
+                         "Sensitive composite participant/profile + assessment/research + financial data")
+        self.assertEqual(rows[("SharedPreferences", "sookta.backup.schema.<version>.<timestamp>")]["privacy"],
+                         "Sensitive composite participant/profile + assessment/research + financial data")
+        self.assertEqual(rows[("EvaluationDraft", "savedAt")]["privacy"], "Operational metadata")
+        for field in ["farmerLocation", "farmerName", "farmerProfileId", "farmerRole", "farmerAge", "farmerGender", "farmerWeight", "farmerHeight", "farmerBmi", "farmerBmiCategory"]:
+            self.assertEqual(rows[("EvaluationHistoryRecord", field)]["privacy"], "Sensitive participant/profile data", field)
+
+    def test_independent_verifier_rejects_each_privacy_contract_mutation(self) -> None:
+        facts = builder.inspect_source(SOURCE)
+        targets = [
+            ("SharedPreferences", "sookta.evaluationDraft", "Operational metadata"),
+            ("SharedPreferences", "sookta.evaluationDrafts", "Operational metadata"),
+            ("SharedPreferences", "sookta.backup.schema.<version>.<timestamp>", "Operational metadata"),
+            ("EvaluationDraft", "savedAt", "Sensitive financial data"),
+            ("EvaluationHistoryRecord", "farmerLocation", "Operational metadata"),
+            ("EvaluationHistoryRecord", "farmerName", "Operational metadata"),
+            ("EvaluationHistoryRecord", "farmerProfileId", "Operational metadata"),
+            ("EvaluationHistoryRecord", "farmerRole", "Operational metadata"),
+        ]
+        for owner, field, incorrect_privacy in targets:
+            with self.subTest(owner=owner, field=field):
+                mutated = copy.deepcopy(facts)
+                next(row for row in mutated["persisted_schema_rows"] if row["owner"] == owner and row["field"] == field)["privacy"] = incorrect_privacy
+                with self.assertRaises(AssertionError):
+                    verifier.verify_source_contracts(mutated, SOURCE)
         mutated = copy.deepcopy(facts)
         next(row for row in mutated["export_schema_rows"] if row["field"] == "Age")["type"] = "integer"
         with self.assertRaises(AssertionError):

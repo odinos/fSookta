@@ -96,23 +96,54 @@ def _recommendation_messages(text: str) -> list[dict]:
 
 
 def _privacy(field: str, owner: str = "") -> str:
-    """Classify whole field tokens; do not let `language` match `age`."""
-    key = field.lower()
-    sensitive_exact = {"name", "age", "gender", "weight", "height", "bmi", "location", "role", "farmerid", "profileid", "farmer_id", "user_id", "participant_code"}
-    health_tokens = ("risk", "score", "reba", "iso", "msd", "medical", "expert", "symptom", "economic", "impact", "productivity", "lostwork", "lost_work", "pose", "joint")
-    media_tokens = ("photo", "image", "avatar")
-    financial_tokens = ("income", "economic", "money", "cost", "loss", "saved")
-    if key in {"sookta.profile", "sookta.farmers", "sookta.activeprofileid"}:
-        return "Sensitive participant/profile data"
-    if key == "sookta.history": return "Sensitive assessment/research data"
-    if any(token in key for token in financial_tokens): return "Sensitive financial data"
-    if key in sensitive_exact or any(token in key for token in media_tokens):
-        return "Sensitive participant/profile data"
-    if any(token in key for token in health_tokens): return "Sensitive assessment/research data"
-    if owner == "UserProfile": return "Sensitive participant/profile data"
-    if owner in {"EvaluationHistoryRecord", "EvaluationDraft", "AssessmentBreakdown", "ErgoInputData", "ErgoResult", "MotionAnalysisSummary", "PoseRebaFrameAnalysis", "RebaInputData"}:
+    """Return the explicit privacy contract for one persisted key/owned field."""
+    composite = "Sensitive composite participant/profile + assessment/research + financial data"
+    preferences = {
+        "sookta.activeProfileId":"Sensitive participant/profile data",
+        "sookta.dataSchemaVersion":"Operational metadata",
+        "sookta.evaluationDraft":composite,
+        "sookta.evaluationDrafts":composite,
+        "sookta.farmers":"Sensitive participant/profile data",
+        "sookta.history":composite,
+        "sookta.language":"Operational metadata",
+        "sookta.latestBackup":"Operational metadata",
+        "sookta.nextHistoryId":"Operational metadata",
+        "sookta.profile":"Sensitive participant/profile data",
+        "sookta.setupCompleted":"Operational metadata",
+        "sookta.backup.schema.<version>.<timestamp>":composite,
+    }
+    if not owner:
+        if field not in preferences:
+            raise ValueError(f"Missing explicit preference privacy contract: {field}")
+        return preferences[field]
+
+    participant_history = {
+        "farmerProfileId", "farmerId", "farmerName", "farmerRole", "farmerLocation",
+        "farmerAge", "farmerGender", "farmerWeight", "farmerHeight", "farmerBmi",
+        "farmerBmiCategory", "photoId", "photoTimestamp",
+    }
+    operational_history = {"id", "dateTime", "appVersion", "aiModelSource"}
+    financial_history = {"economicLoss", "moneySaved"}
+    participant_draft = {"farmerProfileId", "farmerId", "farmerName", "selectedImagePaths"}
+    operational_draft = {"appVersion", "assessmentDateKey", "savedAt"}
+    if owner == "UserProfile":
+        return "Sensitive financial data" if field == "incomePerYear" else "Sensitive participant/profile data"
+    if owner == "EvaluationHistoryRecord":
+        if field in participant_history: return "Sensitive participant/profile data"
+        if field in operational_history: return "Operational metadata"
+        if field in financial_history: return "Sensitive financial data"
         return "Sensitive assessment/research data"
-    return "Operational metadata"
+    if owner == "EvaluationDraft":
+        if field in participant_draft: return "Sensitive participant/profile data"
+        if field in operational_draft: return "Operational metadata"
+        return "Sensitive assessment/research data"
+    if owner in {"ErgoInputData", "RebaInputData"}:
+        return "Sensitive financial data" if field == "dailyIncome" else "Sensitive assessment/research data"
+    if owner == "ErgoResult":
+        return "Sensitive financial data" if field == "economicLoss" else "Sensitive assessment/research data"
+    if owner in {"AssessmentBreakdown", "MotionAnalysisSummary", "PoseRebaFrameAnalysis"}:
+        return "Sensitive assessment/research data"
+    raise ValueError(f"Missing explicit persisted-field privacy contract: {owner}.{field}")
 
 
 def _semantic_type(field: str) -> tuple[str, str, str]:
