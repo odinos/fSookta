@@ -80,4 +80,7 @@ def uat_report():
  d.add_heading('Prohibited substitutions',level=1); para(d,'Host/widget tests do not substitute for physical-device permission, audio, performance, or usability evidence. Simulator/emulator results do not substitute for physical-device UAT. A clean temporary worktree is a build-path workaround, not an assessment bypass. Historical temporary assessment bypass observations cannot establish the final production baseline.')
  d.add_heading('Acceptance status',level=1); table(d,['Role','Required evidence','Current status'],[['Owner','Device/build IDs, timestamps, methods, raw paths, hashes','Pending Owner Action'],['Researcher','Consent, coded participants, protocol results, SUS responses and interpretation','Pending Researcher Evidence'],['Authorized approver','Signed acceptance against reviewed evidence','Pending Authorized Signature']],[1.3,3.7,1.5],8)
  d.save(A/'08_UAT_and_Field_Test_Technical_Report.docx')
-algorithm_report(); uat_report(); print(json.dumps({'status':'docs_corrected','docx':2}))
+def main():
+ algorithm_report(); uat_report(); print(json.dumps({'status':'docs_corrected','docx':2}))
+
+if __name__=='__main__': main()

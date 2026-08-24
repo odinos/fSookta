@@ -51,7 +51,8 @@ class OutputRedTests(unittest.TestCase):
   self.assertIn('Strongly disagree',flat); self.assertIn('Strongly agree',flat)
   self.assertEqual(10,len(re.findall(r'Item [1-9]|Item 10',flat)))
   self.assertTrue(xml.findall('.//m:dataValidation',NS))
-  self.assertIn('*2.5',flat)
+  formulas=[''.join(node.itertext()).replace(' ','') for node in xml.findall('.//m:f',NS)]
+  self.assertIn('IF(COUNT(D5:D14)=10,(SUM(D5,D7,D9,D11,D13)-5+25-SUM(D6,D8,D10,D12,D14))*2.5,"")',formulas)
  def test_defects_and_before_after_are_hash_bound(self):
   for book,sheet in ((ROOT/'artifacts/07_Master_Test_and_Verification_Package.xlsx','Bugs Corrections Retest'),(ROOT/'artifacts/06_Development_Audit_Trail.xlsx','Before After Evidence')):
    flat='\n'.join(' | '.join(r) for r in rows(book,sheet))

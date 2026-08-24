@@ -84,8 +84,18 @@ def assert_join(sheet, rows):
    assert row[0]==src['case_id'] and row[8]==BASELINE and all(row[i] not in (None,'') for i in (0,2,3,4,5,6,7,8,9,10,11,12,13))
    assert re.fullmatch(r'[0-9a-f]{64}',row[13])
 
+def assert_claim_boundaries(data):
+ if data.get('final_uat_status')=='PASS':
+  assert data.get('participant_count',0)>0 and data.get('final_hardware_actions'), 'unsupported final UAT PASS'
+ if 'result_rows' in data:
+  pass_ids={row['case_id'] for row in data['result_rows'] if row.get('status')=='PASS'}
+  assert pass_ids=={f'AUTO-{index:03d}' for index in range(1,136)}|{'STATIC-001'}
+  assert all(row.get('evidence_layer','').startswith('Historical') for row in data.get('historical_uat',[]))
+  assert data.get('baseline',{}).get('version')==BASELINE and data.get('baseline',{}).get('commit')==COMMIT
+
 def verify_payload(root):
  p=json.loads((root/'working/task6/task6_corrected_payload.json').read_text()); tests=reconstruct((root/'evidence/flutter_test_1.3.11+28.log').read_text())
+ assert_claim_boundaries(p)
  fields=('ordinal','case_id','source_path','name','category'); assert [tuple(x[k] for k in fields) for x in p['tests']]==[tuple(x[k] for k in fields) for x in tests]
  assert Counter(x['category'] for x in tests)=={'Algorithm / reference':55,'Functional / regression':33,'Data / persistence':26,'UI / regression':14,'Invalid / boundary':7}
  src=json.loads((root/'evidence_map.json').read_text())['records']; assert len(src)==len(p['requirements'])==155 and Counter(x['status'] for x in src)==STATUS and p['requirement_status_counts']==STATUS
