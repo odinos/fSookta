@@ -9,7 +9,7 @@ for name in ['09_Security_and_Access_Control_Matrices.xlsx','11_Publication_Tabl
     path=root/'artifacts'/name
     wb=load_workbook(path)
     if name.startswith('09_'):
-        wb['Control Summary']['B9']='=IF(B6>0,"OPEN ACTIONS","NO OPEN ROWS")'
+        wb['Control Summary']['B9']='=IF(COUNTIF(\'Risk Register\'!E5:E9,"Open*")>0,"OPEN ACTIONS","NO OPEN ROWS")'
     for ws in wb.worksheets:
         ws.sheet_properties.pageSetUpPr=PageSetupProperties(fitToPage=True,autoPageBreaks=False)
         ws.page_setup.orientation='landscape'

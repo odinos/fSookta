@@ -1,5 +1,6 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import crypto from 'node:crypto';
 import { Workbook, SpreadsheetFile } from '@oai/artifact-tool';
 
 const ROOT=process.env.FSOOKTA_HANDOVER_ROOT || '/private/tmp/fsookta-final-handover';
@@ -9,6 +10,12 @@ const VERSION='1.3.11+28', COMMIT='bf8867a2083357cb9d60915bf6c2233801f923d8';
 const STATUSES=['Implemented - Evidence Available','Partially Implemented','N/A with Rationale','Open - Pending Owner','Open - Pending Researcher','Pending Signature'];
 function col(n){let s='';while(n){n--;s=String.fromCharCode(65+n%26)+s;n=Math.floor(n/26)}return s;}
 function wb(){return new Workbook({}, {sheets:[]});}
+async function hash(relative){return crypto.createHash('sha256').update(await fs.readFile(path.join(ROOT,relative))).digest('hex');}
+const materializations=await fs.readdir(path.join(ROOT,'authoritative-materializations'));
+const sourceName=materializations.filter(x=>x.startsWith('source-')).sort().find(Boolean);
+if(!sourceName)throw new Error('authoritative source materialization not found');
+const SOURCE=`authoritative-materializations/${sourceName}/source`;
+async function evidence(relative,status=VERSION){return [relative,await hash(relative),status];}
 function add(w,name,title,subtitle,headers,rows,widths=[]){
  const s=w.worksheets.add(name), end=col(headers.length), n=Math.max(4,rows.length+4); s.showGridLines=false;
  s.getRange(`A1:${end}1`).merge();s.getRange('A1').values=[[title]];
@@ -27,7 +34,7 @@ async function security(){
  const w=wb();
  const summary=add(w,'Control Summary','Security and Access Control Matrices',`Baseline ${VERSION} | ${COMMIT} | offline source-backed fallback; not a sealed Codex Security report`,['Metric','Value / formula','Boundary'],[
  ['Control rows',15,'Source-backed controls and human actions'],['Open observations',scan.findings.filter(x=>x.status.startsWith('Open')).length,'Not vulnerability count'],['Compliance certification',0,'Not assessed'],['Live-service tests',0,'Not performed'],['Formula status','','Calculated from Risk Register']],[32,28,85]);
- summary.getRange('B9').formulas=[[`=IF(B6>0,"OPEN ACTIONS","NO OPEN ROWS")`]];
+ summary.getRange('B9').formulas=[[`=IF(COUNTIF('Risk Register'!E5:E9,"Open*")>0,"OPEN ACTIONS","NO OPEN ROWS")`]];
  add(w,'Asset Data Inventory','Asset and Data Inventory','Data minimization, linkage and owner policy remain review gates',['Asset','Location','Data class','Owner','Retention / deletion','Evidence','Status'],[
  ['Profile/farmer JSON','SharedPreferences','Sensitive participant/profile','Researcher','Pending approved schedule','lib/app/app_state.dart','Partially Implemented'],
  ['History/draft JSON','SharedPreferences','Sensitive assessment/research','Researcher','Pending approved schedule','lib/app/app_state.dart','Partially Implemented'],
@@ -52,7 +59,7 @@ async function security(){
  add(w,'Access Applicability','Access-Control Applicability','N/A statuses require architecture rationale',['Control','Applicability','Rationale','Compensating owner control','Status'],[
  ['Application login','N/A','No login in final local client','Device access/OS screen lock policy','N/A with Rationale'],['Remote assessment DB roles','N/A','No remote assessment database','Local device custody','N/A with Rationale'],['Assessment API authentication','N/A','No assessment server/API','Source/release integrity controls','N/A with Rationale'],['Firebase console IAM','Applicable if telemetry enabled','Optional external console','Transfer named roles and review least privilege','Open - Pending Owner'],['Repository/store roles','Applicable','Delivery and release ownership','Transfer and evidence register','Open - Pending Owner']],[38,22,65,60,38]);
  add(w,'Retention Deletion Backup','Retention, Deletion and Backup','No approved schedule, secure erase or governed restore is asserted',['Data','Retention','Deletion','Backup/restore','Owner','Status'],[
- ['Local app records','Pending policy','App record deletion; secure erasure unproven','No governed workflow evidenced','Researcher/Owner','Open - Pending Researcher'],['Local copied media','Pending policy','Linked path deletion only; other copies uncontrolled','No governed workflow evidenced','Researcher/Owner','Open - Pending Researcher'],['CSV exports','Pending policy','Manual external deletion','Approved destination/restore test pending','Researcher','Open - Pending Researcher'],['Telemetry data','Console policy not assessed','Console deletion not assessed','Vendor/service policy not assessed','Owner','Open - Pending Owner']],[32,34,50,52,30,38]);
+ ['Local state references','Pending policy','Profile/draft/history reference operations exist; farmer removal leaves existing history; secure erasure unproven','No governed workflow evidenced','Researcher/Owner','Open - Pending Researcher'],['Local copied media/history files','Pending policy','No File.delete path; media/history file deletion and secure erase unproven','No governed workflow evidenced','Researcher/Owner','Open - Pending Researcher'],['CSV exports','Pending policy','Manual external deletion','Approved destination/restore test pending','Researcher','Open - Pending Researcher'],['Telemetry data','Console policy not assessed','Console deletion not assessed','Vendor/service policy not assessed','Owner','Open - Pending Owner']],[32,34,50,52,30,38]);
  add(w,'Control Test Evidence','Security Control and Test Evidence','Technical tests do not equal penetration/compliance testing',['Control','Method','Result','Evidence','Limitation','Status'],[
  ['Telemetry default','Static source inspection','defaultValue false','firebase_telemetry_service.dart:18-39','No live-console/runtime delivery assessment','Implemented - Evidence Available'],['Android permissions','Manifest inspection','INTERNET + CAMERA','AndroidManifest.xml','Runtime grant/deny pending','Partially Implemented'],['iOS usage descriptions','Plist inspection','Camera/photo/microphone text present','Info.plist','Runtime grant/deny pending','Partially Implemented'],['Secret marker triage','Offline bounded regex/count scan',JSON.stringify(scan.candidate_marker_counts),'task7_offline_security_inspection.json','Not proof of absence; no values retained','Partially Implemented'],['Flutter suite','Reproduced tests','135 tests PASS','Task 2 raw log','Not security/penetration test','Implemented - Evidence Available']],[35,42,45,52,65,38]);
  add(w,'Risk Register','Risk and Observation Register','Observations require validation; not a claim of vulnerability absence',['ID','Severity','Observation','Evidence','Status','Owner / closure'],scan.findings.map(x=>[x.id,x.severity,x.observation,x.evidence,x.status,x.status.includes('Researcher')?'Researcher/Owner':'Owner validation and evidence']),[18,14,85,55,42,55]);
@@ -61,7 +68,7 @@ async function security(){
  add(w,'Incident Actions','Incident and Response Actions','Draft actions; no readiness/SLA claim',['Scenario','Immediate action','Escalation','Evidence to preserve','Status'],[
  ['Lost device','Stop collection; notify approved contact; assess remote/device controls','Owner + Research lead','Device/build, time, coded scope','Open - Pending Owner'],['Wrong recipient/export','Request containment; stop further sharing','Research lead + privacy owner','Hash, recipient, channel, time','Open - Pending Researcher'],['Credential/signing exposure','Revoke/rotate through authoritative console','System owner','Audit event and rotation proof','Open - Pending Owner'],['Unexpected telemetry','Disable governed build; preserve non-identifying logs','Firebase owner','Build define, project, event list','Open - Pending Owner']],[40,65,42,55,38]);
  add(w,'Compliance Mapping','Compliance and Policy Mapping','No compliance certification is asserted',['Topic','Technical evidence','Policy/authority needed','Status'],[
- ['Consent/ethics','Not derivable from source','Researcher approval/records','Open - Pending Researcher'],['Data minimization','Coded ID supported; sensitive fields persist/export','Researcher data management plan','Partially Implemented'],['Retention/deletion','Deletion paths exist; no schedule/secure erase proof','Owner/research policy','Open - Pending Researcher'],['Incident response','Draft register only','Approved plan/contact/SLA/exercise','Open - Pending Owner'],['Security testing','Offline source-backed fallback only','Authorized dynamic/advisory/penetration scope','Open - Pending Owner']],[35,75,65,38]);
+ ['Consent/ethics','Not derivable from source','Researcher approval/records','Open - Pending Researcher'],['Data minimization','Coded ID supported; sensitive fields persist/export','Researcher data management plan','Partially Implemented'],['Retention/deletion','Profile/draft/history reference operations are bounded; farmer removal leaves existing history; no File.delete path or secure erase proof','Owner/research policy','Open - Pending Researcher'],['Incident response','Draft register only','Approved plan/contact/SLA/exercise','Open - Pending Owner'],['Security testing','Offline source-backed fallback only','Authorized dynamic/advisory/penetration scope','Open - Pending Owner']],[35,75,65,38]);
  add(w,'Evidence Index','Security Evidence Index','Hashes identify source files without exposing values',['Path','Purpose','SHA-256','Exists'],scan.evidence.map(x=>[x.path,x.purpose,x.sha256||'Missing',x.exists]),[60,65,72,12]);
  add(w,'Human Actions','Security and Privacy Human Actions','Closure requires evidence; formulas do not auto-close human actions',['Action','Owner','Required evidence','Status'],[
  ['Approve telemetry/project/retention/consent boundary','Owner + Researcher','Signed decision and console readback','Open - Pending Owner'],['Approve local data/media/export retention and deletion','Researcher + Owner','Policy plus execution/test evidence','Open - Pending Researcher'],['Transfer repository/store/Firebase/signing ownership','Owner','Role/audit/secure-transfer evidence','Open - Pending Owner'],['Validate device permissions, backup/restore, deletion and incident plan','Owner','Versioned test records','Open - Pending Owner'],['Sign non-retention/non-access statement','Authorized parties','Signed statement','Pending Signature']],[70,38,75,42]);
@@ -70,25 +77,65 @@ async function security(){
 
 async function publication(){
  const w=wb();
+ const testEv=await evidence('evidence/flutter_test_1.3.11+28.log',VERSION);
+ const masterEv=await evidence('artifacts/07_Master_Test_and_Verification_Package.xlsx',VERSION);
+ const uatEv=await evidence('artifacts/08_UAT_Field_Test_and_Usability_Package.xlsx','historical + pending');
+ const aiEv=await evidence('artifacts/04_AI_Algorithm_and_Model_Technical_Report.docx','controlled technical report');
+ const matrixEv=await evidence('artifacts/04_Algorithm_Recommendation_and_Reference_Matrices.xlsx','controlled technical matrix');
+ const dataEv=await evidence('artifacts/05_Data_Dictionary_and_Export_Schema.xlsx',VERSION);
+ const pubspecEv=await evidence(`${SOURCE}/pubspec.yaml`,VERSION);
+ const secEv=await evidence('manifests/task7_offline_security_inspection.json','controlled draft');
+ const pendingEv=await evidence('manifests/task6_verification_summary.json','pending human evidence');
+ const cols=['Exact source path','SHA-256','Version / status'];
+ const sourced=(rows,ev)=>rows.map(row=>[...row,...ev]);
  add(w,'Control Summary','Publication Tables and Evidence Register',`Technical inputs only | ${VERSION} | Research conclusions remain pending`,['Metric','Available','Boundary'],[['Automated tests',135,'Final host/unit/widget evidence'],['Algorithm/reference cases',55,'Technical verification only'],['Boundary cases',7,'Technical verification only'],['Historical UAT records',7,'Historical versions only'],['Final participant/SUS rows',0,'Pending Researcher']],[35,18,85]);
- add(w,'Chapter 4 Tables','Chapter 4 Editable Tables','Populate researcher-owned cells only from governed evidence',['Table ID','Proposed title','Variable / metric','Available value','Evidence / hash source','Version status','Missing evidence / reviewer'],[
- ['T4-01','Final technical verification','Automated tests passed',135,'Task 2 flutter_test log + Task 6 index',VERSION,'Environment interpretation — Researcher'],['T4-02','Algorithm/reference verification','Algorithm/reference cases',55,'07_Master_Test_and_Verification_Package',VERSION,'Research validity interpretation — Researcher'],['T4-03','Boundary verification','Boundary cases',7,'07_Master_Test_and_Verification_Package',VERSION,'Coverage interpretation — Researcher'],['T4-04','Historical UAT evidence','Historical records',7,'08_UAT package','Historical','Final participant evidence — Pending Researcher'],['T4-05','SUS results','Participant/SUS result','','','Pending Researcher','All responses, scoring and interpretation']],[18,55,42,24,58,28,65]);
- add(w,'Paper 2 Methods','Paper 2 Methods Inputs','Do not infer study design or ethics facts',['Methods field','Technical input','Evidence','Researcher-owned completion','Status'],[
- ['Software version',`${VERSION}; ${COMMIT}`,'Git/source inventory','Confirm study deployment version','Available'],['Architecture','Flutter local client; local persistence/inference; optional default-off telemetry','Technical report + security report','Study environment and device allocation','Available'],['Algorithms','REBA/ISO deterministic references + local model roles','Task 5 reports/matrices','Protocol applicability and validation framework','Available'],['Verification','Analyze/tests/build logs and case matrices','Tasks 2 and 6','Statistical analysis plan','Available'],['Participants/ethics','','','Sample, recruitment, consent, ethics approval','Pending Researcher']],[38,72,55,70,32]);
- add(w,'Paper 2 Results','Paper 2 Results Inputs','No participant or research outcome is populated without raw evidence',['Result field','Available numeric fact','Evidence','Limitation','Researcher value/status'],[
- ['Automated test execution',135,'flutter_test + Task 6','Host/unit/widget; not UAT','Review wording'],['Algorithm/reference cases',55,'Task 6','Technical case count; not external validity','Review interpretation'],['Boundary cases',7,'Task 6','Technical boundary coverage','Review interpretation'],['Final UAT participants','','','No final participant evidence','Pending Researcher'],['SUS score','','','No final responses','Pending Researcher'],['Effect size/statistics','','','No governed dataset/analysis','Pending Researcher']],[42,28,52,65,42]);
- add(w,'Variable Definitions','Variable Definitions','Use Task 5 data dictionary for field-level contracts',['Variable group','Definition','Unit/type','Source','Researcher review'],[
- ['App version','Semantic version and build number','string','pubspec.yaml','Confirm deployed study build'],['Assessment method','REBA / ISO 11228 method identifier','controlled string','source/data dictionary','Confirm protocol mapping'],['REBA score','Deterministic posture risk score','integer / source-defined','algorithm report','Confirm reporting convention'],['ISO result','Method-specific risk/limits','mixed / source-defined','algorithm report','Confirm units and applicability'],['Participant code','Pseudonymous code; not identity vault','string','profile schema','Approve coding policy'],['SUS score','Standard 0-100 derived score','number','Only after complete 10-item response','Pending Researcher']],[36,70,35,55,60]);
- add(w,'Citation Mapping','Citation and Reference Mapping','Bibliographic accuracy remains researcher review',['ID','Claim/topic','Technical source','External reference','Status'],[
- ['CIT-01','REBA method','Task 5 algorithm matrix','Hignett & McAtamney (2000)','Pending Researcher verification'],['CIT-02','ISO 11228-1','Task 5 algorithm matrix','ISO 11228-1:2021','Pending Researcher verification'],['CIT-03','ISO 11228-2','Task 5 algorithm matrix','ISO 11228-2:2007','Pending Researcher verification'],['CIT-04','System/version','Git commit + pubspec.yaml','','Available technical source'],['CIT-05','UAT/SUS interpretation','Task 6 UAT package','','Pending Researcher evidence']],[18,45,55,55,42]);
- add(w,'Figure Registry','Publication Figure Registry','Use editable diagram plus high-resolution PNG; caption/reuse approval pending',['Figure ID','Candidate','Editable source','PNG/source','Version','Caption status','Researcher approval'],[
- ['FIG-01','System architecture','03 diagrams/*.drawio','03 diagrams/*.png',VERSION,'Draft','Pending Researcher'],['FIG-02','Assessment workflow','03 diagrams/*.drawio','03 diagrams/*.png',VERSION,'Draft','Pending Researcher'],['FIG-03','Local data/export flow','03 diagrams/*.drawio','03 diagrams/*.png',VERSION,'Draft','Pending Researcher'],['FIG-04','Model/algorithm flow','03 diagrams/*.drawio','03 diagrams/*.png',VERSION,'Draft','Pending Researcher'],['FIG-05','Verification evidence flow','Task 6 editable workbooks','Task 6 PDF',VERSION,'Draft','Pending Researcher']],[18,45,52,45,20,26,34]);
- add(w,'Evidence Index','Publication Evidence Index','Artifact hashes are resolved in cumulative SHA256SUMS.txt',['Evidence group','Artifact / path','Version','Available','Missing / boundary'],[
- ['Source','Authoritative full-history repository + supplementary snapshot',VERSION,'Yes','Ownership/access evidence pending'],['Build/test','Task 2 raw logs; Task 6 matrices',VERSION,'Yes','Physical device/performance pending'],['Algorithms/models','Task 5 reports/matrices',VERSION,'Partial','Governed XGBoost dataset/raw metrics pending'],['UAT/field/SUS','Task 6 package','Historical + pending','Partial','Final participant/SUS/acceptance pending'],['Security/privacy','Task 7 offline fallback + matrices',VERSION,'Partial','No sealed scan/compliance/dynamic test'],['Research results','Researcher source dataset/analysis','','No','Pending Researcher']],[28,75,25,20,80]);
+ add(w,'Chapter 4 Tables','Chapter 4 Editable Tables','Every row is bound to one exact local source and hash',['Table ID','Proposed title','Variable / metric','Available value','Missing evidence / reviewer',...cols],[
+   ...sourced([['T4-01','Final technical verification','Automated tests passed',135,'Environment interpretation — Researcher']],testEv),
+   ...sourced([['T4-02','Algorithm/reference verification','Algorithm/reference cases',55,'Research validity interpretation — Researcher'],['T4-03','Boundary verification','Boundary cases',7,'Coverage interpretation — Researcher']],masterEv),
+   ...sourced([['T4-04','Historical UAT evidence','Historical records',7,'Final participant evidence — Pending Researcher']],uatEv),
+   ...sourced([['T4-05','SUS results','Participant/SUS result','','All responses, scoring and interpretation pending']],pendingEv)
+  ],[18,50,38,20,55,78,70,32]);
+ add(w,'Paper 2 Methods','Paper 2 Methods Inputs','Do not infer study design or ethics facts',['Methods field','Technical input','Researcher-owned completion','Status',...cols],[
+  ...sourced([['Software version',`${VERSION}; ${COMMIT}`,'Confirm study deployment version','Available']],pubspecEv),
+  ...sourced([['Architecture','Flutter local client; local persistence/inference; optional default-off telemetry','Study environment and device allocation','Available']],secEv),
+  ...sourced([['Algorithms','REBA/ISO deterministic references + local model roles','Protocol applicability and validation framework','Available']],aiEv),
+  ...sourced([['Verification','Analyze/tests/build logs and case matrices','Statistical analysis plan','Available']],testEv),
+  ...sourced([['Participants/ethics','','Sample, recruitment, consent, ethics approval','Pending Researcher']],pendingEv)
+ ],[38,65,60,28,78,70,32]);
+ add(w,'Paper 2 Results','Paper 2 Results Inputs','No participant or research outcome is populated without raw evidence',['Result field','Available numeric fact','Limitation','Researcher value/status',...cols],[
+  ...sourced([['Automated test execution',135,'Host/unit/widget; not UAT','Review wording']],testEv),
+  ...sourced([['Algorithm/reference cases',55,'Technical case count; not external validity','Review interpretation'],['Boundary cases',7,'Technical boundary coverage','Review interpretation']],masterEv),
+  ...sourced([['Final UAT participants','','No final participant evidence','Pending Researcher'],['SUS score','','No final responses','Pending Researcher'],['Effect size/statistics','','No governed dataset/analysis','Pending Researcher']],pendingEv)
+ ],[42,28,62,42,78,70,32]);
+ add(w,'Variable Definitions','Variable Definitions','Field contracts remain researcher-reviewed',['Variable group','Definition','Unit/type','Researcher review',...cols],[
+  ...sourced([['App version','Semantic version and build number','string','Confirm deployed study build']],pubspecEv),
+  ...sourced([['Assessment method','REBA / ISO 11228 method identifier','controlled string','Confirm protocol mapping'],['REBA score','Deterministic posture risk score','integer / source-defined','Confirm reporting convention'],['ISO result','Method-specific risk/limits','mixed / source-defined','Confirm units and applicability'],['Participant code','Pseudonymous code; not identity vault','string','Approve coding policy']],dataEv),
+  ...sourced([['SUS score','Standard 0-100 derived score','number','Pending Researcher']],uatEv)
+ ],[36,65,35,50,78,70,32]);
+ add(w,'Citation Mapping','Citation and Reference Mapping','Bibliographic accuracy remains researcher review',['ID','Claim/topic','External reference','Status',...cols],sourced([
+  ['CIT-01','REBA method','Hignett & McAtamney (2000)','Pending Researcher verification'],['CIT-02','ISO 11228-1','ISO 11228-1:2021','Pending Researcher verification'],['CIT-03','ISO 11228-2','ISO 11228-2:2007','Pending Researcher verification'],['CIT-04','System/version','','Available technical source'],['CIT-05','UAT/SUS interpretation','','Pending Researcher evidence']
+ ],matrixEv),[18,45,55,42,78,70,32]);
+ const figures=[
+  ['FIG-01','System architecture','Draft','Pending Researcher','artifacts/diagrams/03_system_context.drawio'],
+  ['FIG-02','Assessment workflow','Draft','Pending Researcher','artifacts/diagrams/03_user_navigation.drawio'],
+  ['FIG-03','Local data/export flow','Draft','Pending Researcher','artifacts/diagrams/03_local_storage_and_export.drawio'],
+  ['FIG-04','Model/algorithm flow','Draft','Pending Researcher','artifacts/diagrams/03_assessment_algorithm.drawio'],
+  ['FIG-05','Verification evidence flow','Draft','Pending Researcher','artifacts/07_Master_Test_and_Verification_Package.xlsx']
+ ];
+ const figureRows=[];for(const [id,candidate,caption,approval,relative] of figures)figureRows.push([id,candidate,caption,approval,...await evidence(relative,VERSION)]);
+ add(w,'Figure Registry','Publication Figure Registry','Each candidate resolves to one exact editable source',['Figure ID','Candidate','Caption status','Researcher approval',...cols],figureRows,[18,45,26,34,78,70,32]);
+ add(w,'Evidence Index','Publication Evidence Index','Each row resolves to one exact artifact or evidence file',['Evidence group','Available','Missing / boundary',...cols],[
+  ...sourced([['Source','Yes','Ownership/access evidence pending']],pubspecEv),
+  ...sourced([['Build/test','Yes','Physical device/performance pending']],testEv),
+  ...sourced([['Algorithms/models','Partial','Governed XGBoost dataset/raw metrics pending']],aiEv),
+  ...sourced([['UAT/field/SUS','Partial','Final participant/SUS/acceptance pending']],uatEv),
+  ...sourced([['Security/privacy','Partial','No sealed scan/compliance/dynamic test']],secEv),
+  ...sourced([['Research results','No','Pending Researcher']],pendingEv)
+ ],[28,20,70,78,70,32]);
  add(w,'Human Actions','Publication Human Actions','No blank is interpreted as zero or negative finding',['Action','Owner','Required input','Status'],[
  ['Supply ethics/consent and sample metadata','Researcher','Approved statements and coded summary','Pending Researcher'],['Supply final UAT/SUS/field evidence','Researcher','Raw/derived evidence and interpretation','Pending Researcher'],['Approve methods, statistics, results and conclusions','Researcher','Reviewed manuscript sections','Pending Researcher'],['Approve figure/table captions and citations','Researcher','Numbering, wording and reference verification','Pending Researcher'],['Approve repository/data availability and IP statement','Owner + Researcher','Signed publication/access decision','Open - Pending Owner'],['Record submission/acceptance only after evidence','Researcher','Journal record/DOI/decision','Pending Researcher']],[72,35,75,40]);
  await save(w,'11_Publication_Tables.xlsx');
 }
 
 await fs.mkdir(A,{recursive:true});await security();await publication();
-console.log(JSON.stringify({status:'built',workbooks:2,sheets:23,status_vocabulary:STATUSES}));
+console.log(JSON.stringify({status:'built',workbooks:2,sheets:24,status_vocabulary:STATUSES}));

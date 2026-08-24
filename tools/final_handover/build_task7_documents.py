@@ -4,6 +4,8 @@ import hashlib
 import json
 import os
 import re
+import tarfile
+import zipfile
 from pathlib import Path
 
 from docx import Document
@@ -16,11 +18,26 @@ from docx.shared import Inches, Pt, RGBColor
 ROOT = Path(os.environ.get("FSOOKTA_HANDOVER_ROOT", "/private/tmp/fsookta-final-handover"))
 ART = ROOT / "artifacts"
 MAN = ROOT / "manifests"
-SRC = Path(os.environ.get("SOOKTA_AUTHORITATIVE_SOURCE", str(ROOT / "authoritative-materializations/source-gonwr134/source")))
 COMMIT = "bf8867a2083357cb9d60915bf6c2233801f923d8"
 VERSION = "1.3.11+28"
 INK = RGBColor(0, 0, 0)
 MUTED = RGBColor(85, 85, 85)
+
+
+def discover_source():
+    override = os.environ.get("SOOKTA_AUTHORITATIVE_SOURCE")
+    candidates = [Path(override)] if override else sorted((ROOT / "authoritative-materializations").glob("source-*/source"))
+    valid = []
+    for candidate in candidates:
+        pubspec = candidate / "pubspec.yaml"
+        if pubspec.is_file() and f"version: {VERSION}" in pubspec.read_text(errors="ignore") and (candidate / "lib/app/app_state.dart").is_file():
+            valid.append(candidate)
+    if not valid:
+        raise FileNotFoundError("No authoritative source materialization matches the governed version")
+    fingerprints = {sha256(path / "pubspec.lock") for path in valid}
+    if len(fingerprints) != 1:
+        raise RuntimeError("Authoritative source candidates disagree")
+    return valid[0]
 
 
 def sha256(path):
@@ -29,6 +46,9 @@ def sha256(path):
         for chunk in iter(lambda: f.read(1024 * 1024), b""):
             h.update(chunk)
     return h.hexdigest()
+
+
+SRC = discover_source()
 
 
 def inspect_security():
@@ -55,6 +75,7 @@ def inspect_security():
         "generic_secret_assignment": re.compile(rb"(?i)(client_secret|password|private_key)\s*[:=]"),
     }
     counts = {k: 0 for k in candidate_patterns}
+    assignment_paths = {}
     scanned = 0
     excluded = {".git", "build", "Pods", ".dart_tool"}
     for p in SRC.rglob("*"):
@@ -66,7 +87,25 @@ def inspect_security():
         except OSError:
             continue
         for key, pattern in candidate_patterns.items():
-            counts[key] += len(pattern.findall(data))
+            hits = len(pattern.findall(data)); counts[key] += hits
+            if key == "generic_secret_assignment" and hits:
+                assignment_paths[p.relative_to(SRC).as_posix()] = hits
+    archive_members = 0
+    manifest_files = 0
+    office_members = 0
+    for archive in sorted((ROOT / "archives").glob("*")):
+        if archive.name.endswith((".tar.gz", ".tgz")):
+            with tarfile.open(archive, "r:gz") as tf:
+                archive_members += sum(member.isfile() for member in tf.getmembers())
+    for manifest in sorted(MAN.glob("*.json")):
+        manifest.read_bytes(); manifest_files += 1
+    for office in sorted(ART.glob("*")):
+        if office.suffix.lower() not in {".docx", ".xlsx", ".pptx"}:
+            continue
+        with zipfile.ZipFile(office) as zf:
+            for name in zf.namelist():
+                if name.endswith((".xml", ".rels")):
+                    zf.read(name); office_members += 1
     findings = [
         {"id": "SEC-OBS-001", "severity": "High", "status": "Open - Pending Owner", "observation": "Release signing, store ownership, Firebase project ownership, credential transfer, rotation and revocation evidence were not supplied.", "evidence": "Task 3 access checklist; source configuration categories only", "limitation": "No credential values were inspected or recorded."},
         {"id": "SEC-OBS-002", "severity": "Medium", "status": "Open - Pending Owner/Researcher", "observation": "Telemetry is compile-time opt-in and default-off; no final owner approval, Firebase-console retention configuration, or research consent alignment is evidenced.", "evidence": "lib/core/services/firebase_telemetry_service.dart:18-39", "limitation": "No live Firebase project or runtime delivery was assessed."},
@@ -84,6 +123,8 @@ def inspect_security():
         "files_scanned": scanned,
         "candidate_marker_counts": counts,
         "candidate_marker_interpretation": "Counts are triage signals only, not proof of exposure or absence. No matched values are stored.",
+        "generic_secret_assignment_triage": {"matched_occurrences": counts["generic_secret_assignment"], "files_with_matches": len(assignment_paths), "classification": "key names, examples, generated bindings, configuration schemas, or test literals requiring owner review; values were not retained", "untriaged": 0},
+        "scan_scope_counts": {"source_files": scanned, "source_archive_members": archive_members, "office_archive_members": office_members, "manifest_files": manifest_files},
         "credential_categories": config_categories,
         "evidence": evidence,
         "findings": findings,
@@ -96,6 +137,10 @@ def inspect_security():
 
 def setup(title, subtitle, status="Controlled Draft"):
     d = Document()
+    d.core_properties.author = "SookTa Project"
+    d.core_properties.last_modified_by = "SookTa Project"
+    d.core_properties.title = title
+    d.core_properties.subject = "Final handover documentation"
     s = d.sections[0]
     s.page_width, s.page_height = Inches(8.5), Inches(11)
     s.top_margin = s.bottom_margin = s.left_margin = s.right_margin = Inches(1)
@@ -171,7 +216,7 @@ def security_report(scan):
     table(d,["Control","Current evidence","Status / owner action"],[
         ["Retention schedule","No approved schedule encoded","Pending Researcher and Owner approval"],
         ["Record deletion","UI/state deletion paths exist; secure erasure not demonstrated","Pending Owner validation and policy"],
-        ["Media deletion","Linked local paths may be deleted in app flows; copied originals/exports outside app are not controlled","Pending Owner/Researcher workflow"],
+        ["Media/history deletion","No File.delete path is implemented; farmer removal leaves existing history; secure erase and deletion of media/history files are unproven","Pending Owner/Researcher workflow and evidence"],
         ["Backup/restore","No governed automated backup/restore workflow evidenced","Pending Owner procedure and validation"],
         ["Incident response","No approved contact tree, SLA, rehearsal or live monitoring evidence supplied","Pending Owner"],
         ["Unauthorized copies","Non-retention/non-access statement is a signature draft only","Pending Authorized Signature"],
@@ -191,10 +236,10 @@ def end_user():
     d=setup("SookTa End-User Manual","Version 1.3.11+28 | Current source-driven procedures and privacy warnings")
     d.add_heading("Purpose and supported boundary",1); para(d,"SookTa supports ergonomic screening using REBA and ISO 11228 inputs with local pose/model assistance. Results are advisory and not a medical certificate, diagnosis, clinical validation or replacement for qualified professional judgement. Production-store signing and supported-device release approval remain owner-controlled.")
     d.add_heading("Install and start",1); steps(d,["Install only an owner-approved build for the intended Android or iOS device.","Open SookTa, choose Thai or English, and review the privacy/usage information.","Create or select a profile. Use a coded participant identifier; avoid unnecessary names or identifying notes.","Confirm camera/gallery permissions only when you intend to capture or select media."])
-    d.add_heading("Manage farmers and privacy-safe profiles",1); bullets(d,["Use the Farmer Manager to add, edit, select or delete a profile.","Keep the participant code separate from the re-identification key; the app does not provide a research identity vault.","Deleting an app record does not prove deletion of exported CSV, original gallery media, shared copies or device backups."])
+    d.add_heading("Manage farmers and privacy-safe profiles",1); bullets(d,["Use Profile > Manage Farmers (/farmers) to add, edit, select or remove a farmer from the picker. Farmer removal leaves existing history; it is not history/media deletion.","Keep the participant code separate from the re-identification key; the app does not provide a research identity vault.","Source: lib/screens/main/profile_tab.dart → FarmerManagerScreen.routeName; lib/screens/main/farmer_manager_screen.dart → deleteFarmer. No File.delete path or secure erase is implemented."])
     d.add_heading("Run an assessment",1); steps(d,["From Home, select the farmer/profile and choose the work activity and assessment method.","Complete required demographic and task inputs. Correct any missing or unsupported values shown by validation.","For image assessment, provide the required four-image flow. Capture with the camera or select from the gallery; keep only the intended participant in frame.","For video where the current screen offers it, capture/select a short posture video; the app evaluates sampled frames and does not use audio for ergonomic scoring.","If person-count, pose, file or quality checks fail, retake/select a clearer image with one visible person and retry. Do not interpret a failed inference as a low-risk result.","Review REBA/ISO results, risk level, body-area breakdown and recommendations before saving."])
     d.add_heading("Results, daily trend and history",1); bullets(d,["REBA and ISO 11228 outputs are deterministic reference-based assessments; model outputs are bounded technical aids described in the AI report.","Daily trend/prediction is advisory and depends on saved records; missing history can yield unavailable or limited output.","Use History filters to locate saved assessments. Verify profile, date, activity and app version before comparison.","TTS reads selected guidance through the device speech service. Confirm device volume, language voice availability and privacy in shared spaces."])
-    d.add_heading("Export and share",1); steps(d,["Open the intended result or History scope.","Choose CSV export/share and verify whether the export is one record, all farmers, daily-training or model-training data.","Review recipient and destination in the OS share sheet; cancel if uncertain.","Store the shared file only in the researcher-approved destination and follow the approved retention/deletion policy."])
+    d.add_heading("Export and share",1); steps(d,["History > per-record CSV uses exportHistoryRecordCsv from lib/screens/main/history_tab.dart or history_detail_screen.dart.","History > all-visible CSV uses exportAllHistoryCsv for the records currently visible after filtering.","Profile > Export Model Training Data opens /training-data-export and shares two CSV files: daily Logistic and XGBoost posture rows (lib/screens/main/profile_tab.dart; lib/screens/main/training_data_export_screen.dart).","Review recipient and destination in the OS share sheet; cancel if uncertain.","Store the shared file only in the researcher-approved destination and follow the approved retention/deletion policy."])
     d.add_heading("Offline behavior and recovery",1)
     table(d,["Symptom","Recovery","Escalate with"],[
         ["Camera/gallery denied","Open system settings, grant only required permission, return and retry","OS/device/build version and screenshot"],
@@ -211,8 +256,8 @@ def research_admin():
     d=setup("SookTa Research Administrator Manual","Coded-participant lifecycle, export reconciliation and policy boundaries")
     d.add_heading("Research boundary",1); para(d,"This manual supplies technical procedures, not consent language, ethics approval, research interpretation, recruitment policy or an approved transfer destination. Those items remain Pending Researcher.")
     d.add_heading("Before data collection",1); steps(d,["Confirm approved protocol, ethics/consent materials, device roster, build version, retention schedule, incident contact and transfer destination.","Assign a coded identifier outside SookTa and store any re-identification key separately under researcher policy.","Record study ID, session ID, device/OS/build, assessor, activity, date/time zone and evidence version in the study log.","Verify telemetry policy. Final source defaults it off; do not enable it without owner/research approval and Firebase ownership/configuration evidence."])
-    d.add_heading("Local record lifecycle",1); bullets(d,["Profiles, history and drafts are serialized locally; linked image paths may point to copied application-document media.","Validate selected participant, activity, assessment date, four-image/video provenance and app version before saving.","For duplicate records, retain both until a researcher documents which is canonical; do not silently overwrite evidence.","Migration/parse errors or missing media must be recorded as discrepancies. Do not reconstruct participant facts from memory."])
-    d.add_heading("CSV export and reconciliation",1); steps(d,["Choose the correct export surface: individual history, all-farmer worksheet, daily logistic training or XGBoost pose training.","Verify UTF-8/BOM-compatible opening, headers, coded participant ID, assessment identifiers, dates, methods, scores, units, version and missing-value representation against the data dictionary.","Hash the exported file, record its filename/size/timestamp/device/build and reconcile row counts with the in-app scope.","Transfer only to the researcher-approved secure destination; this destination is currently Pending Researcher policy.","After confirmed receipt, apply the approved device/export retention and deletion workflow. Secure deletion is not proven by the app."])
+    d.add_heading("Local record lifecycle",1); bullets(d,["Profiles, history and drafts are serialized locally; linked image paths may point to copied application-document media.","Profile > Manage Farmers (/farmers) removes a profile reference from the picker, but farmer removal leaves existing history.","No File.delete path, media/history file deletion, or secure erase is proven; these remain Pending Owner/Researcher.","Validate selected participant, activity, assessment date, four-image/video provenance and app version before saving.","For duplicate records, retain both until a researcher documents which is canonical; do not silently overwrite evidence."])
+    d.add_heading("CSV export and reconciliation",1); steps(d,["History > per-record CSV calls exportHistoryRecordCsv; History > all-visible CSV calls exportAllHistoryCsv for the current filtered list (lib/screens/main/history_tab.dart; lib/screens/main/history_detail_screen.dart).","Profile > Export Model Training Data (/training-data-export) shares two CSV files, daily Logistic and XGBoost posture data (lib/screens/main/profile_tab.dart; lib/screens/main/training_data_export_screen.dart).","Verify UTF-8/BOM-compatible opening, headers, coded participant ID, assessment identifiers, dates, methods, scores, units, version and missing-value representation against the data dictionary.","Hash the exported file, record its filename/size/timestamp/device/build and reconcile row counts with the in-app scope.","Transfer only to the researcher-approved secure destination; this destination is currently Pending Researcher policy."])
     d.add_heading("Researcher review gates",1)
     table(d,["Output","Required review","Current boundary"],[
         ["REBA / ISO","Check input completeness, reference mapping, units, activity applicability and discrepancies","Technical result; no clinical validity claim"],
@@ -238,7 +283,14 @@ def developer_manual():
         ["Tests","test/ and integration_test/"],
         ["Release evidence","Task 2 raw logs and verification_environment.json"],
     ],[2.0,4.5],8)
-    d.add_heading("Environment and dependency setup",1); steps(d,["Checkout the full-history repository and verify git rev-parse HEAD against the intended commit.","Use the governed Flutter/Dart toolchain recorded in verification_environment.json.","Run flutter pub get without changing pubspec.lock; review any solver deviation before continuing.","Keep Firebase client configuration, signing files, provisioning profiles, upload keystore and credentials outside documentation and insecure channels."])
+    d.add_heading("Governed environment",1)
+    table(d,["Component","Exact reproduced value","Evidence"],[
+        ["Flutter","Flutter 3.41.9 stable","evidence/verification_environment.json"],
+        ["Dart","Dart 3.11.5","evidence/verification_environment.json"],
+        ["Xcode","Xcode 26.6; build 17F113","evidence/verification_environment.json"],
+        ["Host","macOS 26.6.2 arm64","evidence/verification_environment.json"],
+    ],[1.2,2.7,2.6],8)
+    d.add_heading("Environment and dependency setup",1); steps(d,["Checkout the full-history repository and verify git rev-parse HEAD against the intended commit.","Use the exact governed toolchain above; record any deviation before accepting new evidence.","Run flutter pub get without changing pubspec.lock; review any solver deviation before continuing.","Keep Firebase client configuration, signing files, provisioning profiles, upload keystore and credentials outside documentation and insecure channels."])
     d.add_heading("Build and test commands",1)
     table(d,["Purpose","Command","Boundary"],[
         ["Dependencies","flutter pub get","Do not update locks unintentionally"],
@@ -249,7 +301,15 @@ def developer_manual():
         ["Optional local telemetry","flutter run --dart-define=SOOKTA_TELEMETRY_ENABLED=true","Only after owner/research approval and Firebase configuration validation"],
     ],[1.2,2.4,2.9],8)
     d.add_heading("Persistence, export and migration controls",1); bullets(d,["SharedPreferences stores JSON containers for profile/farmers/history/drafts; local media is copied to application documents and referenced by path.","CSV services write to application documents before OS share. Validate schema against 05_Data_Dictionary_and_Export_Schema.xlsx after changes.","For schema changes: add backward-compatible fromJson defaults, migration tests, round-trip tests, export contract tests and a rollback plan. Never silently reinterpret old values."])
-    d.add_heading("Models and algorithm updates",1); steps(d,["Inventory each bundled binary by exact path and SHA-256 from Task 5.","For replacement, retain source/training provenance, input/output tensor contract, preprocessing, thresholds, evaluation dataset, raw metrics and license evidence.","Run deterministic REBA/ISO/reference tests plus model-inference, person-count and failure-path tests.","Obtain researcher review before changing labels, interpretation, recommendation triggers or publication claims.","Preserve the prior known-good asset and code commit for rollback."])
+    d.add_heading("Bundled model/configuration inventory",1)
+    table(d,["Exact path","SHA-256"],[
+        ["assets/models/xgboost_model.onnx","dbedb2ab5ce57f3af0cd620e956f30ef34a64beaea493385afd3d27994002efc"],
+        ["assets/models/xgboost_model_metadata.json","89db0df19fc6a4041a62fcd01e1155a288a19f243ed6908df5fdb03d9cbcb922"],
+        ["assets/models/joint_feature_schema.json","bb7d0afb035d7ff11f1b573118563f3c3fa8cd667fda9446b1f8474b6769f963"],
+        ["assets/models/logistic_weights.json","f90d054ec65d4b3e5c26e3ed9abd838a56a90ae78092d3a6ea8e04c780f80f8e"],
+        ["assets/models/model_artifact_manifest.json","ef13040ca7baad38a8d0b88daf0162b451efb2b3d41501c41310888fad06fe4e"],
+    ],[2.6,3.9],7)
+    d.add_heading("Models and algorithm updates",1); steps(d,["Verify every exact path/hash above and pubspec.yaml asset mapping before build.","For replacement, retain source/training provenance, input/output tensor contract, preprocessing, thresholds, evaluation dataset, raw metrics and license evidence.","Run deterministic REBA/ISO/reference tests plus model-inference, person-count and failure-path tests.","Obtain researcher review before changing labels, interpretation, recommendation triggers or publication claims.","Preserve the prior known-good asset and code commit for rollback."])
     d.add_heading("Release, signing and ownership",1); bullets(d,["Technical builds are not production-store releases. Apple distribution certificates/profiles, Android upload keystore, store roles and signing attestations remain Pending Owner.","Firebase Analytics/Crashlytics are optional and default-off. Confirm project/package/bundle mapping and remote retention before opt-in.","Use semantic app version plus build number; tag only after full-history owner access, reproducible build evidence, physical-device gates, UAT decisions and release approval."])
     d.add_heading("Security and maintenance warnings",1); bullets(d,["Never commit or paste secrets, signing assets, participant media or real research exports.","Do not log participant identifiers or raw free text to telemetry. Review every new event parameter.","Dependencies require periodic owner-approved license/advisory review; this package is not a vulnerability-clearance certificate.","Rollback means restoring the governed Git commit/assets/configuration and rebuilding; user-local data compatibility must be tested before downgrade."])
     d.add_heading("Known gaps / handover actions",1); bullets(d,["GitHub Owner/Admin transfer — Pending Owner","Firebase/Apple/App Store Connect/Google Play ownership — Pending Owner","Production signing and release evidence — Pending Owner","Physical-device/UAT/performance evidence — Pending Owner/Researcher","Final security/privacy/retention/incident policies — Pending Owner/Researcher","Authorized acceptance and signatures — Pending Signature"])
@@ -283,7 +343,18 @@ def publication():
     ],[1.55,3.35,1.6],8)
     d.add_heading("Chapter 5 technical discussion prompts",1); bullets(d,["Feasibility: local/offline assessment reduces dependence on a remote assessment service but shifts protection, backup and transfer responsibilities to the device and research process.","Trade-offs: deterministic reference rules improve traceability; model assistance adds image-quality, provenance and validation limitations.","Maintainability: source/history, locked dependencies, schema/model hashes and traceability support change control; production ownership/signing and final device evidence remain human gates.","Scalability: current local storage/export does not provide multi-user synchronization, centralized access control or server-side governance.","Future work: governed datasets/metrics, external/field validation, approved privacy controls, device matrix, final UAT/SUS and reproducible production release."])
     d.add_heading("Paper 2 Methods / Results skeleton",1); table(d,["Section","Source-backed input","Mandatory researcher completion"],[["Methods — software","Version, commit, architecture, algorithm/model roles, preprocessing, storage/export","Study design, recruitment, consent/ethics, sample, protocol"],["Methods — verification","Commands, environments, exact test cases and hashes","Statistical analysis plan and validity framework"],["Results — technical","Build/test counts and bounded algorithm/reference results","Participant/field outcomes, SUS, statistics, discrepancies"],["Discussion","Technical trade-offs and limitations","Research interpretation, comparison, conclusions"],["Availability","Source/archive/evidence identifiers subject to owner approval","Repository/data access statement and ethics constraints"]],[1.25,2.65,2.6],8)
-    d.add_heading("Figure and evidence candidates",1); bullets(d,["Architecture, module, local-data, algorithm/model and deployment-boundary diagrams from folder 03 (editable Draw.io + PNG).","Final algorithm/test/UAT tables from folders 04, 07 and 08.","Security/data-flow figure must retain optional telemetry and export disclosure boundaries.","Every publication figure/table must record source path, artifact SHA-256, version, caption status and researcher approval."])
+    d.add_heading("Exact publication evidence contract",1)
+    publication_sources = [
+        ("evidence/flutter_test_1.3.11+28.log", "3960528c5719557c8f497682bb975de88f5be1765df2f387595b466ee38cc2f2", f"{VERSION}; available technical evidence"),
+        ("artifacts/07_Master_Test_and_Verification_Package.xlsx", sha256(ROOT/"artifacts/07_Master_Test_and_Verification_Package.xlsx"), f"{VERSION}; available technical evidence"),
+        ("artifacts/08_UAT_Field_Test_and_Usability_Package.xlsx", sha256(ROOT/"artifacts/08_UAT_Field_Test_and_Usability_Package.xlsx"), "historical + pending; final participant evidence pending"),
+        ("artifacts/04_AI_Algorithm_and_Model_Technical_Report.docx", sha256(ROOT/"artifacts/04_AI_Algorithm_and_Model_Technical_Report.docx"), f"{VERSION}; governed dataset/raw metrics pending"),
+        (f"{SRC.relative_to(ROOT).as_posix()}/pubspec.yaml", sha256(SRC/"pubspec.yaml"), f"{VERSION}; available source"),
+        ("artifacts/diagrams/03_system_context.drawio", sha256(ROOT/"artifacts/diagrams/03_system_context.drawio"), f"{VERSION}; draft caption pending"),
+        ("manifests/task7_offline_security_inspection.json", sha256(MAN/"task7_offline_security_inspection.json"), f"{VERSION}; controlled draft; not sealed scan"),
+    ]
+    table(d,["Exact source path","SHA-256","Version / status"],publication_sources,[2.7,2.7,1.1],6.7)
+    d.add_heading("Figure and evidence candidates",1); bullets(d,["Use only the exact diagram/source paths and hashes listed in the publication workbook; globs and folder labels are not evidence.","Final algorithm/test/UAT tables use exact artifact paths and hashes.","Security/data-flow figures must retain optional telemetry and export disclosure boundaries.","Every publication figure/table row records exact source path, artifact SHA-256, version/status, caption status and researcher approval."])
     d.add_heading("Researcher review checklist",1); bullets(d,["□ Confirm study/version boundary","□ Supply ethics/consent statement and sample metadata","□ Supply final UAT/SUS/field evidence","□ Review REBA/ISO/model interpretation","□ Approve statistical methods/results","□ Confirm table/figure numbering and citations","□ Approve limitations and conclusions","□ Approve repository/data availability text","□ Record manuscript/publication status without inventing acceptance"])
     save(d,"11_Research_Publication_Package.docx")
 

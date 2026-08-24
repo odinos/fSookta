@@ -55,7 +55,12 @@ class Task7ArtifactTests(unittest.TestCase):
 
     def test_manifest_binds_every_render(self):
         expected = json.loads((MAN / "task7_expected_visual_renders.json").read_text())
+        external_path = ROOT / "manual-decisions/task7_external_visual_decision.json"
+        self.assertTrue(external_path.is_file(), "external visual decision absent")
         visual = json.loads((MAN / "task7_visual_qa_manifest.json").read_text())
+        external = json.loads(external_path.read_text())
+        self.assertEqual(external["decision"], "PASS")
+        self.assertEqual(external["expected_manifest_sha256"], visual["expected_manifest_sha256"])
         expected_paths = {x["path"] for x in expected["renders"]}
         actual_paths = {x["path"] for x in visual["renders"]}
         self.assertEqual(expected_paths, actual_paths)
@@ -69,7 +74,7 @@ class Task7ArtifactTests(unittest.TestCase):
                 self.assertEqual(ws.page_setup.orientation, "landscape", f"{name}:{ws.title}")
                 self.assertTrue(ws.print_area, f"{name}:{ws.title}")
             if name.startswith("09_"):
-                self.assertEqual(wb["Control Summary"]["B9"].value, '=IF(B6>0,"OPEN ACTIONS","NO OPEN ROWS")')
+                self.assertEqual(wb["Control Summary"]["B9"].value, '=IF(COUNTIF(\'Risk Register\'!E5:E9,"Open*")>0,"OPEN ACTIONS","NO OPEN ROWS")')
 
     def test_document_page_breaks_do_not_orphan_control_tables(self):
         sec = PdfReader(ART / "09_Security_Privacy_and_Data_Protection_Report.pdf")
