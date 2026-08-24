@@ -1,0 +1,22 @@
+{
+  "status": "passed_with_human_actions",
+  "primary_artifacts": 10,
+  "document_pdf_pages": 16,
+  "workbook_sheets": 24,
+  "workbook_pdf_pages": 32,
+  "formula_contracts": 10,
+  "formula_error_scan": "0 errors",
+  "visual_manifest": "98b1250291a11e1fe605622da3a303276f9a087439e01980cd2da2892167f5a3",
+  "checksum_entries": 50,
+  "model_algorithm_roles": 8,
+  "training_evidence_records": 3,
+  "data_dictionary_records": 84,
+  "human_actions": [
+    "Pending Owner Action: approve model/recommendation authority, scope, privacy disclosures, retention/deletion, and production use boundaries.",
+    "Pending Researcher Evidence: supply governed outcome labels, participant/annotation units, consent/ethics and de-identification evidence where applicable, and researcher-approved evaluation criteria.",
+    "Pending Owner Action: provide the missing raw XGBoost metrics artifact or approve the metadata-only evidence limitation; rerun training with recorded seed/configuration if reproducibility is required.",
+    "Pending Researcher Evidence: review REBA/ISO reference mapping, project safety floors, bilingual recommendation wording, dataset label provenance, and limitations.",
+    "Pending Owner Action: define backup/restore, secure export destination, access control, retention schedule, end-to-end deletion, and incident response procedures.",
+    "Complete - Pending Signature: preparer, technical reviewer, owner, and researcher signature/date blocks."
+  ]
+}
