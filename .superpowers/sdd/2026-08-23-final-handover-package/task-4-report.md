@@ -17,7 +17,7 @@ owner/researcher/legal actions, not a technical defect in the generated files.
 The 22 primary artifacts under
 `/private/tmp/fsookta-final-handover/artifacts/` comprise:
 
-- `03_Final_Technical_Development_Report.docx` and its 10-page PDF reference;
+- `03_Final_Technical_Development_Report.docx` and its 11-page PDF reference;
 - `03_Technical_Stack_and_Module_Specification.xlsx` and its 4-page A3
   landscape PDF reference;
 - `03_API_Applicability_Statement.docx` and its 2-page PDF reference;
@@ -43,7 +43,7 @@ evidence required if a remote API is introduced.
 
 Architecture and module claims cite `lib/app/`, `lib/core/`, `lib/screens/`,
 `pubspec.yaml`, model manifests/assets, and Task 1–3 evidence. The workbook
-contains 14 module records and 17 stack/version records. Each module records
+contains 14 module records and 18 stack/version records. Each module records
 input, processing, output, dependencies, storage/network behavior, failure
 modes, source path, and evidence basis.
 
@@ -56,7 +56,7 @@ one page per sheet.
 
 Documents used the Google Docs-targeted preset and were sanitized before final
 render. Independent OOXML checks found no title paragraph border/rule residue.
-Visual inspection covered 28 unique files: 10 report pages, 2 API pages, 4
+Visual inspection covered 29 unique files: 11 report pages, 2 API pages, 4
 workbook-sheet renders, 4 workbook-PDF pages, and 8 diagram PNGs. The final
 renders have no clipping, overlap, broken glyphs, truncated tables, or obscured
 connectors. Diagram labels, local/offline boundaries, arrow direction, version,
@@ -65,27 +65,28 @@ commit, legend, and source evidence are visible and consistent.
 The hash-bound visual-QA manifest is
 `/private/tmp/fsookta-final-handover/manifests/task4_visual_qa_manifest.json`,
 SHA-256
-`fb86fa83a6173575f0478ccfe4adbd6773bd012df4832df05f144a144625910d`.
-It binds 22 artifact entries to 28 unique inspected render files. The expected
+`3739dfd430b0060eabec89f6766a8ca1ec1cd1474b923d9728611bc3c68cd02f`.
+It binds 22 artifact entries to 29 unique inspected render files. The expected
 render map is stored beside it as `task4_expected_visual_renders.json`.
 
 ## Verification and checksum evidence
 
 Verification results:
 
-- Combined Python regression suite: 39 passed.
-- Task 4 Node workbook unit suite: 3 passed.
+- Combined Python regression suite: 43 passed.
+- Task 4 Node workbook unit suite: 4 passed.
 - Task 3 Node workbook regression suite: 2 passed.
 - Independent Task 4 verifier: `passed_with_human_actions`; 28 report headings,
-  8 diagram pairs, 22 primary artifacts, 16 PDF pages, 4 workbook sheets, 5
-  formula contracts, and zero formula errors.
+  8 diagram pairs, 22 primary artifacts, 17 PDF pages, 4 workbook sheets, 5
+  formula contracts, 19 exact technology/model identifiers, 72 citation
+  records, and zero formula errors.
 - DOCX preset/title sanitization, PDF page counts, Draw.io XML editability,
   PNG dimensions/DPI, status vocabulary, archive/XML privacy scan, visual
   manifest freshness, and artifact checksum binding: passed.
 - `shasum -a 256 -c manifests/SHA256SUMS.txt`: all 37 entries passed.
 
 The shared checksum manifest SHA-256 is
-`7b25d804521626404c26d30d696f5857225011f399ea73fb0b3cf18398027a89`.
+`b135f9fc87e38cf868a9c647466f3a73be43e0993368f357df32bc6721bbb02a`.
 It preserves prior Task 1–3 entries and adds all Task 4 primary artifacts and
 safe QA manifests.
 
@@ -120,3 +121,51 @@ The following remain explicitly human-owned:
 No contract scope, production signing, store publication, UAT/performance
 outcome, clinical validation, or external-validity claim was invented. These
 actions must remain pending until authorized evidence exists.
+
+## Independent review fix round 1
+
+All Important findings and the practical Minor finding from review round 1
+were corrected. The workbook now reads exact resolved package versions from
+`pubspec.lock`, including camera `0.11.4`, image_picker `1.2.2`, firebase_core
+`4.10.0`, and shared_preferences `2.5.5`. It records the exact XGBoost model ID
+`reba-iso-xgboost-onnx-2026-06-07`, daily logistic template ID
+`daily-injury-logistic-template-2026-06-14`, MoveNet schema ID/version, and
+SHA-256 fingerprints for both bundled MoveNet assets. Because no upstream
+MoveNet artifact release/version is present in repository evidence, both model
+rows say this explicitly rather than inventing provenance. Row height and
+column width were increased so those limits and hashes remain legible in both
+the workbook-sheet render and A3 PDF.
+
+The system-context diagram now places Firebase and the other external actors
+outside the local/offline boundary. Local persistence is split into three
+source-grounded paths: profiles/drafts serialize to SharedPreferences;
+captured images are copied into application documents; and assessment records
+are written as CSV in application documents before an explicit user-selected
+OS share. The assessment diagram now shows the XGBoost advisory consuming the
+51 MoveNet joint features independently and attaching only after the
+deterministic REBA/ISO primary result. The corrected connectors, labels, and
+arrow directions were checked in Draw.io XML and final PNGs.
+
+Nonexistent report references were replaced with
+`test/assessment_readiness_test.dart`, `docs/uat-last-phase-20260712.md`, and
+`docs/uat-production-platform-parity-20260719.md`. The builder now resolves all
+72 report citation records against the authoritative source or staging tree,
+fails on missing references, and explicitly labels the two future UAT/signoff
+artifacts as pending. Report sections now consume inspected source facts rather
+than hard-coding mutable counts and API/telemetry state.
+
+TDD RED evidence in this round included missing exact package/model records,
+stale citation and diagram contracts, the hard-coded report-facts check, and a
+real verifier failure on an artifact-tool sparse worksheet row. GREEN evidence
+is 43/43 combined Python tests, 4/4 Task 4 Node tests, 2/2 Task 3 Node
+regressions, Python compilation, and both Node syntax checks. The independent
+verifier passed with human actions: 28 headings, 8 diagram pairs, 22 primary
+artifacts, 17 PDF pages, 4 workbook sheets, 19 technology/model identifiers,
+72 citation records, 5 formula contracts, zero formula errors, and 37 checksum
+entries. `shasum -a 256 -c manifests/SHA256SUMS.txt` passed 37/37.
+
+Changed-render inspection covered all eight final diagram PNGs, report pages
+2–11, the Technology Stack sheet render, and workbook PDF page 3; the complete
+hash-bound manifest covers all 29 unique Task 4 renders. No upload to Google
+Drive occurred during this task or fix round. Human-action classifications
+listed above remain unchanged.

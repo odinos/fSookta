@@ -21,7 +21,7 @@ def digest(path: Path) -> str:
 
 
 def task4_visual_expectations() -> dict[str, list[str]]:
-    report_pages = [f"renders/task4/docx/report/page-{page}.png" for page in range(1, 11)]
+    report_pages = [f"renders/task4/docx/report/page-{page}.png" for page in range(1, 12)]
     api_pages = [f"renders/task4/docx/api/page-{page}.png" for page in range(1, 3)]
     workbook_sheets = [
         "renders/task4/xlsx/03_Technical_Stack_and_Module_Specification__Summary.png",

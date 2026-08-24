@@ -59,6 +59,23 @@ def inspect_source(root: Path) -> dict:
     opt_in = bool(re.search(r"SOOKTA_TELEMETRY_ENABLED[\s\S]{0,160}defaultValue:\s*false", joined))
     local_storage = "shared_preferences:" in pubspec and "SharedPreferences" in joined
     local_models = "tflite_flutter:" in pubspec and "onnxruntime:" in pubspec
+    lock_path = root / "pubspec.lock"
+    resolved_packages = {}
+    if lock_path.is_file():
+        current = None
+        for line in lock_path.read_text(encoding="utf-8", errors="replace").splitlines():
+            if line.startswith("  ") and not line.startswith("    ") and line.endswith(":"):
+                current = line.strip()[:-1]
+            elif current and line.startswith("    version:"):
+                resolved_packages[current] = line.split(":", 1)[1].strip().strip('"')
+    xgboost_metadata = root / "assets/models/xgboost_model_metadata.json"
+    daily_metadata = root / "assets/ml/daily_injury_logistic_model.json"
+    schema_metadata = root / "assets/models/joint_feature_schema.json"
+    xgboost = json.loads(xgboost_metadata.read_text(encoding="utf-8")) if xgboost_metadata.is_file() else {}
+    daily = json.loads(daily_metadata.read_text(encoding="utf-8")) if daily_metadata.is_file() else {}
+    schema = json.loads(schema_metadata.read_text(encoding="utf-8")) if schema_metadata.is_file() else {}
+    thunder_asset = root / "assets/ml/movenet_thunder.tflite"
+    multipose_asset = root / "assets/ml/movenet_multipose_lightning.tflite"
     return {
         "application_version": declared_version.group(1) if declared_version else "Unresolved",
         "authoritative_commit": COMMIT,
@@ -72,6 +89,18 @@ def inspect_source(root: Path) -> dict:
         "api_status": "N/A with Rationale" if not backend_hits else "API documentation required",
         "scanned_dart_files": len(dart_files),
         "source_paths": [str(p.relative_to(root)) for p in dart_files],
+        "source_root": str(root),
+        "staging_root": str(STAGING),
+        "resolved_packages": resolved_packages,
+        "model_versions": {
+            "xgboost": xgboost.get("version", "Unresolved"),
+            "daily_logistic": daily.get("version", "Unresolved"),
+            "movenet_schema": schema.get("schemaId", "Unresolved"),
+            "movenet_schema_version": schema.get("version", "Unresolved"),
+            "movenet_thunder_sha256": sha(thunder_asset) if thunder_asset.is_file() else "Unresolved",
+            "movenet_multipose_sha256": sha(multipose_asset) if multipose_asset.is_file() else "Unresolved",
+            "movenet_upstream_version": "Not recorded in repository metadata",
+        },
     }
 
 
@@ -81,6 +110,8 @@ def minimum_facts_fixture() -> dict:
         "assessment_backend_api_present": False, "telemetry_declared": True,
         "telemetry_opt_in_default_off": True, "local_storage_present": True,
         "local_models_present": True, "api_status": "N/A with Rationale", "scanned_dart_files": 40,
+        "source_root": "/private/tmp/fsookta-final-handover/authoritative-materializations/source-g6tsggy7/source",
+        "staging_root": str(STAGING), "resolved_packages": {}, "model_versions": {},
     }
 
 
@@ -100,11 +131,11 @@ SECTION_DATA = [
     ("Historical evolution", "Versioned audit notes and Git history document prototype-to-final changes. They are supporting historical evidence only; unavailable original design artifacts and undocumented feedback must be supplied or approved as substitutions by the owner/researcher.", ["docs/final-revision-p1-audit-20260623.md", "docs/final-revision-p2-audit-20260624.md"]),
     ("Reproduced final baseline", "Verification used a fresh materialization of the authoritative commit, dependency resolution without version upgrades, static analysis, the complete automated suite, and platform build attempts. Commands, environment, timestamps, and exits are preserved as raw evidence.", ["flutter_analyze_1.3.11+28.log", "flutter_test_1.3.11+28.log", "verification_environment.json"]),
     ("Final-version automated evidence", "The final automated test run records 135 tests passed with zero failures. This claim is limited to the captured test suite and environment; it does not substitute for physical-device, field, usability, or acceptance evidence.", ["flutter_test_1.3.11+28.log", "metadata_validation.json"]),
-    ("Reference verification boundary", "Algorithm cases in the source test suite verify scoring and boundary behavior against encoded reference expectations. The term validation here means software/algorithm verification only; external validity, clinical effectiveness, and participant outcomes require researcher evidence.", ["test/ergo_calculator_test.dart", "test/assessment_calculation_test.dart"]),
+    ("Reference verification boundary", "Algorithm cases in the source test suite verify scoring and boundary behavior against encoded reference expectations. The term validation here means software/algorithm verification only; external validity, clinical effectiveness, and participant outcomes require researcher evidence.", ["test/ergo_calculator_test.dart", "test/assessment_readiness_test.dart"]),
     ("Automated coverage", "Unit, widget, export, model, persistence, and workflow tests form the regression baseline. Their pass status is tied to the final commit and reproduced log; external systems and physical sensors remain outside this automated evidence.", ["test/", "integration_test/", "flutter_test_1.3.11+28.log"]),
     ("Mixed evidence", "Shared Flutter logic supports Android and iOS, and technical platform builds were produced. Production signing/store ownership is unverified, while current physical-device camera, gallery, TTS, share sheet, and model-inference checks remain Pending Owner/Researcher Evidence.", ["build_android_1.3.11+28.log", "build_ios_1.3.11+28.log", "docs/reviews/local-platform-ml-review-2026-07-29.md"]),
     ("No unsupported benchmark", "No approved final-version performance benchmark with acceptance thresholds was found. Automated execution and successful technical builds demonstrate operability in the captured environment only; startup, inference latency, memory, battery, and export timing need a device protocol and owner-approved criteria.", ["verification_environment.json", "flutter_test_1.3.11+28.log"]),
-    ("Human-owned field evidence", "Repository UAT/field records remain historical at their recorded versions. Final 1.3.11+28 participant observations, device matrix, SUS responses, research interpretation, and sign-off must be supplied by authorized researchers and cannot be fabricated from software tests.", ["docs/uat-test-plan.md", "docs/uat-test-cases.md", "08_UAT_Field_Test_and_Usability_Package.xlsx"]),
+    ("Human-owned field evidence", "Repository UAT/field records remain historical at their recorded versions. Final 1.3.11+28 participant observations, device matrix, SUS responses, research interpretation, and sign-off must be supplied by authorized researchers and cannot be fabricated from software tests.", ["docs/uat-last-phase-20260712.md", "docs/uat-production-platform-parity-20260719.md", "08_UAT_Field_Test_and_Usability_Package.xlsx"]),
     ("Corrective evidence", "Versioned audit notes and regression tests document fixes and retests. A final defect register must continue to distinguish reproduced final-baseline results from historical findings, and any newly discovered defect requires a failing regression test before correction.", ["docs/final-revision-p1-audit-20260623.md", "test/"]),
     ("Frozen technical baseline", "The deliverable baseline is version 1.3.11+28 at the authoritative commit and tree recorded above. It includes bilingual UI, local profile/history, media assessment, REBA/ISO, advisory ML, recommendations, economic-impact context, TTS, and explicit CSV export; store-ready signing remains unverified.", ["pubspec.yaml", "README.md", "final_source_metadata.txt"]),
     ("Privacy boundary", "Assessment records and media are stored locally unless the user explicitly exports/shares. Firebase Analytics/Crashlytics is present as optional telemetry but defaults off through SOOKTA_TELEMETRY_ENABLED; no credentials, participant media, or signing material are included in this package.", ["lib/core/services/firebase_telemetry_service.dart", "README.md", "03_API_Applicability_Statement.docx"]),
@@ -116,25 +147,73 @@ SECTION_DATA = [
 ]
 
 
+PENDING_REFERENCES = {
+    "08_UAT_Field_Test_and_Usability_Package.xlsx",
+    "12_Final_Developer_Statement_and_Signoff.docx",
+}
+TASK4_COMPANION_REFERENCES = {
+    "03_system_context.drawio", "03_user_navigation.drawio",
+    "03_assessment_algorithm.drawio", "03_API_Applicability_Statement.docx",
+}
+
+
+def resolve_citation(reference: str, facts: dict) -> dict:
+    if reference in PENDING_REFERENCES:
+        return {"path": reference, "status": "Pending future artifact", "resolved_path": None}
+    source_root = Path(facts.get("source_root", ""))
+    staging_root = Path(facts.get("staging_root", STAGING))
+    candidates = []
+    path = Path(reference)
+    if path.is_absolute():
+        candidates.append(path)
+    else:
+        candidates.extend([
+            source_root / reference,
+            staging_root / reference,
+            staging_root / "artifacts" / reference,
+            staging_root / "artifacts" / "diagrams" / reference,
+            staging_root / "evidence" / reference,
+        ])
+    for candidate in candidates:
+        if candidate.exists():
+            return {"path": reference, "status": "Resolved", "resolved_path": str(candidate)}
+    if reference in TASK4_COMPANION_REFERENCES:
+        return {"path": reference, "status": "Generated companion artifact", "resolved_path": None}
+    return {"path": reference, "status": "Missing", "resolved_path": None}
+
+
 def report_sections(facts: dict) -> list[dict]:
     result = []
-    for heading, label, body, sources in ((REPORT_HEADINGS[i], *SECTION_DATA[i]) for i in range(28)):
-        source_text = "; ".join(sources)
-        grounded = f"{label}. {body} Baseline: {VERSION}; authoritative commit {COMMIT}. Evidence: {source_text}."
-        result.append({"heading": heading, "body": grounded, "sources": sources})
+    for index, (heading, label, body, sources) in enumerate((REPORT_HEADINGS[i], *SECTION_DATA[i]) for i in range(28)):
+        records = [resolve_citation(source, facts) for source in sources]
+        missing = [record["path"] for record in records if record["status"] == "Missing"]
+        if missing:
+            raise ValueError(f"Unresolved report citations: {missing}")
+        source_text = "; ".join(f"{record['path']} [{record['status']}]" for record in records)
+        inspected = ""
+        if index == 0:
+            inspected = (
+                f" Inspected facts: {facts['scanned_dart_files']} Dart files; "
+                f"assessment API status {facts['api_status']}; optional telemetry default-off="
+                f"{str(facts['telemetry_opt_in_default_off']).lower()}."
+            )
+        grounded = f"{label}. {body}{inspected} Baseline: {VERSION}; authoritative commit {COMMIT}. Evidence: {source_text}."
+        result.append({"heading": heading, "body": grounded, "sources": sources, "citation_records": records})
     return result
 
 
 def diagram_specs() -> list[dict]:
-    def spec(basename, title, nodes, edges, sources):
-        return {"basename": basename, "title": title, "nodes": nodes, "edges": edges, "sources": sources, "local_boundary": True}
+    default_positions = [(100,190),(510,190),(920,190),(100,430),(510,430),(920,430),(310,650),(720,650)]
+    def spec(basename, title, nodes, edges, sources, *, external_nodes=None, positions=None, boundary=(40,110,1320,660), box_size=(300,100)):
+        labeled_edges = [(a, b, "") if len(edge) == 2 else edge for edge in edges for a, b in [edge[:2]]]
+        return {"basename": basename, "title": title, "nodes": nodes, "edges": labeled_edges, "sources": sources, "local_boundary": True, "external_nodes": external_nodes or [], "positions": positions or default_positions, "boundary": boundary, "box_size": box_size}
     return [
-        spec("03_system_context", "System Context", ["Field user / researcher", "SookTa mobile app", "Device camera/gallery", "Local app storage", "Explicit CSV share", "Optional Firebase telemetry"], [(0,1),(2,1),(1,3),(1,4),(1,5)], ["lib/main.dart","lib/app/sookta_app.dart"]),
+        spec("03_system_context", "System Context", ["Field user / researcher", "SookTa mobile app", "Device camera/gallery", "Local app storage", "Explicit CSV share", "Optional Firebase telemetry (external)"], [(0,1,"uses"),(2,1,"media input"),(1,3,"local persistence"),(1,4,"user export"),(1,5,"opt-in telemetry only")], ["lib/main.dart","lib/app/sookta_app.dart"], external_nodes=[0,2,5], positions=[(30,270),(460,330),(30,470),(880,250),(880,450),(880,650)], boundary=(430,180,800,410)),
         spec("03_runtime_data_flow", "Runtime Data Flow", ["Profile + activity", "Media + task inputs", "Local pose inference", "REBA / ISO", "Recommendations + impact", "History", "Explicit export"], [(0,1),(1,2),(2,3),(3,4),(4,5),(5,6)], ["lib/screens/main/","lib/core/services/"]),
         spec("03_image_processing_flow", "Image Processing Flow", ["Camera / gallery / video", "Decode media", "Letterbox 256x256", "MoveNet Thunder", "17 keypoints + confidence", "Pose-to-input mapping", "Unavailable-result handling"], [(0,1),(1,2),(2,3),(3,4),(4,5),(1,6),(4,6)], ["lib/core/services/pose_estimation_service.dart","lib/core/services/pose_image_preprocessor.dart"]),
-        spec("03_assessment_algorithm", "Assessment Algorithm", ["Pose + manual inputs", "REBA tables A/B/C", "Activity type", "ISO lifting / push-pull when applicable", "Higher applicable risk", "User score + risk tier", "Advisory XGBoost attached separately"], [(0,1),(2,3),(1,4),(3,4),(4,5),(5,6)], ["lib/core/services/ergo_calculator.dart","lib/core/services/xgboost_advisory_service.dart"]),
+        spec("03_assessment_algorithm", "Assessment Algorithm", ["MoveNet 51 joint features", "REBA tables A/B/C", "Manual + activity inputs", "ISO lifting / push-pull when applicable", "Higher deterministic risk", "Deterministic score + risk tier", "XGBoost advisory inference", "Final result + advisory"], [(0,1,"pose-derived inputs"),(2,1,"manual inputs"),(2,3,"applicable task inputs"),(1,4,"REBA result"),(3,4,"ISO result"),(4,5,"primary result"),(0,6,"raw joint features"),(5,7,"attach primary"),(6,7,"attach advisory")], ["lib/core/services/ergo_calculator.dart","lib/core/ergonomics_risk_prediction/data/feature_extraction/movenet_joint_feature_extractor.dart","lib/core/services/xgboost_advisory_service.dart"], positions=[(50,170),(380,170),(380,410),(710,410),(710,170),(1040,170),(50,650),(1040,650)], box_size=(260,100)),
         spec("03_recommendation_flow", "Recommendation Flow", ["Activity", "Risk tier", "Body-area risk", "Source-key catalog", "Deduplicate + category cap", "Bilingual recommendations", "User selects actions"], [(0,3),(1,3),(2,3),(3,4),(4,5),(5,6)], ["lib/core/services/risk_recommendation_service.dart","lib/core/models/assessment_reference_sources.dart"]),
-        spec("03_local_storage_and_export", "Local Storage and Data Export", ["Profiles / active profile", "Drafts + history", "SharedPreferences", "Application documents", "Persisted images", "Generated CSV", "OS share sheet (user action)"], [(0,2),(1,2),(2,3),(4,3),(3,5),(5,6)], ["lib/app/app_state.dart","lib/core/services/local_image_store.dart","lib/core/services/assessment_export_service.dart"]),
+        spec("03_local_storage_and_export", "Local Storage and Data Export", ["Profiles / active profile", "Drafts + history", "SharedPreferences", "Temporary / captured image", "Persisted image in application documents", "Assessment record", "CSV in application documents", "OS share sheet (user action)"], [(0,2,"serialize"),(1,2,"serialize"),(3,4,"copy file"),(5,6,"write CSV"),(6,7,"user-selected share")], ["lib/app/app_state.dart","lib/core/services/local_image_store.dart","lib/core/services/assessment_export_service.dart"], positions=[(70,170),(70,410),(390,290),(70,650),(390,650),(720,410),(720,650),(1040,650)]),
         spec("03_user_navigation", "User Navigation", ["Splash / language", "Setup / farmer profile", "Home", "Assessment menu", "Camera / form", "Results + recommendations", "History", "Profile / export / help"], [(0,1),(1,2),(2,3),(3,4),(4,5),(5,6),(2,7),(6,7)], ["lib/screens/onboarding/","lib/screens/main/"]),
         spec("03_module_dependencies", "Module and Dependency View", ["Presentation screens", "App state", "Domain models", "Assessment services", "Media + ML services", "Persistence + export", "Platform plugins", "Optional telemetry"], [(0,1),(0,2),(0,3),(3,4),(1,5),(5,6),(4,6),(0,7)], ["lib/app/","lib/core/","lib/screens/","pubspec.yaml"]),
     ]
@@ -143,15 +222,18 @@ def diagram_specs() -> list[dict]:
 def drawio_xml(spec: dict) -> str:
     width, height = 1400, 900
     cells = ['<mxCell id="0"/>', '<mxCell id="1" parent="0"/>']
-    cells.append('<mxCell id="boundary" value="LOCAL / OFFLINE ASSESSMENT BOUNDARY" style="rounded=1;dashed=1;strokeColor=#4A86E8;fillColor=none;fontColor=#174EA6;fontStyle=1;verticalAlign=top;spacingTop=8;" vertex="1" parent="1"><mxGeometry x="40" y="110" width="1320" height="660" as="geometry"/></mxCell>')
-    coords = [(100,190),(510,190),(920,190),(100,430),(510,430),(920,430),(310,650),(720,650)]
+    bx, by, bw, bh = spec["boundary"]
+    cells.append(f'<mxCell id="boundary" value="LOCAL / OFFLINE ASSESSMENT BOUNDARY" style="rounded=1;dashed=1;strokeColor=#4A86E8;fillColor=none;fontColor=#174EA6;fontStyle=1;verticalAlign=top;spacingTop=8;" vertex="1" parent="1"><mxGeometry x="{bx}" y="{by}" width="{bw}" height="{bh}" as="geometry"/></mxCell>')
+    coords = spec["positions"]; box_width,box_height=spec["box_size"]
     for i, label in enumerate(spec["nodes"]):
         x,y=coords[i]
-        cells.append(f'<mxCell id="n{i}" value={quoteattr(label)} style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F0FE;strokeColor=#4A86E8;fontColor=#202124;fontSize=15;spacing=10;" vertex="1" parent="1"><mxGeometry x="{x}" y="{y}" width="300" height="100" as="geometry"/></mxCell>')
-    for i,(a,b) in enumerate(spec["edges"]):
-        cells.append(f'<mxCell id="e{i}" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeWidth=2;strokeColor=#5F6368;" edge="1" parent="1" source="n{a}" target="n{b}"><mxGeometry relative="1" as="geometry"/></mxCell>')
+        external = i in spec["external_nodes"]
+        fill, stroke = ("#FCE8E6", "#D93025") if external else ("#E8F0FE", "#4A86E8")
+        cells.append(f'<mxCell id="n{i}" value={quoteattr(label)} external={quoteattr(str(external).lower())} style="rounded=1;whiteSpace=wrap;html=1;fillColor={fill};strokeColor={stroke};fontColor=#202124;fontSize=15;spacing=10;" vertex="1" parent="1"><mxGeometry x="{x}" y="{y}" width="{box_width}" height="{box_height}" as="geometry"/></mxCell>')
+    for i,(a,b,label) in enumerate(spec["edges"]):
+        cells.append(f'<mxCell id="e{i}" value={quoteattr(label)} style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeWidth=2;strokeColor=#5F6368;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="n{a}" target="n{b}"><mxGeometry relative="1" as="geometry"/></mxCell>')
     sources = "; ".join(spec["sources"])
-    cells.append(f'<mxCell id="legend" value={quoteattr("Legend: blue = local component; arrows = data/control flow; external telemetry is optional. Sources: " + sources)} style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F8F9FA;strokeColor=#DADCE0;fontColor=#5F6368;fontSize=11;spacing=8;" vertex="1" parent="1"><mxGeometry x="40" y="790" width="1320" height="70" as="geometry"/></mxCell>')
+    cells.append(f'<mxCell id="legend" value={quoteattr("Legend: blue = local component; red = external actor/service; arrows = labeled data/control flow. Sources: " + sources)} style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F8F9FA;strokeColor=#DADCE0;fontColor=#5F6368;fontSize=11;spacing=8;" vertex="1" parent="1"><mxGeometry x="40" y="790" width="1320" height="70" as="geometry"/></mxCell>')
     return f'''<?xml version="1.0" encoding="UTF-8"?>\n<mxfile host="app.diagrams.net" modified="2026-08-24T00:00:00.000Z" agent="Codex" version="24.7.17" type="device" applicationVersion="{VERSION}" authoritativeCommit="{COMMIT}" sourcePaths={quoteattr(sources)}><diagram id={quoteattr(spec['basename'])} name="Page-1"><mxGraphModel dx="1400" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1400" pageHeight="900" math="0" shadow="0"><root>{''.join(cells)}</root></mxGraphModel></diagram></mxfile>\n'''
 
 
@@ -179,29 +261,40 @@ def render_diagram(spec: dict, output: Path) -> None:
     d=ImageDraw.Draw(image)
     title_font, body_font, small_font = _font(50,True), _font(29,True), _font(22)
     d.text((80,50), f"{spec['title']} | SookTa {VERSION}", font=title_font, fill="#202124")
-    d.rounded_rectangle((70,210,2730,1540), radius=28, outline="#4A86E8", width=5)
-    d.text((100,235), "LOCAL / OFFLINE ASSESSMENT BOUNDARY", font=small_font, fill="#174EA6")
-    coords=[(200,380),(1020,380),(1840,380),(200,860),(1020,860),(1840,860),(620,1300),(1440,1300)]
-    boxes=[(x,y,x+600,y+190) for x,y in coords[:len(spec["nodes"])]]
-    for a,b in spec["edges"]:
+    bx,by,bw,bh=spec["boundary"]
+    boundary=(bx*2,by*2,(bx+bw)*2,(by+bh)*2)
+    d.rounded_rectangle(boundary, radius=28, outline="#4A86E8", width=5)
+    d.text((boundary[0]+30,boundary[1]+25), "LOCAL / OFFLINE ASSESSMENT BOUNDARY", font=small_font, fill="#174EA6")
+    coords=[(x*2,y*2) for x,y in spec["positions"]]
+    box_width,box_height=spec["box_size"]; box_width*=2; box_height=box_height*2-10
+    boxes=[(x,y,x+box_width,y+box_height) for x,y in coords[:len(spec["nodes"])]]
+    edge_labels=[]
+    for a,b,label in spec["edges"]:
         start,end=edge_boundary_points(boxes[a],boxes[b]); d.line((start,end),fill="#5F6368",width=7)
         angle=math.atan2(end[1]-start[1],end[0]-start[0]); length=34
         p1=(end[0]-length*math.cos(angle-0.55),end[1]-length*math.sin(angle-0.55)); p2=(end[0]-length*math.cos(angle+0.55),end[1]-length*math.sin(angle+0.55))
         d.polygon([end,p1,p2],fill="#5F6368")
+        if label: edge_labels.append(((start[0]+end[0])//2,(start[1]+end[1])//2,label))
     for i,label in enumerate(spec["nodes"]):
         x,y=coords[i]; box=boxes[i]
-        d.rounded_rectangle(box, radius=24, fill="#E8F0FE", outline="#4A86E8", width=4)
+        external=i in spec["external_nodes"]
+        d.rounded_rectangle(box, radius=24, fill="#FCE8E6" if external else "#E8F0FE", outline="#D93025" if external else "#4A86E8", width=4)
         words=label.split(); lines=[]; line=""
         for word in words:
             trial=(line+" "+word).strip()
-            if d.textbbox((0,0),trial,font=body_font)[2] > 520 and line: lines.append(line); line=word
+            if d.textbbox((0,0),trial,font=body_font)[2] > box_width-80 and line: lines.append(line); line=word
             else: line=trial
         lines.append(line)
         total=len(lines)*38
         for j,text in enumerate(lines):
             tw=d.textbbox((0,0),text,font=body_font)[2]
-            d.text((x+(600-tw)/2,y+(190-total)/2+j*38),text,font=body_font,fill="#202124")
-    legend=f"Legend: blue = local component; arrows = data/control flow; optional telemetry remains outside the decision path. Sources: {'; '.join(spec['sources'])} | Git {COMMIT}"
+            d.text((x+(box_width-tw)/2,y+(box_height-total)/2+j*38),text,font=body_font,fill="#202124")
+    label_font=_font(18)
+    for x,y,label in edge_labels:
+        bounds=d.textbbox((0,0),label,font=label_font); label_width=bounds[2]-bounds[0]
+        d.rounded_rectangle((x-label_width/2-8,y-15,x+label_width/2+8,y+15),radius=6,fill="white")
+        d.text((x-label_width/2,y-12),label,font=label_font,fill="#3C4043")
+    legend=f"Legend: blue = local component; red = external actor/service; arrows = labeled data/control flow. Sources: {'; '.join(spec['sources'])} | Git {COMMIT}"
     d.rounded_rectangle((70,1600,2730,1740),radius=18,fill="#F8F9FA",outline="#DADCE0",width=3)
     d.multiline_text((105,1625),legend,font=small_font,fill="#5F6368",spacing=7)
     output.parent.mkdir(parents=True,exist_ok=True); image.save(output,dpi=(300,300),optimize=True)

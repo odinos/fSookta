@@ -51,31 +51,51 @@ const modules=[
  ["History and export","Assessment record and user action","Build CSV; write to app documents; invoke OS share","Local CSV / share sheet","path_provider; share_plus","No network unless user selects a share target","Write/share cancellation or platform error","lib/core/services/assessment_export_service.dart; lib/screens/main/history_tab.dart","Source + export tests"],
 ];
 
-const stack=[
+export function technologyStack(facts={}) {
+ const resolved={
+  camera:"0.11.4",image_picker:"1.2.2",tflite_flutter:"0.12.1",onnxruntime:"1.4.1",
+  shared_preferences:"2.5.5",path_provider:"2.1.5",share_plus:"13.1.0",firebase_core:"4.10.0",
+  firebase_analytics:"12.4.2",firebase_crashlytics:"5.2.2",flutter_tts:"4.2.5",
+  ...(facts.resolved_packages??{}),
+ };
+ const models={
+  xgboost:"reba-iso-xgboost-onnx-2026-06-07",
+  daily_logistic:"daily-injury-logistic-template-2026-06-14",
+  movenet_schema:"movenet-thunder-v1-17x3-normalized",
+  movenet_schema_version:"2026-05-17",
+  movenet_thunder_sha256:"8014d8fe22285265f52aa1cea84056b7704f75adf12341a7712d4cb28bd1d9b6",
+  movenet_multipose_sha256:"d4489f89e6bd6777a8b9a1a16189832131f84ff90d82fae729e670b84d7948dd",
+  ...(facts.model_versions??{}),
+ };
+ return [
  ["Flutter framework","3.41.9","Cross-platform UI/runtime","verification_environment.json"],
  ["Dart","3.11.5","Application language/runtime","verification_environment.json"],
  ["Application","1.3.11+28","Frozen deliverable baseline","pubspec.yaml"],
- ["camera","0.11.0+2 constraint","Media capture","pubspec.yaml / pubspec.lock"],
- ["image_picker","1.1.2 constraint","Gallery acquisition","pubspec.yaml / pubspec.lock"],
- ["tflite_flutter","0.12.1 constraint","Local MoveNet inference","pubspec.yaml / pubspec.lock"],
- ["onnxruntime","1.4.1 constraint + local override","Local advisory ONNX inference","pubspec.yaml; third_party/onnxruntime_16kb"],
- ["shared_preferences","2.3.3 constraint","Local serialized state","pubspec.yaml / pubspec.lock"],
- ["path_provider","2.1.5 constraint","Application documents/temp paths","pubspec.yaml / pubspec.lock"],
- ["share_plus","13.1.0 constraint","User-initiated OS share","pubspec.yaml / pubspec.lock"],
- ["firebase_core","4.9.0 constraint","Optional telemetry bootstrap","pubspec.yaml / pubspec.lock"],
- ["firebase_analytics","12.4.2 constraint","Optional opt-in product telemetry","pubspec.yaml / pubspec.lock"],
- ["firebase_crashlytics","5.2.2 constraint","Optional opt-in crash telemetry","pubspec.yaml / pubspec.lock"],
- ["MoveNet Thunder","Bundled TFLite asset; 256x256 / 17 landmarks","Local single-person pose","assets/ml/movenet_thunder.tflite; pose_estimation_service.dart"],
- ["MoveNet MultiPose Lightning","Bundled TFLite asset","Local multi-person detection","assets/ml/movenet_multipose_lightning.tflite"],
- ["XGBoost advisory","Bundled ONNX + metadata","Advisory only; does not replace REBA/ISO","assets/models/xgboost_model.onnx; xgboost_model_metadata.json"],
- ["Daily logistic template","Bundled JSON coefficients","Advisory local trend context","assets/ml/daily_injury_logistic_model.json"],
-];
+ ["camera",`${resolved.camera} (resolved)`,"Media capture","pubspec.lock"],
+ ["image_picker",`${resolved.image_picker} (resolved)`,"Gallery acquisition","pubspec.lock"],
+ ["tflite_flutter",`${resolved.tflite_flutter} (resolved)`,"Local MoveNet inference","pubspec.lock"],
+ ["onnxruntime",`${resolved.onnxruntime} (resolved; local override source)`,"Local advisory ONNX inference","pubspec.lock; third_party/onnxruntime_16kb"],
+ ["shared_preferences",`${resolved.shared_preferences} (resolved)`,"Local serialized state","pubspec.lock"],
+ ["path_provider",`${resolved.path_provider} (resolved)`,"Application documents/temp paths","pubspec.lock"],
+ ["share_plus",`${resolved.share_plus} (resolved)`,"User-initiated OS share","pubspec.lock"],
+ ["flutter_tts",`${resolved.flutter_tts} (resolved)`,"On-device spoken output through platform plugin","pubspec.lock"],
+ ["firebase_core",`${resolved.firebase_core} (resolved)`,"Optional telemetry bootstrap","pubspec.lock"],
+ ["firebase_analytics",`${resolved.firebase_analytics} (resolved)`,"Optional opt-in product telemetry","pubspec.lock"],
+ ["firebase_crashlytics",`${resolved.firebase_crashlytics} (resolved)`,"Optional opt-in crash telemetry","pubspec.lock"],
+ ["MoveNet Thunder",`${models.movenet_schema} schema v${models.movenet_schema_version}; asset SHA-256 ${models.movenet_thunder_sha256}; upstream artifact release/version not recorded in repo`,"Local single-person pose; 256x256 / 17 landmarks","assets/ml/movenet_thunder.tflite; assets/models/joint_feature_schema.json"],
+ ["MoveNet MultiPose Lightning",`asset SHA-256 ${models.movenet_multipose_sha256}; upstream artifact release/version not recorded in repo`,"Local multi-person detection","assets/ml/movenet_multipose_lightning.tflite"],
+ ["XGBoost advisory",models.xgboost,"Advisory only; does not replace REBA/ISO","assets/models/xgboost_model.onnx; assets/models/xgboost_model_metadata.json"],
+ ["Daily logistic template",models.daily_logistic,"Template coefficients; research-trained=false; advisory trend context only","assets/ml/daily_injury_logistic_model.json"],
+ ];
+}
 
 async function build(){
+ const buildInput=JSON.parse(await fs.readFile(path.join(STAGING,"working","task4","task4_build_input_summary.json"),"utf8"));
+ const stack=technologyStack(buildInput.source_facts);
  const wb=Workbook.create();const summary=wb.worksheets.add("Summary");const mod=wb.worksheets.add("Modules");const tech=wb.worksheets.add("Technology Stack");const evidence=wb.worksheets.add("Evidence Sources");
  title(mod,"SookTa Technical Module Specification",`Final baseline ${VERSION} | Git ${COMMIT} | Source-grounded behavior and explicit failure boundaries`,"I");
  const mh=["Module","Input","Processing","Output","Dependencies","Storage / Network","Failure modes","Source path","Evidence basis"];mod.getRange("A4:I4").values=[mh];header(mod.getRange("A4:I4"));mod.getRange(`A5:I${modules.length+4}`).values=modules;body(mod.getRange(`A5:I${modules.length+4}`));mod.tables.add(`A4:I${modules.length+4}`,true,"ModuleSpecification").style="TableStyleMedium2";mod.freezePanes.freezeRows(4);[24,27,38,25,28,30,32,42,28].forEach((w,i)=>mod.getRangeByIndexes(0,i,modules.length+4,1).format.columnWidth=w);mod.getRange(`A5:I${modules.length+4}`).format.rowHeight=64;
- title(tech,"Technology and Model Stack",`Declared/resolved evidence for ${VERSION}; package-license conclusions remain in the Task 3 register`,"D");tech.getRange("A4:D4").values=[["Component","Version / identifier","Role","Evidence source"]];header(tech.getRange("A4:D4"));tech.getRange(`A5:D${stack.length+4}`).values=stack;body(tech.getRange(`A5:D${stack.length+4}`));tech.tables.add(`A4:D${stack.length+4}`,true,"TechnologyStack").style="TableStyleMedium2";tech.freezePanes.freezeRows(4);[30,30,48,55].forEach((w,i)=>tech.getRangeByIndexes(0,i,stack.length+4,1).format.columnWidth=w);tech.getRange(`A5:D${stack.length+4}`).format.rowHeight=32;
+ title(tech,"Technology and Model Stack",`Declared/resolved evidence for ${VERSION}; package-license conclusions remain in the Task 3 register`,"D");tech.getRange("A4:D4").values=[["Component","Version / identifier","Role","Evidence source"]];header(tech.getRange("A4:D4"));tech.getRange(`A5:D${stack.length+4}`).values=stack;body(tech.getRange(`A5:D${stack.length+4}`));tech.tables.add(`A4:D${stack.length+4}`,true,"TechnologyStack").style="TableStyleMedium2";tech.freezePanes.freezeRows(4);[30,34,48,55].forEach((w,i)=>tech.getRangeByIndexes(0,i,stack.length+4,1).format.columnWidth=w);tech.getRange(`A5:D${stack.length+4}`).format.rowHeight=32;tech.getRange("A19:D22").format.rowHeight=58;
  const sources=[["Source / evidence","Authority","Use","Status"],["pubspec.yaml; pubspec.lock","Final source","Version and dependency evidence","Complete"],["lib/app/; lib/core/; lib/screens/","Final source","Runtime architecture and module behavior","Complete"],["assets/ml/; assets/models/","Final source","Bundled model role/provenance paths","Complete"],["flutter_analyze_1.3.11+28.log","Reproduced final evidence","Static analysis","Complete"],["flutter_test_1.3.11+28.log","Reproduced final evidence","135-test automated result","Complete"],["build_android_1.3.11+28.log; build_ios_1.3.11+28.log","Reproduced technical build evidence","Platform build status; production signing not inferred","Pending Owner Action"],["Physical-device/UAT/performance evidence","Owner / researcher","Camera, gallery, TTS, share, inference, thresholds","Pending Researcher Evidence"],["Authorized acceptance/signatures","Owner / researcher","Final acceptance","Complete - Pending Signature"]];
  title(evidence,"Evidence Sources and Boundaries",`No clinical/external-validity claim; human-owned facts remain pending | ${COMMIT}`,"D");evidence.getRange(`A4:D${sources.length+3}`).values=sources;header(evidence.getRange("A4:D4"));body(evidence.getRange(`A5:D${sources.length+3}`));evidence.tables.add(`A4:D${sources.length+3}`,true,"EvidenceSources").style="TableStyleMedium2";[45,30,52,30].forEach((w,i)=>evidence.getRangeByIndexes(0,i,sources.length+3,1).format.columnWidth=w);evidence.getRange(`A5:D${sources.length+3}`).format.rowHeight=48;
  title(summary,"Architecture Coverage Summary",`Formula-driven control view for ${VERSION}; update Modules and Evidence Sources to refresh`,"D");summary.getRange("A4:B9").values=[["Metric","Value"],["Module records",null],["Modules with storage/network behavior documented",null],["Modules with explicit failure modes",null],["Evidence rows",null],["Outstanding human-action rows",null]];header(summary.getRange("A4:B4"));summary.getRange("B5").formulas=[[`=COUNTA('Modules'!A5:A18)`]];summary.getRange("B6").formulas=[[`=COUNTA('Modules'!F5:F18)`]];summary.getRange("B7").formulas=[[`=COUNTA('Modules'!G5:G18)`]];summary.getRange("B8").formulas=[[`=COUNTA('Evidence Sources'!A5:A12)`]];summary.getRange("B9").formulas=[[`=COUNTIF('Evidence Sources'!D5:D12,"Pending Owner Action")+COUNTIF('Evidence Sources'!D5:D12,"Pending Researcher Evidence")+COUNTIF('Evidence Sources'!D5:D12,"Complete - Pending Signature")`]];body(summary.getRange("A5:B9"));summary.getRange("A11:D15").values=[["Control","Result","Basis","Action"],["Backend assessment API","N/A with Rationale","No direct HTTP/Dio/GraphQL/WebSocket/Firebase DB client in final assessment source","Reassess if remote APIs are introduced"],["Telemetry","Optional; default off","SOOKTA_TELEMETRY_ENABLED defaultValue false","Owner approval before enabling"],["Remote database","N/A with Rationale","SharedPreferences/app documents are local","Define auth/schema/migration if cloud sync is introduced"],["Acceptance","Pending","Access, device/UAT evidence, legal review and signatures","Human-owned action"]];header(summary.getRange("A11:D11"));body(summary.getRange("A12:D15"));[34,24,60,45].forEach((w,i)=>summary.getRangeByIndexes(0,i,15,1).format.columnWidth=w);summary.getRange("A12:D15").format.rowHeight=55;
