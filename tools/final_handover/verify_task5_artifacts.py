@@ -117,6 +117,36 @@ def verify_checksums(staging: Path, required: list[Path]) -> int:
     return len(rows)
 
 
+def verify_source_contracts(facts: dict) -> None:
+    assert len(facts["recommendation_messages"]) == 26
+    triggers = facts["recommendation_triggers"]
+    assert len(triggers) == 24
+    exact = {(r["activity"], r["risk_tier"]):(r["activity_key"], r["weight_key"]) for r in triggers}
+    prefixes = {"transplanting":"transplant", "fertilizing":"fert", "pesticide":"pesticide", "pruning":"pruning", "harvesting":"harvest", "transport":"transport"}
+    manual = {"transplanting", "fertilizing", "pesticide", "transport"}
+    for activity, prefix in prefixes.items():
+        for tier in ("low", "medium", "high", "veryHigh"):
+            mapped = "high" if tier == "veryHigh" else tier
+            assert exact[(activity,tier)] == (f"act_{prefix}_ref_{mapped}", f"act_ref_weight_{mapped}" if activity in manual else "N/A")
+    assert facts["daily_runtime_tiers"] == [{"high_risk_count":"0-1","level":"Low"},{"high_risk_count":"2-3","level":"Watch"},{"high_risk_count":"4-5","level":"High"},{"high_risk_count":"6-7","level":"Critical"}]
+    assert facts["daily_probability_thresholds"]["used_by_predict_for_records"] is False
+    evidence = {r["evidence_id"]:r for r in facts["training_evidence"]}["xgboost_training"]
+    assert (evidence["split_method"], evidence["test_size"], evidence["random_seed"]) == ("GroupShuffleSplit", .22, 42)
+    assert evidence["xgb_parameters"] == {"objective":"reg:squarederror","n_estimators":96,"max_depth":3,"learning_rate":0.055,"subsample":0.88,"colsample_bytree":0.86,"reg_lambda":1.4,"reg_alpha":0.02,"min_child_weight":2,"random_state":42,"n_jobs":1,"tree_method":"hist"}
+    assert evidence["dataset_status"] == "Pending Researcher Evidence"
+    assert evidence["raw_metrics_status"] == "Pending Owner Action"
+    roles = {r["role_id"]:r for r in facts["model_algorithm_inventory"]}
+    assert len(roles) == 10 and roles["movenet_multipose"]["authority"] == "Single-person eligibility gate"
+    for role in (roles["legacy_logistic_weights"], roles["deprecated_risk_alert"]): assert re.fullmatch(r"[0-9a-f]{64}", role["binary_sha256"])
+    assert len(facts["export_schema_rows"]) == 84
+    assert len(facts["persisted_schema_rows"]) > len({r["field"] for r in facts["persisted_schema_rows"]})
+    assert "sookta.backup.schema.<version>.<timestamp>" in facts["preference_keys"]
+    assert all(r["description"] and r["type"] and r["validation"] and "source-defined" not in r["type"].lower() for r in facts["export_schema_rows"])
+    telemetry = facts["firebase_telemetry"]
+    assert telemetry["default_off"] and telemetry["crashlytics_context"]
+    assert telemetry["events"]["assessment_calculated"] == ["activity","job_type","primary_method","risk_level","score","image_count","uses_iso11228"]
+
+
 def verify(staging: Path) -> dict:
     artifacts = staging / "artifacts"; manifests = staging / "manifests"
     stems = [
@@ -156,13 +186,24 @@ def verify(staging: Path) -> dict:
                         statuses.append(value)
     verify_status_values(statuses)
     assert {"Complete", "Pending Owner Action", "Pending Researcher Evidence", "N/A with Rationale", "Complete - Pending Signature"}.issubset(set(statuses))
-    examples = []
     sheet = data["Export Schema Order"]
-    headers = [cell.value for cell in next(sheet.iter_rows())]
-    if "Synthetic example" in headers:
-        index = headers.index("Synthetic example")
-        examples = [str(row[index]) for row in sheet.iter_rows(min_row=2, values_only=True) if row[index] is not None]
-        assert_synthetic_examples(examples)
+    headers = [cell.value for cell in sheet[4]]
+    assert headers[0:3] == ["Field / variable", "Description", "Type"]
+    rows = list(sheet.iter_rows(min_row=5, values_only=False))
+    assert len(rows) == 84
+    example_index = headers.index("Synthetic example")
+    examples = [str(row[example_index].value) for row in rows if row[example_index].value is not None]
+    assert_synthetic_examples(examples)
+    timestamp_row = next(row for row in rows if row[0].value == "expert_assessment_date")
+    timestamp_cell = timestamp_row[example_index]
+    assert timestamp_cell.data_type == "s" and "2026-08-24T09:00:00+07:00" in timestamp_cell.value
+    def body_rows(worksheet):
+        return list(worksheet.iter_rows(min_row=5, values_only=True))
+    assert len(body_rows(algorithm["Recommendation Messages"])) == 26
+    assert len(body_rows(algorithm["Recommendation Triggers"])) == 24
+    assert len(body_rows(algorithm["Model Algorithm Inventory"])) == 10
+    persisted_values = body_rows(data["Persisted Keys Records"])
+    assert len(persisted_values) > len({row[0] for row in persisted_values})
     algorithm.close(); data.close()
     summary = verify_formula_summary(manifests / "task5_workbook_build_summary.json")
     expected = json.loads((manifests / "task5_expected_visual_renders.json").read_text(encoding="utf-8"))
@@ -181,6 +222,7 @@ def verify(staging: Path) -> dict:
         assert not forbidden_identity.search(text), path
     checksum_entries = verify_checksums(staging, required)
     input_data = json.loads((staging / "working/task5/task5_build_input.json").read_text(encoding="utf-8"))
+    verify_source_contracts(input_data)
     missing = [row for row in input_data["source_citations"] if row["status"] != "Resolved"]
     assert not missing, missing
     return {
@@ -191,7 +233,8 @@ def verify(staging: Path) -> dict:
         "visual_manifest": digest(manifests / "task5_visual_qa_manifest.json"),
         "checksum_entries": checksum_entries, "model_algorithm_roles": len(input_data["model_algorithm_inventory"]),
         "training_evidence_records": len(input_data["training_evidence"]),
-        "data_dictionary_records": summary["data_dictionary_records"],
+        "persisted_schema_rows": summary["persisted_schema_rows"],
+        "export_schema_rows": summary["export_schema_rows"],
         "human_actions": input_data["human_actions"],
     }
 

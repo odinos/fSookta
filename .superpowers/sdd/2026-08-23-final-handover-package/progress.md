@@ -56,13 +56,18 @@ Task 4: fix round 2/5 (1 addressed, 0 open — exclude Technology Stack header f
 Task 4: Ruling: unknown upstream MoveNet release/version remains explicitly unavailable while each bundled model binary is identified by source path and SHA-256 — this preserves exact artifact traceability without inventing provenance — if wrong, the cost is an owner-supplied provenance addendum, not a false model claim.
 Task 4: complete (commits 5337921..ed764f8, review clean)
 
-Task 5: Ruling: only the XGBoost ONNX advisory is project-trained; repository
-metadata metrics remain internal, metadata-only evidence because the raw metrics
-artifact, split seed/method, broad class coverage, and external/clinical
-validation are unavailable — this prevents an unsupported reproducibility or
-generalization claim — if wrong, the cost is an owner-supplied evidence addendum
-or a governed retraining run, not a false model claim.
-Task 5: implementation complete pending independent review (10 primary
-artifacts; 24 workbook sheets; 48 PDF pages; 72 inspected renders; 10 Python and
-8 Node tests passed; verifier `passed_with_human_actions`; 50 cumulative
-checksums; Drive not accessed).
+Task 5: Ruling: only the current XGBoost ONNX advisory is project-trained;
+the source training script supplies GroupShuffleSplit/default seed and full
+XGBRegressor parameters, while the configured dataset and raw metrics remain
+separate missing evidence and broad-class/external/clinical validation remains
+unavailable — this prevents an unsupported reproduction/generalization claim —
+if wrong, the cost is an owner/researcher evidence addendum or governed rerun,
+not a false model claim.
+Task 5: fix round 1/5 (8 reviewer findings plus minor issues addressed, 0 open —
+exact recommendation keys/daily tiers/training parameters, semantic schemas,
+MultiPose gate, legacy/test-only roles, Firebase disclosure, verifier depth,
+ISO timestamp/economic formula, and blank-page visual repair).
+Task 5: implementation complete pending independent re-review (10 primary
+artifacts; 24 workbook sheets; 50 PDF pages; 74 inspected renders; 12 Python and
+10 Node targeted tests plus 56 Python/16 Node prior regression passed; verifier
+`passed_with_human_actions`; 50 cumulative checksums; Drive not accessed).

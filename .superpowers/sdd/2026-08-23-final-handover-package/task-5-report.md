@@ -18,17 +18,18 @@ The ten primary artifacts under
 `/private/tmp/fsookta-final-handover/artifacts/` comprise five editable/reference
 pairs:
 
-- `04_AI_Algorithm_and_Model_Technical_Report.docx` and its 7-page PDF;
+- `04_AI_Algorithm_and_Model_Technical_Report.docx` and its 8-page PDF;
 - `04_Algorithm_Recommendation_and_Reference_Matrices.xlsx` and its 19-page
   PDF;
 - `04_AI_Training_and_Non_Training_Statement.docx` and its 4-page PDF;
 - `05_Local_Storage_and_Data_Management_Manual.docx` and its 5-page PDF;
-- `05_Data_Dictionary_and_Export_Schema.xlsx` and its 13-page PDF.
+- `05_Data_Dictionary_and_Export_Schema.xlsx` and its 14-page PDF.
 
 The two workbooks contain 24 sheets in total: 15 algorithm/recommendation
-sheets and 9 data-management/schema sheets. They contain 8 model/algorithm
-roles, 3 training-evidence records, 26 exact Thai-English recommendation pairs,
-173 persisted top-level-key/nested-record records, and all 84 all-history CSV
+sheets and 9 data-management/schema sheets. They contain 10 current, legacy,
+and test-only model/algorithm roles, 3 training-evidence records, 26 exact
+Thai-English recommendation pairs, 193 persisted top-level-key/nested-record
+rows with record ownership preserved, and all 84 all-history CSV
 columns in exact source order.
 
 ## Source-grounded model and algorithm boundaries
@@ -36,17 +37,25 @@ columns in exact source order.
 Only the bundled XGBoost ONNX advisory is classified as project-trained. Its
 repository metadata records 388 total feature rows, a 298/90 train/holdout
 split, holdout risk accuracy `0.6667`, and holdout MAE `0.8256`. The holdout
-contains only `high` and `veryHigh` labels, the referenced raw metrics artifact
-is absent, the split seed/method is not recorded, and no external or clinical
-validation evidence is available. The documents therefore preserve these
-figures as metadata-only internal evidence and do not use them to assert broad
-generalization, reproducibility, or acceptance.
+contains only `high` and `veryHigh` labels, the referenced raw metrics and
+configured dataset files are absent, and no external or clinical validation
+evidence is available. The source training script records
+`GroupShuffleSplit(test_size=0.22, random_state=42)` plus the complete
+`XGBRegressor` parameter set. Missing dataset evidence is tracked separately as
+`Pending Researcher Evidence`; missing raw metrics remain `Pending Owner
+Action`. The figures remain metadata-only internal evidence and do not assert
+broad generalization, successful reproduction, or acceptance.
 
-MoveNet Thunder and MultiPose are bundled pretrained pose providers and were
-not fine-tuned by the project. Their upstream artifact release/version is not
-available in repository evidence, so the package identifies the binaries by
-path and SHA-256 without inventing provenance. The daily logistic component
-contains template coefficients, not a fitted outcome model. REBA, ISO 11228
+MoveNet Thunder and MultiPose are bundled pretrained assets and were not
+fine-tuned by the project. MultiPose is the single-person eligibility gate: it
+counts people and rejects the image unless exactly one person is eligible;
+Thunder then estimates the assessment pose. Their upstream artifact
+release/version is unavailable, so the package identifies binaries by path and
+SHA-256 without inventing provenance. The daily logistic component contains
+template coefficients, not a fitted outcome model. Its displayed runtime tier
+uses the seven-record high-risk count (0–1 Low, 2–3 Watch, 4–5 High, 6–7
+Critical); probability thresholds are loaded/helper metadata but are not used
+by `predictForRecords`. REBA, ISO 11228
 applicability/formulas, recommendation rules, and economic-impact calculations
 are classified as deterministic or source/research-defined as appropriate.
 The XGBoost signal remains advisory and cannot lower or replace deterministic
@@ -60,7 +69,8 @@ migration behavior, explicit user-selected sharing, missing-value behavior,
 enumerations, derivations, privacy classes, and compatibility limits. No
 remote assessment database or assessment API schema was found. Optional
 Firebase telemetry remains separate from assessment persistence and default
-off unless enabled by the owner.
+off unless enabled by the owner. The package now enumerates every outbound
+Analytics event/field and the parallel sanitized Crashlytics event context.
 
 All examples in the schema workbook are visibly synthetic. No real participant
 record, credential, token, secret, or private/raw evidence was included in the
@@ -74,8 +84,8 @@ artifact-tool formula-error scan found zero errors. Long dictionary and matrix
 sheets fit to page width and paginate vertically instead of being truncated.
 
 Google Docs-targeted DOCX files passed the deterministic title sanitizer.
-Visual inspection covered all 72 final Task 5 render files: 16 DOCX/PDF pages,
-32 workbook-PDF pages, and 24 workbook-sheet renders. Repairs made during QA
+Visual inspection covered all 74 final Task 5 render files: 17 DOCX/PDF pages,
+33 workbook-PDF pages, and 24 workbook-sheet renders. Repairs made during QA
 included separating document bullets, preventing the manual signature table
 from splitting incorrectly, enabling vertical workbook pagination, and using a
 Thai-capable font configuration for LibreOffice PDF conversion. Final surfaces
@@ -85,25 +95,25 @@ zoom; Thai and English glyphs render correctly.
 The hash-bound visual-QA manifest is
 `/private/tmp/fsookta-final-handover/manifests/task5_visual_qa_manifest.json`,
 SHA-256
-`98b1250291a11e1fe605622da3a303276f9a087439e01980cd2da2892167f5a3`.
-It binds all ten primary artifacts to the 72 inspected render files.
+`cabf30c8de57c0e047785eb55666335742d759982469d85c5d2837605fc33576`.
+It binds all ten primary artifacts to the 74 inspected render files.
 
 ## Verification and checksum evidence
 
 Verification results:
 
-- Task 5 Python suite: 10 passed.
-- Task 5 Node workbook suite: 8 passed.
+- Task 5 Python suite: 12 passed.
+- Task 5 Node workbook suite: 10 passed.
 - Python compilation and Node syntax checks: passed.
-- Independent verifier: `passed_with_human_actions`; 10 primary artifacts, 16
-  document pages, 24 workbook sheets, 32 workbook PDF pages, 10 formula
-  contracts, 8 model/algorithm roles, 3 training-evidence records, 84 export
-  dictionary records, and zero formula errors.
+- Independent verifier: `passed_with_human_actions`; 10 primary artifacts, 17
+  document pages, 24 workbook sheets, 33 workbook PDF pages, 10 formula
+  contracts, 10 model/algorithm roles, 3 training-evidence records, 193
+  persisted schema rows, 84 export schema rows, and zero formula errors.
 - Citation resolution, controlled status vocabulary, claim-boundary guards,
   archive/XML secret and participant-data scans, editable/reference pairing,
   visual-manifest freshness, and cumulative checksum binding: passed.
 - Cumulative checksum manifest: 50 entries; SHA-256
-  `ada6383d995234f940afac57b0941ebca2267f56499c14ebbd6cc441ecb49fc6`.
+  `0b847e337c1777aea039fd508e361bc02bf27cd5817ac4ee2a13787dd44b5c47`.
 
 ## Reproducible implementation
 
@@ -114,11 +124,12 @@ ledger update. Generated DOCX, XLSX, PDF, render, temporary font configuration,
 and private/raw evidence files remain under the staging root and are not
 committed.
 
-TDD regressions covered complete REBA A/B/C matrices, the 16-column persisted
-record schema, source-order export headers, negated prohibited-claim handling,
-document bullet separation, workbook vertical pagination, Thai-capable fonts,
-formula contracts, and fail-closed status gates. All targeted tests are green
-after the fixes.
+TDD regressions now also cover source-exact 24-row recommendation key mapping,
+daily count-tier behavior, XGBoost split/parameters and missing paths,
+single-person gate authority, legacy/test-only asset hashes, Firebase fields,
+record-owner duplicate preservation, semantic completeness, 26 bilingual
+pairs, and ISO-8601 text examples. The cumulative prior-task regression passed
+56 Python and 16 Node tests; all targeted tests are green after the fixes.
 
 ## Human actions and concerns
 
