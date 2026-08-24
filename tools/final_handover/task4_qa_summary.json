@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "status": "passed_with_human_actions",
+  "baseline": {
+    "version": "1.3.11+28",
+    "commit": "bf8867a2083357cb9d60915bf6c2233801f923d8",
+    "tree": "b4ed5fd0c061492c74dba356ed8a114b5f6621ba"
+  },
+  "primary_artifacts": 22,
+  "documents": {
+    "docx": 2,
+    "pdf": 3,
+    "pdf_pages": 16
+  },
+  "workbook": {
+    "xlsx": 1,
+    "sheets": 4,
+    "module_records": 14,
+    "stack_records": 17,
+    "formula_contracts": 5,
+    "formula_error_scan": "0 errors"
+  },
+  "diagrams": {
+    "editable_drawio": 8,
+    "png": 8,
+    "png_dimensions": "2800x1800",
+    "png_dpi_minimum": 300
+  },
+  "source_inspection": {
+    "dart_files": 72,
+    "assessment_backend_api_present": false,
+    "telemetry_declared": true,
+    "telemetry_opt_in_default_off": true,
+    "api_status": "N/A with Rationale"
+  },
+  "visual_qa": {
+    "artifact_entries": 22,
+    "unique_render_files": 28,
+    "manifest_sha256": "fb86fa83a6173575f0478ccfe4adbd6773bd012df4832df05f144a144625910d"
+  },
+  "checksums": {
+    "entries": 37,
+    "manifest_sha256": "7b25d804521626404c26d30d696f5857225011f399ea73fb0b3cf18398027a89",
+    "round_trip": "passed"
+  },
+  "tests": {
+    "python": "39 passed",
+    "node_task4": "3 passed",
+    "node_task3_regression": "2 passed",
+    "verifier": "passed_with_human_actions"
+  },
+  "human_actions": [
+    "Owner/researcher confirmation of contract scope and historical milestone approvals",
+    "Physical-device compatibility and performance evidence for 1.3.11+28",
+    "Final UAT/SUS evidence and research interpretation",
+    "Firebase/store ownership and production privacy disclosure approval",
+    "Production signing and store acceptance",
+    "Third-party license and legal review",
+    "Authorized final acceptance and signatures"
+  ]
+}
