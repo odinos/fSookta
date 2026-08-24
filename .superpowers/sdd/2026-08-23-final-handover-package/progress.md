@@ -94,6 +94,21 @@ artifacts; 24 workbook sheets; 50 PDF pages; 190 persisted schema rows; 84
 export rows; 74 inspected renders; 20 Python and 12 Node targeted tests; 64
 Python/18 Node cumulative regression passed; independent verifier
 `passed_with_human_actions`; 50 cumulative checksums; Drive not accessed).
+Task 5: fix round 4/5 (2 reviewer findings plus report overclaim addressed,
+1 analogous demographic regression open — explicit source-grounded privacy
+contracts for preference containers and persisted fields, independently
+reconstructed backup/draft/history privacy expectations, mutation coverage,
+and narrowed technical privacy wording; commits c956d51..fe77698).
+Task 5: fix round 5/5 (1 regression addressed, 0 open —
+`ErgoInputData.gender` restored to sensitive participant/profile data in the
+builder and independent verifier, with direct mutation and 21-row analogous
+demographic audit coverage; commits fe77698..0a08435).
+Task 5: complete (commits ed764f8..0a08435, review clean; 10 primary artifacts,
+24 workbook sheets, 50 PDF pages, 190 persisted rows, 84 export rows, 22 Python
+and 12 Node targeted tests, 66 Python/18 Node cumulative tests, 10 formula
+contracts with 0 errors, 91 hash-bound render files, and 50/50 checksums;
+human owner/researcher approvals, governed dataset/raw metrics, and signatures
+remain explicitly pending; Drive not accessed).
 Task 5: fix round 4/5 (4 reviewer findings addressed, 0 open — explicit
 source-grounded privacy contracts for preference containers, backup payloads,
 draft timestamps, and mirrored participant fields; independent verifier
@@ -105,6 +120,14 @@ artifacts; 24 workbook sheets; 50 PDF pages; 190 persisted schema rows; 84
 export rows; 22 Python and 12 Node targeted tests; 66 Python/18 Node cumulative
 regression passed; independent verifier `passed_with_human_actions`; 50
 cumulative checksums; Drive not accessed).
+Task 6: implementation complete pending independent re-review (10 primary
+artifacts; 41 workbook sheets; 70 workbook-PDF and 12 document-PDF pages; 137
+Git commits; 155 requirement rows; 135 final automated results; 64
+algorithm/reference results; 7 historical UAT records; 9 Python and 8 Node
+targeted tests; 10 formula contracts with 0 errors; 123 hash-bound inspected
+renders; independent verifier `passed_with_human_actions`; 63/63 cumulative
+checksums; final participant/device/SUS/performance/acceptance evidence remains
+explicitly pending; Drive not accessed).
 Task 5: fix round 5/5 (1 scoped privacy regression addressed, 0 open —
 `ErgoInputData.gender` is participant/profile data in both the source-grounded
 builder and independently reconstructed verifier contract; direct mutation and

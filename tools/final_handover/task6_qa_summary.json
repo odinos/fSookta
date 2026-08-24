@@ -1,0 +1,26 @@
+{
+  "status": "passed_with_human_actions",
+  "primary_artifacts": 10,
+  "workbook_sheets": 41,
+  "workbook_pdf_pages": 70,
+  "document_pdf_pages": 12,
+  "final_test_cases": 135,
+  "algorithm_cases": 64,
+  "git_commits": 137,
+  "historical_uat_records": 7,
+  "formula_contracts": 10,
+  "formula_error_scan": "0 errors",
+  "render_count": 123,
+  "visual_manifest_sha256": "fb30ce1137ba37be578dfc4d489e63a4fd5144af178a2a464a3b43e4c6958e15",
+  "checksum_entries": 63,
+  "checksum_manifest_sha256": "4aa8c4aeda7d7a7520e0fc27d0bdceb17b378bfb0c9684b4112f1215880bb581",
+  "human_actions": [
+    "Owner: execute final camera and gallery permission/acquisition flows on in-scope physical Android and iPhone devices and retain dated raw evidence.",
+    "Researcher: human-listen to Thai and English TTS on physical devices and record coded results.",
+    "Owner: validate native share sheet/export reception and production-path offline inference on final build 1.3.11+28.",
+    "Owner: define supported Android, iPhone, and tablet scope; execute the final compatibility matrix.",
+    "Owner: approve quantitative performance metrics and thresholds, then collect raw device measurements.",
+    "Researcher: obtain consent/ethics approval, conduct coded final-baseline participant UAT, collect complete SUS responses, and approve interpretation.",
+    "Authorized owner/researcher: review outstanding items and sign the acceptance decision."
+  ]
+}
