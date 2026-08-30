@@ -1,0 +1,39 @@
+{
+  "additional_logs": [
+    {"byte_size": 3696, "exists": true, "path": "/private/tmp/fsookta-final-handover/evidence/build_android_fallback_debug_1.3.11+28.log", "sha256": "5c8d8d811b7e610a8988e03881397f4aec76d367ce02f1dba83e2e6d1ce79a64"},
+    {"byte_size": 4261, "exists": true, "path": "/private/tmp/fsookta-final-handover/evidence/build_ios_fallback_no_codesign_1.3.11+28.log", "sha256": "7c6ce11ce2bc292114d109fa59c9081fdfaea72eeb7817dbd39c927045f989e4"}
+  ],
+  "artifacts": [
+    {"byte_size": 149615374, "classification": "Technical release build only; Android upload signing is not verified.", "exists": true, "path": "/private/tmp/fsookta-final-handover/authoritative-materializations/source-g6tsggy7/source/build/app/outputs/bundle/release/app-release.aab", "sha256": "3ff2bb72584190b3ff0de77b7d4b8d4ee1c97c9d473921a4278ba4695ac43ca8"},
+    {"byte_size": 309796585, "classification": "Non-production Android debug fallback.", "exists": true, "path": "/private/tmp/fsookta-final-handover/authoritative-materializations/source-g6tsggy7/source/build/app/outputs/flutter-apk/app-debug.apk", "sha256": "bcad50b2b9bd83e7bdb3b99039cc2ff013a74f21a6018a9bfe4fa2ff15008e83"},
+    {"byte_size": 77598610, "classification": "Technical release build only; iOS distribution/App Store ownership is not verified.", "exists": true, "path": "/private/tmp/fsookta-final-handover/authoritative-materializations/source-g6tsggy7/source/build/ios/ipa/Sookta.ipa", "sha256": "86b232a568c3f2dbd44fc6c36963291dee1a60c64e3461266a5104047dc28f57"},
+    {"byte_size": 276908941, "classification": "Non-production iOS no-codesign fallback output, when created by the toolchain.", "exists": true, "path": "/private/tmp/fsookta-final-handover/authoritative-materializations/source-g6tsggy7/source/build/ios/archive/Runner.xcarchive", "sha256": "ef455ad3e1a06254387bc224ba7186a2a1c22d41914f29f50587dcf3b215ce24"}
+  ],
+  "authoritative_source": {
+    "archive_command": "git -C /Users/kpc/Documents/GitHub/fSookta/.worktrees/final-handover-execution archive --format=tar --output /private/tmp/fsookta-final-handover/authoritative-materializations/source-g6tsggy7/authoritative-source.tar bf8867a2083357cb9d60915bf6c2233801f923d8",
+    "archive_ended_at_utc": "2026-08-23T14:31:52Z",
+    "archive_started_at_utc": "2026-08-23T14:31:51Z",
+    "commit": "bf8867a2083357cb9d60915bf6c2233801f923d8",
+    "file_count": 602,
+    "lockfile_after": {"byte_size": 29625, "exists": true, "sha256": "72490761346ebeacc4c6fa2ef99b94f44e140d8fb55b4ad0702e98b999f73cc1"},
+    "lockfile_before": {"byte_size": 29625, "exists": true, "sha256": "72490761346ebeacc4c6fa2ef99b94f44e140d8fb55b4ad0702e98b999f73cc1"},
+    "lockfile_changed": false,
+    "fallback_attempts": [
+      {"classification": "Non-production Android debug fallback; upload signing is not verified.", "exit_code": 0, "log_name": "build_android_fallback_debug_1.3.11+28.log"},
+      {"classification": "Non-production iOS no-codesign fallback; distribution/App Store ownership is not verified.", "exit_code": 0, "log_name": "build_ios_fallback_no_codesign_1.3.11+28.log"}
+    ],
+    "tree_id": "b4ed5fd0c061492c74dba356ed8a114b5f6621ba",
+    "version": "1.3.11+28"
+  },
+  "evidence_directory": "/private/tmp/fsookta-final-handover/evidence",
+  "primary_logs": [
+    {"byte_size": 1423, "exists": true, "path": "/private/tmp/fsookta-final-handover/evidence/final_source_metadata.txt", "sha256": "0c4c83f01bd1c7ab6a1c59d9c9582d8d748d3059c9d92d4de0f81af6d88a7b4f"},
+    {"byte_size": 3867, "exists": true, "path": "/private/tmp/fsookta-final-handover/evidence/flutter_pub_get_1.3.11+28.log", "sha256": "e34fcf22febff13d73efa109fb1c16bf49cffb0b0402a372a8e324bdf6b0d16a"},
+    {"byte_size": 3537, "exists": true, "path": "/private/tmp/fsookta-final-handover/evidence/flutter_analyze_1.3.11+28.log", "sha256": "89ca6f1c2d0ef91b589a79940ec3805ddeba137536afd29c8536498104a19e5a"},
+    {"byte_size": 59123, "exists": true, "path": "/private/tmp/fsookta-final-handover/evidence/flutter_test_1.3.11+28.log", "sha256": "3960528c5719557c8f497682bb975de88f5be1765df2f387595b466ee38cc2f2"},
+    {"byte_size": 4007, "exists": true, "path": "/private/tmp/fsookta-final-handover/evidence/build_android_1.3.11+28.log", "sha256": "6aad42fdf6fea550ce9f232ba7a8ad266b92a94c63793b39ffd056781ebca653"},
+    {"byte_size": 4659, "exists": true, "path": "/private/tmp/fsookta-final-handover/evidence/build_ios_1.3.11+28.log", "sha256": "3a22b95eeeb0fa54884225a22ff6b69f692dd8bf2dc37f6586e824f59b41a8e6"}
+  ],
+  "pipeline_exit_code": 0,
+  "schema_version": 2
+}

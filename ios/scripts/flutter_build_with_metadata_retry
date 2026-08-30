@@ -42,8 +42,48 @@ strip_build_metadata() {
   strip_metadata "${BUILT_PRODUCTS_DIR:-}/Flutter.framework"
 }
 
+invalidate_native_assets_for_platform_change() {
+  native_assets_root="${SRCROOT:-}/../build/native_assets/ios"
+  [ -d "$native_assets_root" ] || return 0
+
+  case "${PLATFORM_NAME:-}" in
+    iphoneos) expected_platform="IOS" ;;
+    iphonesimulator) expected_platform="IOSSIMULATOR" ;;
+    *) return 0 ;;
+  esac
+
+  platform_mismatch=0
+  while IFS= read -r binary_path; do
+    file_description="$(/usr/bin/file -b "$binary_path" 2>/dev/null || true)"
+    case "$file_description" in
+      *Mach-O*) ;;
+      *) continue ;;
+    esac
+
+    platforms="$(/usr/bin/xcrun vtool -show-build "$binary_path" 2>/dev/null |
+      /usr/bin/awk '$1 == "platform" { print $2 }')"
+    for platform_name in $platforms; do
+      if [ "$platform_name" != "$expected_platform" ]; then
+        platform_mismatch=1
+      fi
+    done
+  done <<EOF
+$(find "$native_assets_root" -type f -print)
+EOF
+
+  if [ "$platform_mismatch" -eq 1 ]; then
+    echo "Sookta: invalidating staged native assets for ${PLATFORM_NAME}; found a different Apple platform." >&2
+    rm -rf "$native_assets_root"
+  fi
+}
+
 if [ "${1:-}" = "--strip-only" ]; then
   strip_metadata "$2"
+  exit 0
+fi
+
+invalidate_native_assets_for_platform_change
+if [ "${1:-}" = "--prepare-native-assets-only" ]; then
   exit 0
 fi
 

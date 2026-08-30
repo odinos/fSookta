@@ -1,0 +1,21 @@
+{
+  "status": "passed_with_human_actions",
+  "report_headings": 28,
+  "diagram_pairs": 8,
+  "primary_artifacts": 22,
+  "pdf_pages": 17,
+  "workbook_sheets": 4,
+  "technology_identifiers": 18,
+  "citation_records": 72,
+  "formula_contracts": 5,
+  "formula_error_scan": "0 errors",
+  "checksum_entries": 37,
+  "visual_manifest": "3739dfd430b0060eabec89f6766a8ca1ec1cd1474b923d9728611bc3c68cd02f",
+  "human_actions": [
+    "Owner/researcher confirmation of contract scope and historical milestone approvals",
+    "Physical-device compatibility and performance evidence for 1.3.11+28",
+    "Final UAT/SUS evidence and research interpretation",
+    "Firebase/store ownership and production privacy disclosure approval",
+    "Authorized acceptance and signatures"
+  ]
+}

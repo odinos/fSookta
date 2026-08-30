@@ -582,17 +582,7 @@ class ErgoCalculator {
     return RiskLevel.low;
   }
 
-  static int _mapRebaToUserScore(int score) => switch (score) {
-        1 => 1,
-        2 => 2,
-        3 => 3,
-        4 => 4,
-        5 => 5,
-        6 || 7 => 6,
-        8 => 7,
-        9 || 10 => 8,
-        _ => 9,
-      };
+  static int _mapRebaToUserScore(int score) => score.clamp(1, 15).toInt();
 
   static RiskLevel _mapRebaToRiskLevel(int score) {
     if (score <= 3) return RiskLevel.low;

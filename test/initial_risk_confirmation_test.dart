@@ -9,6 +9,29 @@ import 'package:fsookta/core/models/evaluation_models.dart';
 import 'package:fsookta/screens/main/initial_risk_screen.dart';
 
 void main() {
+  testWidgets('keeps REBA 11 unchanged before any improvement is selected',
+      (tester) async {
+    await _pumpRebaResult(
+      tester,
+      score: 11,
+      riskLevel: RiskLevel.veryHigh,
+    );
+
+    expect(find.textContaining('คะแนนตอนนี้คือ 11'), findsWidgets);
+    expect(find.text('11'), findsNWidgets(2));
+  });
+
+  testWidgets('keeps REBA 9 in the official high-risk band without changes',
+      (tester) async {
+    await _pumpRebaResult(
+      tester,
+      score: 9,
+      riskLevel: RiskLevel.high,
+    );
+
+    expect(find.text('ความเสี่ยงสูง'), findsNWidgets(2));
+  });
+
   testWidgets('requires activity and posture confirmation before final result',
       (tester) async {
     SharedPreferences.setMockInitialValues({});
@@ -94,4 +117,48 @@ void main() {
 
     expect(tester.widget<FilledButton>(finalButton).onPressed, isNotNull);
   });
+}
+
+Future<void> _pumpRebaResult(
+  WidgetTester tester, {
+  required int score,
+  required RiskLevel riskLevel,
+}) async {
+  SharedPreferences.setMockInitialValues({});
+  final state = SooktaAppState()..setLanguage(AppLanguage.th);
+  addTearDown(state.dispose);
+  tester.view.physicalSize = const Size(1080, 5000);
+  tester.view.devicePixelRatio = 1;
+  addTearDown(tester.view.resetPhysicalSize);
+  addTearDown(tester.view.resetDevicePixelRatio);
+
+  await tester.pumpWidget(
+    AppStateScope(
+      state: state,
+      child: MaterialApp(
+        home: InitialRiskScreen(
+          payload: InitialRiskPayload(
+            activity: SooktaActivity.transplanting,
+            activityName: 'การปลูกกล้า',
+            jobType: JobType.reba,
+            before: ErgoResult(
+              riskLevel: riskLevel,
+              techScore: score.toDouble(),
+              userScore: score,
+              userScoreColor: 0xFFFF5252,
+              limitValue: 15,
+              suggestionKey: riskLevel == RiskLevel.veryHigh
+                  ? 'sugg_reba_vhigh'
+                  : 'sugg_reba_high',
+              economicLoss: 12000,
+              bodyPartRisks: {BodyPart.trunk: riskLevel},
+            ),
+            ergoInput: const ErgoInputData(jobType: JobType.reba),
+            rebaInput: const RebaInputData(trunkScore: 5, neckScore: 2),
+          ),
+        ),
+      ),
+    ),
+  );
+  await tester.pump();
 }
